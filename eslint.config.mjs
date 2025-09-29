@@ -6,7 +6,7 @@ export default
 [
     {
         name: 'ignores',
-        ignores: ['coverage', 'node_modules', 'dist', '*.md'],
+        ignores: ['coverage', 'node_modules', '*.md'],
     },
 
     defaultConfig.configs.recommended,
