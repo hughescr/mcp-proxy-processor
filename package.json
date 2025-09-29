@@ -1,0 +1,45 @@
+{
+  "name": "mcp-proxy-processor",
+  "version": "0.1.0",
+  "private": true,
+  "description": "An MCP proxy server that allows selective re-exposure of tools from backend MCP servers through configurable groups",
+  "license": "Apache-2.0",
+  "author": "Craig R. Hughes <craig.git@rungie.com>",
+  "type": "module",
+  "bin": {
+    "mcp-proxy": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "bun build src/cli.ts --outdir dist --target node --format esm",
+    "dev": "bun run src/cli.ts",
+    "full-test": "eslint --fix && tsc && bun test",
+    "lint": "eslint --fix",
+    "package-check": "bunx npm-check@latest -i bun:test",
+    "test": "bun test",
+    "postversion": "git commit -m \"Bump package version to $npm_package_version\" package.json; git flow release start $npm_package_version; git flow release finish -m $npm_package_version $npm_package_version; git checkout develop; git merge master"
+  },
+  "dependencies": {
+    "@hughescr/logger": "^2.6.0",
+    "@inquirer/prompts": "^8.0.1",
+    "@modelcontextprotocol/sdk": "^1.0.4",
+    "lodash": "^4.17.21",
+    "zod": "^4.1.9"
+  },
+  "devDependencies": {
+    "@hughescr/eslint-config-default": "^3.0.4",
+    "@types/bun": "^1.2.22",
+    "@types/lodash": "^4.17.20",
+    "@types/node": "^24.5.2",
+    "eslint": "^9.36.0",
+    "eslint-formatter-unix": "^8.40.0",
+    "eslint-plugin-package-json": "^0.56.3",
+    "typescript": "^5.9.2",
+    "typescript-eslint": "^8.44.0"
+  },
+  "engines": {
+    "node": ">=24.x"
+  },
+  "trustedDependencies": [
+    "esbuild"
+  ]
+}

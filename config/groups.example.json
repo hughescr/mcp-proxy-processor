@@ -1,0 +1,91 @@
+{
+  "groups": {
+    "standard_tools": {
+      "name": "standard_tools",
+      "description": "Basic tools for everyday use - time and simple math",
+      "tools": [
+        {
+          "serverName": "time",
+          "originalName": "get_current_time"
+        },
+        {
+          "serverName": "calculator",
+          "originalName": "calculate"
+        },
+        {
+          "serverName": "calculator",
+          "originalName": "solve",
+          "description": "Solve algebraic equations for a variable. Provide the equation as a string with one variable (e.g., '2*x + 5 = 13' or 'y^2 - 4 = 0'). This override fixes the confusing original description."
+        }
+      ],
+      "resources": []
+    },
+    "financial_tools": {
+      "name": "financial_tools",
+      "description": "Tools for financial analysis including Excel, calculator, web search, and browser automation",
+      "tools": [
+        {
+          "serverName": "calculator",
+          "originalName": "calculate"
+        },
+        {
+          "serverName": "calculator",
+          "originalName": "statistics"
+        },
+        {
+          "serverName": "excel",
+          "originalName": "read_workbook"
+        },
+        {
+          "serverName": "excel",
+          "originalName": "write_workbook"
+        },
+        {
+          "serverName": "search",
+          "originalName": "brave_web_search",
+          "description": "Search the web for financial information, SEC filings, market data, and company information. Returns titles, URLs, and snippets."
+        },
+        {
+          "serverName": "browser",
+          "originalName": "browser_navigate"
+        },
+        {
+          "serverName": "browser",
+          "originalName": "browser_snapshot"
+        }
+      ],
+      "resources": []
+    },
+    "research_tools": {
+      "name": "research_tools",
+      "description": "Tools for web research, AI-powered search, and browser automation",
+      "tools": [
+        {
+          "serverName": "search",
+          "originalName": "brave_web_search"
+        },
+        {
+          "serverName": "search",
+          "originalName": "perplexity_search"
+        },
+        {
+          "serverName": "browser",
+          "originalName": "browser_navigate"
+        },
+        {
+          "serverName": "browser",
+          "originalName": "browser_snapshot"
+        },
+        {
+          "serverName": "browser",
+          "originalName": "browser_click"
+        },
+        {
+          "serverName": "time",
+          "originalName": "get_current_time"
+        }
+      ],
+      "resources": []
+    }
+  }
+}

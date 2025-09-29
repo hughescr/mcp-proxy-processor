@@ -1,0 +1,12 @@
+{
+    "mcpServers": {
+        "language-server": {
+            "command": "${HOME}/go/bin/mcp-language-server",
+            "args": ["--workspace", ".", "--lsp", "bunx", "--", "--bun", "typescript-language-server@latest", "--stdio"]
+        },
+        "tmux": {
+            "command": "bunx",
+            "args": ["--bun", "@hughescr/tmux-mcp-server@latest"]
+        }
+    }
+}

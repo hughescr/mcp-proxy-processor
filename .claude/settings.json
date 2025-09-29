@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(bun test:*)",
+      "mcp__eslint",
+      "mcp__language-server",
+      "mcp__tmux",
+      "Bash(tsc --pretty false --watch)",
+	  "WebSearch",
+	  "WebFetch"
+    ],
+    "deny": []
+  },
+  "enableAllProjectMcpServers": true,
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit|Update|mcp__language-server__edit_file",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input?.filePath // .tool_input?.file_path // error(\"Missing filePath or file_path in tool_input\")' | xargs bun run eslint --cache --format=unix --fix --max-warnings=0 1>&2 || exit 2"
+          }
+        ]
+      }
+    ]
+  }
+}
