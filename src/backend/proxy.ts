@@ -1,0 +1,325 @@
+/**
+ * Backend Server Proxy Service
+ *
+ * Proxies tool calls and resource reads to backend MCP servers:
+ * - Forwards tool calls using client.callTool()
+ * - Forwards resource reads using client.readResource()
+ * - Implements timeout handling for operations
+ * - Logs all operations with timing information
+ * - Returns properly typed MCP protocol responses
+ */
+
+import { logger } from '@hughescr/logger';
+import type { CallToolResult, ReadResourceResult } from '@modelcontextprotocol/sdk/types.js';
+import type { ClientManager } from './client-manager.js';
+
+/**
+ * Configuration for proxy operations
+ */
+export interface ProxyConfig {
+    /** Default timeout for operations in milliseconds */
+    defaultTimeoutMs?: number;
+}
+
+/**
+ * Service for proxying tool calls and resource reads to backend servers
+ */
+export class ProxyService {
+    private clientManager: ClientManager;
+    private defaultTimeoutMs: number;
+
+    constructor(clientManager: ClientManager, config: ProxyConfig = {}) {
+        this.clientManager = clientManager;
+        this.defaultTimeoutMs = config.defaultTimeoutMs ?? 30000; // 30 seconds default
+    }
+
+    /**
+     * Call a tool on a backend server
+     */
+    async callTool(
+        serverName: string,
+        toolName: string,
+        args: unknown,
+        timeoutMs?: number
+    ): Promise<CallToolResult> {
+        const startTime = Date.now();
+        const timeout = timeoutMs ?? this.defaultTimeoutMs;
+
+        logger.info({ serverName, toolName, timeout }, 'Proxying tool call to backend server');
+
+        const client = this.clientManager.getClient(serverName);
+        if (!client) {
+            throw new Error(`Not connected to backend server: ${serverName}`);
+        }
+
+        try {
+            // Create timeout promise
+            const timeoutPromise = new Promise<never>((_, reject) => {
+                setTimeout(() => {
+                    reject(new Error(`Tool call timed out after ${timeout}ms`));
+                }, timeout);
+            });
+
+            // Race between tool call and timeout
+            const result = await Promise.race([
+                client.callTool({
+                    name: toolName,
+                    arguments: args,
+                }),
+                timeoutPromise,
+            ]);
+
+            const duration = Date.now() - startTime;
+            logger.info(
+                { serverName, toolName, durationMs: duration },
+                'Tool call completed successfully'
+            );
+
+            return result;
+        } catch (error) {
+            const duration = Date.now() - startTime;
+            logger.error(
+                {
+                    serverName,
+                    toolName,
+                    durationMs: duration,
+                    error: error instanceof Error ? error.message : String(error),
+                },
+                'Tool call failed'
+            );
+
+            // Re-throw with more context
+            throw new Error(
+                `Tool call to ${serverName}.${toolName} failed: ${error instanceof Error ? error.message : String(error)}`
+            );
+        }
+    }
+
+    /**
+     * Read a resource from a backend server
+     */
+    async readResource(
+        serverName: string,
+        uri: string,
+        timeoutMs?: number
+    ): Promise<ReadResourceResult> {
+        const startTime = Date.now();
+        const timeout = timeoutMs ?? this.defaultTimeoutMs;
+
+        logger.info({ serverName, uri, timeout }, 'Proxying resource read to backend server');
+
+        const client = this.clientManager.getClient(serverName);
+        if (!client) {
+            throw new Error(`Not connected to backend server: ${serverName}`);
+        }
+
+        try {
+            // Create timeout promise
+            const timeoutPromise = new Promise<never>((_, reject) => {
+                setTimeout(() => {
+                    reject(new Error(`Resource read timed out after ${timeout}ms`));
+                }, timeout);
+            });
+
+            // Race between resource read and timeout
+            const result = await Promise.race([
+                client.readResource({ uri }),
+                timeoutPromise,
+            ]);
+
+            const duration = Date.now() - startTime;
+            logger.info(
+                { serverName, uri, durationMs: duration },
+                'Resource read completed successfully'
+            );
+
+            return result;
+        } catch (error) {
+            const duration = Date.now() - startTime;
+            logger.error(
+                {
+                    serverName,
+                    uri,
+                    durationMs: duration,
+                    error: error instanceof Error ? error.message : String(error),
+                },
+                'Resource read failed'
+            );
+
+            // Re-throw with more context
+            throw new Error(
+                `Resource read from ${serverName} (${uri}) failed: ${error instanceof Error ? error.message : String(error)}`
+            );
+        }
+    }
+
+    /**
+     * Call a tool with automatic retry on failure
+     */
+    async callToolWithRetry(
+        serverName: string,
+        toolName: string,
+        args: unknown,
+        options: {
+            maxRetries?: number;
+            retryDelayMs?: number;
+            timeoutMs?: number;
+        } = {}
+    ): Promise<CallToolResult> {
+        const maxRetries = options.maxRetries ?? 2;
+        const retryDelayMs = options.retryDelayMs ?? 1000;
+        let lastError: Error | undefined;
+
+        for (let attempt = 0; attempt <= maxRetries; attempt++) {
+            try {
+                if (attempt > 0) {
+                    logger.info(
+                        { serverName, toolName, attempt, maxRetries },
+                        'Retrying tool call'
+                    );
+                    await new Promise(resolve => setTimeout(resolve, retryDelayMs * attempt));
+                }
+
+                return await this.callTool(serverName, toolName, args, options.timeoutMs);
+            } catch (error) {
+                lastError = error instanceof Error ? error : new Error(String(error));
+
+                if (attempt === maxRetries) {
+                    logger.error(
+                        { serverName, toolName, attempt, maxRetries },
+                        'Tool call failed after all retries'
+                    );
+                    break;
+                }
+
+                logger.warn(
+                    { serverName, toolName, attempt, maxRetries, error: lastError.message },
+                    'Tool call failed, will retry'
+                );
+            }
+        }
+
+        throw lastError ?? new Error('Tool call failed with unknown error');
+    }
+
+    /**
+     * Read a resource with automatic retry on failure
+     */
+    async readResourceWithRetry(
+        serverName: string,
+        uri: string,
+        options: {
+            maxRetries?: number;
+            retryDelayMs?: number;
+            timeoutMs?: number;
+        } = {}
+    ): Promise<ReadResourceResult> {
+        const maxRetries = options.maxRetries ?? 2;
+        const retryDelayMs = options.retryDelayMs ?? 1000;
+        let lastError: Error | undefined;
+
+        for (let attempt = 0; attempt <= maxRetries; attempt++) {
+            try {
+                if (attempt > 0) {
+                    logger.info(
+                        { serverName, uri, attempt, maxRetries },
+                        'Retrying resource read'
+                    );
+                    await new Promise(resolve => setTimeout(resolve, retryDelayMs * attempt));
+                }
+
+                return await this.readResource(serverName, uri, options.timeoutMs);
+            } catch (error) {
+                lastError = error instanceof Error ? error : new Error(String(error));
+
+                if (attempt === maxRetries) {
+                    logger.error(
+                        { serverName, uri, attempt, maxRetries },
+                        'Resource read failed after all retries'
+                    );
+                    break;
+                }
+
+                logger.warn(
+                    { serverName, uri, attempt, maxRetries, error: lastError.message },
+                    'Resource read failed, will retry'
+                );
+            }
+        }
+
+        throw lastError ?? new Error('Resource read failed with unknown error');
+    }
+
+    /**
+     * Batch call multiple tools in parallel
+     */
+    async callToolsBatch(
+        calls: Array<{ serverName: string; toolName: string; args: unknown; timeoutMs?: number }>
+    ): Promise<Array<{ success: boolean; result?: CallToolResult; error?: string }>> {
+        logger.info({ callCount: calls.length }, 'Executing batch tool calls');
+
+        const results = await Promise.allSettled(
+            calls.map(({ serverName, toolName, args, timeoutMs }) =>
+                this.callTool(serverName, toolName, args, timeoutMs)
+            )
+        );
+
+        return results.map((result, index) => {
+            if (result.status === 'fulfilled') {
+                return { success: true, result: result.value };
+            } else {
+                const error = result.reason instanceof Error ? result.reason.message : String(result.reason);
+                logger.warn(
+                    { serverName: calls[index]?.serverName, toolName: calls[index]?.toolName, error },
+                    'Batch tool call failed'
+                );
+                return { success: false, error };
+            }
+        });
+    }
+
+    /**
+     * Batch read multiple resources in parallel
+     */
+    async readResourcesBatch(
+        reads: Array<{ serverName: string; uri: string; timeoutMs?: number }>
+    ): Promise<Array<{ success: boolean; result?: ReadResourceResult; error?: string }>> {
+        logger.info({ readCount: reads.length }, 'Executing batch resource reads');
+
+        const results = await Promise.allSettled(
+            reads.map(({ serverName, uri, timeoutMs }) =>
+                this.readResource(serverName, uri, timeoutMs)
+            )
+        );
+
+        return results.map((result, index) => {
+            if (result.status === 'fulfilled') {
+                return { success: true, result: result.value };
+            } else {
+                const error = result.reason instanceof Error ? result.reason.message : String(result.reason);
+                logger.warn(
+                    { serverName: reads[index]?.serverName, uri: reads[index]?.uri, error },
+                    'Batch resource read failed'
+                );
+                return { success: false, error };
+            }
+        });
+    }
+
+    /**
+     * Update default timeout
+     */
+    setDefaultTimeout(timeoutMs: number): void {
+        this.defaultTimeoutMs = timeoutMs;
+        logger.info({ timeoutMs }, 'Updated default proxy timeout');
+    }
+
+    /**
+     * Get current default timeout
+     */
+    getDefaultTimeout(): number {
+        return this.defaultTimeoutMs;
+    }
+}
+
+export default ProxyService;
