@@ -21,9 +21,12 @@
   },
   "dependencies": {
     "@hughescr/logger": "^2.6.0",
-    "@inquirer/prompts": "^7.0.0",
     "@modelcontextprotocol/sdk": "^1.0.4",
+    "ink": "^5.2.0",
+    "ink-select-input": "^6.0.0",
+    "ink-text-input": "^6.0.0",
     "lodash": "^4.17.21",
+    "react": "^19.0.0",
     "zod": "^4.1.9"
   },
   "devDependencies": {
@@ -31,6 +34,7 @@
     "@types/bun": "^1.2.22",
     "@types/lodash": "^4.17.20",
     "@types/node": "^24.5.2",
+    "@types/react": "^19.0.6",
     "eslint": "^9.36.0",
     "eslint-formatter-unix": "^8.40.0",
     "eslint-plugin-package-json": "^0.56.3",

@@ -63,7 +63,7 @@ The project follows a three-tier architecture:
   - `--serve <groupname>`: Start MCP server for a group
   - `--admin`: Launch interactive admin UI
 
-- **Admin Interface (`src/admin/`)**: Interactive CLI for:
+- **Admin Interface (`src/admin/`)**: Interactive TUI (Terminal User Interface) built with Ink (React for terminals) for:
   - Discovering available backend tools/resources
   - Creating/editing groups
   - Adding/removing tools from groups
@@ -190,6 +190,7 @@ bun run package-check
 - Use Zod for runtime validation of configurations
 - Log to stderr using `console.error()` in MCP servers (never stdout)
 - Use absolute imports for cross-module dependencies
+- Admin TUI uses Ink components with React-based component architecture
 
 ## Future Enhancements (Not Yet Implemented)
 

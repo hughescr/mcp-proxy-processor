@@ -185,18 +185,25 @@ This document outlines the phased implementation approach for MCP Proxy Processo
    - Handle save errors
 
 6. **UI Implementation**
-   - Use `@inquirer/prompts` for interactive menus
-   - Implement navigation (back, cancel)
-   - Display help text
-   - Handle keyboard shortcuts
+   - Use Ink components for reactive terminal UI
+   - Build React-based component architecture (`src/admin/components/`)
+   - Implement focus management with `useFocus` and `useFocusManager` hooks
+   - Handle keyboard input with `useInput` hook
+   - Use `ink-text-input` and `ink-select-input` for interactive forms
+   - Implement navigation (back, cancel) with component state
+   - Display help text and status messages
+   - Create specialized screens: GroupList, ToolBrowser, OverrideEditor, etc.
 
 **Deliverable**: Fully functional admin interface
 
 **Files to implement**:
-- `src/admin/ui.ts` - Main UI loop
-- `src/admin/discovery.ts` - Backend tool discovery
-- `src/admin/group-editor.ts` - Group editing UI
-- `src/admin/tool-editor.ts` - Tool selection and override UI
+- `src/admin/ui.tsx` - Main UI render loop with Ink
+- `src/admin/components/` - React component directory
+  - `GroupList.tsx` - Group management screen
+  - `ToolBrowser.tsx` - Browse and select backend tools
+  - `OverrideEditor.tsx` - Edit tool overrides
+  - `Navigation.tsx` - Back/cancel navigation component
+- `src/admin/discovery.ts` - Backend tool discovery logic
 - `src/admin/persistence.ts` - Save/load configurations
 
 ## Phase 6: Integration and Testing
