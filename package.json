@@ -10,6 +10,8 @@
     "mcp-proxy": "./dist/cli.js"
   },
   "scripts": {
+    "claude": "tmux -CC new -A -n Claude -s apartment-manager bunx --bun @anthropic-ai/claude-code@latest --mcp-config ~/.claude/mcp.json",
+    "codex": "tmux -CC new -A -n Codex -s apartment-manager bunx --bun @openai/codex@latest --search",
     "dev": "bun run src/cli.ts",
     "full-test": "eslint --fix && tsc && bun test",
     "lint": "eslint --fix",
