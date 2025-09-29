@@ -10,7 +10,6 @@
     "mcp-proxy": "./dist/cli.js"
   },
   "scripts": {
-    "build": "bun build src/cli.ts --outdir dist --target node --format esm",
     "dev": "bun run src/cli.ts",
     "full-test": "eslint --fix && tsc && bun test",
     "lint": "eslint --fix",
@@ -20,7 +19,7 @@
   },
   "dependencies": {
     "@hughescr/logger": "^2.6.0",
-    "@inquirer/prompts": "^8.0.1",
+    "@inquirer/prompts": "^7.0.0",
     "@modelcontextprotocol/sdk": "^1.0.4",
     "lodash": "^4.17.21",
     "zod": "^4.1.9"
