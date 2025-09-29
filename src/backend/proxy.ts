@@ -10,6 +10,7 @@
  */
 
 import { logger } from '@hughescr/logger';
+import _ from 'lodash';
 import type { CallToolResult, ReadResourceResult } from '@modelcontextprotocol/sdk/types.js';
 import type { ClientManager } from './client-manager.js';
 
@@ -18,7 +19,7 @@ import type { ClientManager } from './client-manager.js';
  */
 export interface ProxyConfig {
     /** Default timeout for operations in milliseconds */
-    defaultTimeoutMs?: number;
+    defaultTimeoutMs?: number
 }
 
 /**
@@ -48,13 +49,13 @@ export class ProxyService {
         logger.info({ serverName, toolName, timeout }, 'Proxying tool call to backend server');
 
         const client = this.clientManager.getClient(serverName);
-        if (!client) {
+        if(!client) {
             throw new Error(`Not connected to backend server: ${serverName}`);
         }
 
         try {
             // Create timeout promise
-            const timeoutPromise = new Promise<never>((_, reject) => {
+            const timeoutPromise = new Promise<never>((_resolve, reject) => {
                 setTimeout(() => {
                     reject(new Error(`Tool call timed out after ${timeout}ms`));
                 }, timeout);
@@ -64,10 +65,10 @@ export class ProxyService {
             const result = await Promise.race([
                 client.callTool({
                     name: toolName,
-                    arguments: args,
+                    arguments: args as Record<string, unknown>,
                 }),
                 timeoutPromise,
-            ]);
+            ]) as CallToolResult;
 
             const duration = Date.now() - startTime;
             logger.info(
@@ -76,21 +77,21 @@ export class ProxyService {
             );
 
             return result;
-        } catch (error) {
+        } catch(error) {
             const duration = Date.now() - startTime;
             logger.error(
                 {
                     serverName,
                     toolName,
                     durationMs: duration,
-                    error: error instanceof Error ? error.message : String(error),
+                    error: _.isError(error) ? error.message : String(error),
                 },
                 'Tool call failed'
             );
 
             // Re-throw with more context
             throw new Error(
-                `Tool call to ${serverName}.${toolName} failed: ${error instanceof Error ? error.message : String(error)}`
+                `Tool call to ${serverName}.${toolName} failed: ${_.isError(error) ? error.message : String(error)}`
             );
         }
     }
@@ -109,13 +110,13 @@ export class ProxyService {
         logger.info({ serverName, uri, timeout }, 'Proxying resource read to backend server');
 
         const client = this.clientManager.getClient(serverName);
-        if (!client) {
+        if(!client) {
             throw new Error(`Not connected to backend server: ${serverName}`);
         }
 
         try {
             // Create timeout promise
-            const timeoutPromise = new Promise<never>((_, reject) => {
+            const timeoutPromise = new Promise<never>((_resolve, reject) => {
                 setTimeout(() => {
                     reject(new Error(`Resource read timed out after ${timeout}ms`));
                 }, timeout);
@@ -134,21 +135,21 @@ export class ProxyService {
             );
 
             return result;
-        } catch (error) {
+        } catch(error) {
             const duration = Date.now() - startTime;
             logger.error(
                 {
                     serverName,
                     uri,
                     durationMs: duration,
-                    error: error instanceof Error ? error.message : String(error),
+                    error: _.isError(error) ? error.message : String(error),
                 },
                 'Resource read failed'
             );
 
             // Re-throw with more context
             throw new Error(
-                `Resource read from ${serverName} (${uri}) failed: ${error instanceof Error ? error.message : String(error)}`
+                `Resource read from ${serverName} (${uri}) failed: ${_.isError(error) ? error.message : String(error)}`
             );
         }
     }
@@ -161,18 +162,18 @@ export class ProxyService {
         toolName: string,
         args: unknown,
         options: {
-            maxRetries?: number;
-            retryDelayMs?: number;
-            timeoutMs?: number;
+            maxRetries?: number
+            retryDelayMs?: number
+            timeoutMs?: number
         } = {}
     ): Promise<CallToolResult> {
         const maxRetries = options.maxRetries ?? 2;
         const retryDelayMs = options.retryDelayMs ?? 1000;
         let lastError: Error | undefined;
 
-        for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        for(let attempt = 0; attempt <= maxRetries; attempt++) {
             try {
-                if (attempt > 0) {
+                if(attempt > 0) {
                     logger.info(
                         { serverName, toolName, attempt, maxRetries },
                         'Retrying tool call'
@@ -181,10 +182,10 @@ export class ProxyService {
                 }
 
                 return await this.callTool(serverName, toolName, args, options.timeoutMs);
-            } catch (error) {
-                lastError = error instanceof Error ? error : new Error(String(error));
+            } catch(error) {
+                lastError = _.isError(error) ? error : new Error(String(error));
 
-                if (attempt === maxRetries) {
+                if(attempt === maxRetries) {
                     logger.error(
                         { serverName, toolName, attempt, maxRetries },
                         'Tool call failed after all retries'
@@ -209,18 +210,18 @@ export class ProxyService {
         serverName: string,
         uri: string,
         options: {
-            maxRetries?: number;
-            retryDelayMs?: number;
-            timeoutMs?: number;
+            maxRetries?: number
+            retryDelayMs?: number
+            timeoutMs?: number
         } = {}
     ): Promise<ReadResourceResult> {
         const maxRetries = options.maxRetries ?? 2;
         const retryDelayMs = options.retryDelayMs ?? 1000;
         let lastError: Error | undefined;
 
-        for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        for(let attempt = 0; attempt <= maxRetries; attempt++) {
             try {
-                if (attempt > 0) {
+                if(attempt > 0) {
                     logger.info(
                         { serverName, uri, attempt, maxRetries },
                         'Retrying resource read'
@@ -229,10 +230,10 @@ export class ProxyService {
                 }
 
                 return await this.readResource(serverName, uri, options.timeoutMs);
-            } catch (error) {
-                lastError = error instanceof Error ? error : new Error(String(error));
+            } catch(error) {
+                lastError = _.isError(error) ? error : new Error(String(error));
 
-                if (attempt === maxRetries) {
+                if(attempt === maxRetries) {
                     logger.error(
                         { serverName, uri, attempt, maxRetries },
                         'Resource read failed after all retries'
@@ -254,21 +255,21 @@ export class ProxyService {
      * Batch call multiple tools in parallel
      */
     async callToolsBatch(
-        calls: Array<{ serverName: string; toolName: string; args: unknown; timeoutMs?: number }>
-    ): Promise<Array<{ success: boolean; result?: CallToolResult; error?: string }>> {
+        calls: { serverName: string, toolName: string, args: unknown, timeoutMs?: number }[]
+    ): Promise<{ success: boolean, result?: CallToolResult, error?: string }[]> {
         logger.info({ callCount: calls.length }, 'Executing batch tool calls');
 
         const results = await Promise.allSettled(
-            calls.map(({ serverName, toolName, args, timeoutMs }) =>
+            _.map(calls, ({ serverName, toolName, args, timeoutMs }) =>
                 this.callTool(serverName, toolName, args, timeoutMs)
             )
         );
 
-        return results.map((result, index) => {
-            if (result.status === 'fulfilled') {
+        return _.map(results, (result, index) => {
+            if(result.status === 'fulfilled') {
                 return { success: true, result: result.value };
             } else {
-                const error = result.reason instanceof Error ? result.reason.message : String(result.reason);
+                const error = _.isError(result.reason) ? result.reason.message : String(result.reason);
                 logger.warn(
                     { serverName: calls[index]?.serverName, toolName: calls[index]?.toolName, error },
                     'Batch tool call failed'
@@ -282,21 +283,21 @@ export class ProxyService {
      * Batch read multiple resources in parallel
      */
     async readResourcesBatch(
-        reads: Array<{ serverName: string; uri: string; timeoutMs?: number }>
-    ): Promise<Array<{ success: boolean; result?: ReadResourceResult; error?: string }>> {
+        reads: { serverName: string, uri: string, timeoutMs?: number }[]
+    ): Promise<{ success: boolean, result?: ReadResourceResult, error?: string }[]> {
         logger.info({ readCount: reads.length }, 'Executing batch resource reads');
 
         const results = await Promise.allSettled(
-            reads.map(({ serverName, uri, timeoutMs }) =>
+            _.map(reads, ({ serverName, uri, timeoutMs }) =>
                 this.readResource(serverName, uri, timeoutMs)
             )
         );
 
-        return results.map((result, index) => {
-            if (result.status === 'fulfilled') {
+        return _.map(results, (result, index) => {
+            if(result.status === 'fulfilled') {
                 return { success: true, result: result.value };
             } else {
-                const error = result.reason instanceof Error ? result.reason.message : String(result.reason);
+                const error = _.isError(result.reason) ? result.reason.message : String(result.reason);
                 logger.warn(
                     { serverName: reads[index]?.serverName, uri: reads[index]?.uri, error },
                     'Batch resource read failed'

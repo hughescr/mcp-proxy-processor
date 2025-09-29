@@ -11,9 +11,10 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { readFile, writeFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { logger } from '@hughescr/logger';
+import _ from 'lodash';
 import { ZodError } from 'zod';
 import { BackendServersConfigSchema, type BackendServersConfig, type BackendServerConfig } from '../types/config.js';
 
@@ -21,19 +22,19 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 interface ServerState {
-    process: ChildProcess;
-    name: string;
-    config: BackendServerConfig;
-    restartCount: number;
-    lastRestart: number;
-    shuttingDown: boolean;
+    process: ChildProcess
+    name: string
+    config: BackendServerConfig
+    restartCount: number
+    lastRestart: number
+    shuttingDown: boolean
 }
 
 /**
  * Manages backend MCP server processes
  */
 export class ServerManager {
-    private servers: Map<string, ServerState> = new Map();
+    private servers = new Map<string, ServerState>();
     private config: BackendServersConfig | null = null;
     private configPath: string;
     private isShuttingDown = false;
@@ -48,9 +49,9 @@ export class ServerManager {
     private async loadConfig(): Promise<BackendServersConfig> {
         try {
             // If config doesn't exist, copy from example
-            if (!existsSync(this.configPath)) {
-                const examplePath = this.configPath.replace(/\.json$/, '.example.json');
-                if (existsSync(examplePath)) {
+            if(!existsSync(this.configPath)) {
+                const examplePath = _.replace(this.configPath, /\.json$/, '.example.json');
+                if(existsSync(examplePath)) {
                     logger.warn({ configPath: this.configPath, examplePath }, 'Config file not found, creating from example');
                     const exampleContent = await readFile(examplePath, 'utf-8');
                     await writeFile(this.configPath, exampleContent, 'utf-8');
@@ -69,10 +70,11 @@ export class ServerManager {
             this.substituteEnvVars(config);
 
             return config;
-        } catch (error) {
-            if (error instanceof ZodError) {
-                logger.error({ error: error.errors, configPath: this.configPath }, 'Invalid backend servers configuration');
-                throw new Error(`Invalid backend servers configuration: ${error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`);
+        } catch(error) {
+            if(error instanceof ZodError) {
+                const zodError = error as ZodError;
+                logger.error({ error: zodError.issues, configPath: this.configPath }, 'Invalid backend servers configuration');
+                throw new Error(`Invalid backend servers configuration: ${_.map(zodError.issues, (e: { path: (string | number)[], message: string }) => `${_.join(e.path, '.')}: ${e.message}`).join(', ')}`);
             }
             throw error;
         }
@@ -83,18 +85,18 @@ export class ServerManager {
      * Supports ${VAR_NAME} syntax
      */
     private substituteEnvVars(config: BackendServersConfig): void {
-        for (const [serverName, serverConfig] of Object.entries(config.mcpServers)) {
+        for(const [_serverName, serverConfig] of Object.entries(config.mcpServers)) {
             // Substitute in command
             serverConfig.command = this.substituteString(serverConfig.command);
 
             // Substitute in args
-            if (serverConfig.args) {
-                serverConfig.args = serverConfig.args.map(arg => this.substituteString(arg));
+            if(serverConfig.args) {
+                serverConfig.args = _.map(serverConfig.args, (arg: string) => this.substituteString(arg));
             }
 
             // Substitute in env values
-            if (serverConfig.env) {
-                for (const [key, value] of Object.entries(serverConfig.env)) {
+            if(serverConfig.env) {
+                for(const [key, value] of Object.entries(serverConfig.env)) {
                     serverConfig.env[key] = this.substituteString(value);
                 }
             }
@@ -105,9 +107,9 @@ export class ServerManager {
      * Substitute environment variables in a string
      */
     private substituteString(str: string): string {
-        return str.replace(/\$\{([^}]+)\}/g, (_, varName) => {
+        return _.replace(str, /\$\{([^}]+)\}/g, (_match, varName: string) => {
             const value = process.env[varName];
-            if (value === undefined) {
+            if(value === undefined) {
                 logger.warn({ varName }, 'Environment variable not found, leaving unreplaced');
                 return `\${${varName}}`;
             }
@@ -120,7 +122,7 @@ export class ServerManager {
      */
     private async launchServer(serverName: string, config: BackendServerConfig): Promise<void> {
         const existingState = this.servers.get(serverName);
-        if (existingState && !existingState.shuttingDown) {
+        if(existingState && !existingState.shuttingDown) {
             logger.warn({ serverName }, 'Server already running, skipping launch');
             return;
         }
@@ -129,12 +131,16 @@ export class ServerManager {
 
         try {
             // Merge server-specific env with process.env
-            const env = { ...process.env, ...config.env };
+            // Merge server-specific env with process.env
+            const env: Record<string, string> = {
+                ...process.env as Record<string, string>,
+                ...(config.env || {}),
+            };
 
             // Spawn the server process
             const childProcess = spawn(config.command, config.args || [], {
                 env,
-                stdio: ['pipe', 'pipe', 'pipe'], // stdin, stdout, stderr
+                stdio: ['pipe', 'pipe', 'pipe'] as const, // stdin, stdout, stderr
             });
 
             // Track restart count
@@ -152,29 +158,33 @@ export class ServerManager {
             this.servers.set(serverName, state);
 
             // Pipe stderr to our stderr with server name prefix
+            // Pipe stderr to our stderr with server name prefix
             childProcess.stderr?.on('data', (data: Buffer) => {
-                const lines = data.toString().trim().split('\n');
-                for (const line of lines) {
-                    if (line.trim()) {
-                        console.error(`[${serverName}]: ${line}`);
+                const lines = _.split(_.trim(data.toString()), '\n');
+                for(const line of lines) {
+                    const trimmedLine = _.trim(line);
+                    if(trimmedLine) {
+                        // Using console.error is appropriate here for piping stderr -- we need to output backend server stderr
+                        // eslint-disable-next-line no-console -- console.error is the correct way to pipe stderr from backend servers
+                        console.error(`[${serverName}]: ${trimmedLine}`);
                     }
                 }
             });
 
             // Handle process exit
-            childProcess.on('exit', (code, signal) => {
+            childProcess.on('exit', (code: number | null, signal: NodeJS.Signals | null) => {
                 this.handleServerExit(serverName, code, signal, state);
             });
 
             // Handle spawn errors
-            childProcess.on('error', (error) => {
+            childProcess.on('error', (error: Error) => {
                 logger.error({ serverName, error: error.message }, 'Failed to spawn backend server');
                 this.servers.delete(serverName);
             });
 
             logger.info({ serverName, pid: childProcess.pid }, 'Backend server launched successfully');
-        } catch (error) {
-            logger.error({ serverName, error: error instanceof Error ? error.message : String(error) }, 'Failed to launch backend server');
+        } catch(error) {
+            logger.error({ serverName, error: _.isError(error) ? error.message : String(error) }, 'Failed to launch backend server');
             throw error;
         }
     }
@@ -189,7 +199,7 @@ export class ServerManager {
         this.servers.delete(serverName);
 
         // Don't restart if we're shutting down or if it was an intentional shutdown
-        if (this.isShuttingDown || state.shuttingDown) {
+        if(this.isShuttingDown || state.shuttingDown) {
             logger.info({ serverName }, 'Server shutdown was intentional, not restarting');
             return;
         }
@@ -205,7 +215,7 @@ export class ServerManager {
         const maxRestarts = 5;
         const newRestartCount = state.restartCount + 1;
 
-        if (newRestartCount > maxRestarts) {
+        if(newRestartCount > maxRestarts) {
             logger.error({ serverName, restartCount: newRestartCount }, 'Server failed too many times, giving up');
             return;
         }
@@ -219,8 +229,8 @@ export class ServerManager {
                 // Update restart count
                 state.restartCount = newRestartCount;
                 await this.launchServer(serverName, state.config);
-            } catch (error) {
-                logger.error({ serverName, error: error instanceof Error ? error.message : String(error) }, 'Failed to restart server');
+            } catch(error) {
+                logger.error({ serverName, error: _.isError(error) ? error.message : String(error) }, 'Failed to restart server');
             }
         }, backoffMs);
     }
@@ -235,11 +245,11 @@ export class ServerManager {
         this.config = await this.loadConfig();
 
         // Launch all servers
-        const launchPromises = Object.entries(this.config.mcpServers).map(async ([serverName, serverConfig]) => {
+        const launchPromises = _.map(Object.entries(this.config.mcpServers), async ([serverName, serverConfig]) => {
             try {
                 await this.launchServer(serverName, serverConfig);
-            } catch (error) {
-                logger.error({ serverName, error: error instanceof Error ? error.message : String(error) }, 'Failed to launch server during startup');
+            } catch(error) {
+                logger.error({ serverName, error: _.isError(error) ? error.message : String(error) }, 'Failed to launch server during startup');
             }
         });
 
@@ -255,7 +265,7 @@ export class ServerManager {
         logger.info('Stopping backend server manager');
         this.isShuttingDown = true;
 
-        const stopPromises = Array.from(this.servers.values()).map(async (state) => {
+        const stopPromises = _.map(Array.from(this.servers.values()), async (state) => {
             return new Promise<void>((resolve) => {
                 state.shuttingDown = true;
 
@@ -297,7 +307,7 @@ export class ServerManager {
         logger.info({ serverName }, 'Restarting backend server');
 
         const state = this.servers.get(serverName);
-        if (!state) {
+        if(!state) {
             throw new Error(`Server not found: ${serverName}`);
         }
 

@@ -10,4 +10,5 @@
  * - Saving group configurations to groups.json
  */
 
+// eslint-disable-next-line no-warning-comments -- Legitimate placeholder for unimplemented module
 // TODO: Implement admin interface

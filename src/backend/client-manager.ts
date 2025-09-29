@@ -11,24 +11,26 @@
 
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
+import type { StdioServerParameters } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { logger } from '@hughescr/logger';
-import type { ServerManager } from './server-manager.js';
+import _ from 'lodash';
+import type { BackendServerConfig } from '../types/config.js';
 
 interface ClientState {
-    client: Client;
-    serverName: string;
-    connected: boolean;
+    client: Client
+    serverName: string
+    connected: boolean
 }
 
 /**
  * Manages MCP client connections to backend servers
  */
 export class ClientManager {
-    private clients: Map<string, ClientState> = new Map();
-    private serverManager: ServerManager;
+    private clients = new Map<string, ClientState>();
+    private serverConfigs: Map<string, BackendServerConfig>;
 
-    constructor(serverManager: ServerManager) {
-        this.serverManager = serverManager;
+    constructor(serverConfigs: Map<string, BackendServerConfig>) {
+        this.serverConfigs = serverConfigs;
     }
 
     /**
@@ -37,29 +39,29 @@ export class ClientManager {
     async connect(serverName: string): Promise<Client> {
         // Check if already connected
         const existingState = this.clients.get(serverName);
-        if (existingState?.connected) {
+        if(existingState?.connected) {
             logger.debug({ serverName }, 'Already connected to backend server');
             return existingState.client;
         }
 
-        // Get the server process
-        const serverProcess = this.serverManager.getServerProcess(serverName);
-        if (!serverProcess) {
-            throw new Error(`Server process not found: ${serverName}`);
+        // Get server config
+        const serverConfig = this.serverConfigs.get(serverName);
+        if(!serverConfig) {
+            throw new Error(`Server config not found: ${serverName}`);
         }
 
-        if (!serverProcess.stdin || !serverProcess.stdout) {
-            throw new Error(`Server process ${serverName} does not have valid stdin/stdout`);
-        }
-
-        logger.info({ serverName, pid: serverProcess.pid }, 'Connecting to backend server');
+        logger.info({ serverName, command: serverConfig.command }, 'Connecting to backend server');
 
         try {
-            // Create transport using the subprocess stdio
-            const transport = new StdioClientTransport({
-                stdin: serverProcess.stdin,
-                stdout: serverProcess.stdout,
-            });
+            // StdioClientTransport needs StdioServerParameters
+            const serverParams: StdioServerParameters = {
+                command: serverConfig.command,
+                args: serverConfig.args || [],
+                env: serverConfig.env,
+            };
+
+            // Create transport - this will spawn the process
+            const transport = new StdioClientTransport(serverParams);
 
             // Create client
             const client = new Client({
@@ -90,7 +92,7 @@ export class ClientManager {
             transport.onclose = () => {
                 logger.warn({ serverName }, 'Backend server connection closed');
                 const currentState = this.clients.get(serverName);
-                if (currentState) {
+                if(currentState) {
                     currentState.connected = false;
                 }
             };
@@ -98,18 +100,18 @@ export class ClientManager {
             transport.onerror = (error: Error) => {
                 logger.error({ serverName, error: error.message }, 'Backend server connection error');
                 const currentState = this.clients.get(serverName);
-                if (currentState) {
+                if(currentState) {
                     currentState.connected = false;
                 }
             };
 
             return client;
-        } catch (error) {
+        } catch(error) {
             logger.error(
-                { serverName, error: error instanceof Error ? error.message : String(error) },
+                { serverName, error: _.isError(error) ? error.message : String(error) },
                 'Failed to connect to backend server'
             );
-            throw new Error(`Failed to connect to backend server ${serverName}: ${error instanceof Error ? error.message : String(error)}`);
+            throw new Error(`Failed to connect to backend server ${serverName}: ${_.isError(error) ? error.message : String(error)}`);
         }
     }
 
@@ -117,16 +119,16 @@ export class ClientManager {
      * Connect to all available backend servers
      */
     async connectAll(): Promise<void> {
-        const serverNames = this.serverManager.getServerNames();
+        const serverNames = Array.from(this.serverConfigs.keys());
 
         logger.info({ serverCount: serverNames.length }, 'Connecting to all backend servers');
 
-        const connectPromises = serverNames.map(async (serverName) => {
+        const connectPromises = _.map(serverNames, async (serverName) => {
             try {
                 await this.connect(serverName);
-            } catch (error) {
+            } catch(error) {
                 logger.error(
-                    { serverName, error: error instanceof Error ? error.message : String(error) },
+                    { serverName, error: _.isError(error) ? error.message : String(error) },
                     'Failed to connect to backend server during connectAll'
                 );
                 // Continue with other servers even if one fails
@@ -135,7 +137,7 @@ export class ClientManager {
 
         await Promise.all(connectPromises);
 
-        const connectedCount = Array.from(this.clients.values()).filter(s => s.connected).length;
+        const connectedCount = _.filter(Array.from(this.clients.values()), 'connected').length;
         logger.info({ connectedCount, totalServers: serverNames.length }, 'Finished connecting to backend servers');
     }
 
@@ -144,12 +146,12 @@ export class ClientManager {
      */
     async disconnect(serverName: string): Promise<void> {
         const state = this.clients.get(serverName);
-        if (!state) {
+        if(!state) {
             logger.warn({ serverName }, 'Cannot disconnect: client not found');
             return;
         }
 
-        if (!state.connected) {
+        if(!state.connected) {
             logger.warn({ serverName }, 'Cannot disconnect: client not connected');
             return;
         }
@@ -161,9 +163,9 @@ export class ClientManager {
             state.connected = false;
             this.clients.delete(serverName);
             logger.info({ serverName }, 'Successfully disconnected from backend server');
-        } catch (error) {
+        } catch(error) {
             logger.error(
-                { serverName, error: error instanceof Error ? error.message : String(error) },
+                { serverName, error: _.isError(error) ? error.message : String(error) },
                 'Error disconnecting from backend server'
             );
             // Still remove from clients map even if close fails
@@ -177,12 +179,12 @@ export class ClientManager {
     async disconnectAll(): Promise<void> {
         logger.info({ clientCount: this.clients.size }, 'Disconnecting from all backend servers');
 
-        const disconnectPromises = Array.from(this.clients.keys()).map(async (serverName) => {
+        const disconnectPromises = _.map(Array.from(this.clients.keys()), async (serverName) => {
             try {
                 await this.disconnect(serverName);
-            } catch (error) {
+            } catch(error) {
                 logger.error(
-                    { serverName, error: error instanceof Error ? error.message : String(error) },
+                    { serverName, error: _.isError(error) ? error.message : String(error) },
                     'Error disconnecting during disconnectAll'
                 );
             }
@@ -213,20 +215,20 @@ export class ClientManager {
      * Get all connected client names
      */
     getConnectedServerNames(): string[] {
-        return Array.from(this.clients.entries())
-            .filter(([_, state]) => state.connected)
-            .map(([name, _]) => name);
+        const entries = Array.from(this.clients.entries());
+        const connected = _.filter(entries, ([_name, state]) => state.connected);
+        return _.map(connected, ([name, _state]) => name);
     }
 
     /**
      * Get connection statistics
      */
-    getStats(): { total: number; connected: number; disconnected: number } {
+    getStats(): { total: number, connected: number, disconnected: number } {
         const states = Array.from(this.clients.values());
         return {
             total: states.length,
-            connected: states.filter(s => s.connected).length,
-            disconnected: states.filter(s => !s.connected).length,
+            connected: _.filter(states, 'connected').length,
+            disconnected: _.filter(states, state => !state.connected).length,
         };
     }
 }

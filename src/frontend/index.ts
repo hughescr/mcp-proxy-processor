@@ -8,4 +8,5 @@
  * - Returning responses to the MCP client
  */
 
+// eslint-disable-next-line no-warning-comments -- Legitimate placeholder for unimplemented module
 // TODO: Implement frontend MCP server

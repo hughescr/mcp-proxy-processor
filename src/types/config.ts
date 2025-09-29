@@ -10,11 +10,11 @@ import { z } from 'zod';
 export const BackendServerConfigSchema = z.object({
     command: z.string(),
     args: z.array(z.string()).optional(),
-    env: z.record(z.string()).optional(),
+    env: z.record(z.string(), z.string()).optional(),
 });
 
 export const BackendServersConfigSchema = z.object({
-    mcpServers: z.record(BackendServerConfigSchema),
+    mcpServers: z.record(z.string(), BackendServerConfigSchema),
 });
 
 export type BackendServerConfig = z.infer<typeof BackendServerConfigSchema>;
@@ -33,7 +33,7 @@ export const ToolOverrideSchema = z.object({
     /** Optional: Override the tool description */
     description: z.string().optional(),
     /** Optional: Override the input schema */
-    inputSchema: z.record(z.unknown()).optional(),
+    inputSchema: z.record(z.string(), z.unknown()).optional(),
 });
 
 export type ToolOverride = z.infer<typeof ToolOverrideSchema>;
@@ -71,7 +71,7 @@ export const GroupConfigSchema = z.object({
 });
 
 export const GroupsConfigSchema = z.object({
-    groups: z.record(GroupConfigSchema),
+    groups: z.record(z.string(), GroupConfigSchema),
 });
 
 export type GroupConfig = z.infer<typeof GroupConfigSchema>;
