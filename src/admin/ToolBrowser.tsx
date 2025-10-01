@@ -5,7 +5,7 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Text } from 'ink';
 import SelectInput from 'ink-select-input';
-import { isError, map, repeat } from 'lodash';
+import { isError, map, repeat, replace, trim } from 'lodash';
 import type { Tool } from '@modelcontextprotocol/sdk/types';
 import type { ToolOverride } from '../types/config.js';
 import { loadBackendServersConfig } from './config-utils.js';
@@ -122,10 +122,17 @@ export function ToolBrowser({ onBack, onSelect }: ToolBrowserProps) {
     }
 
     // Build menu items
-    const menuItems = map(tools, (toolItem, index) => ({
-        label: `${toolItem.tool.name} (${toolItem.serverName}) - ${toolItem.tool.description?.slice(0, 60) ?? 'No description'}`,
-        value: String(index),
-    }));
+    const menuItems = map(tools, (toolItem, index) => {
+        // Clean and truncate description: remove newlines, collapse spaces, then truncate
+        const cleanDesc = trim(replace(replace(toolItem.tool.description ?? '', /[\r\n]+/g, ' '), /\s+/g, ' '));
+        const description = cleanDesc
+            ? cleanDesc.slice(0, 40) + (cleanDesc.length > 40 ? '...' : '')
+            : 'No description';
+        return {
+            label: `${toolItem.tool.name} (${toolItem.serverName}) - ${description}`,
+            value: String(index),
+        };
+    });
 
     menuItems.push(
         { label: repeat('─', 40), value: 'separator' },
@@ -146,7 +153,7 @@ export function ToolBrowser({ onBack, onSelect }: ToolBrowserProps) {
                         : `Found ${tools.length} tools. Select a tool to add to the group:`}
                 </Text>
             </Box>
-            <SelectInput items={menuItems} onSelect={handleToolSelect} />
+            <SelectInput items={menuItems} onSelect={handleToolSelect} limit={15} />
         </Box>
     );
 }

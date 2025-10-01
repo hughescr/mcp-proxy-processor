@@ -12,9 +12,13 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import type { StdioServerParameters } from '@modelcontextprotocol/sdk/client/stdio.js';
-import { logger } from '@hughescr/logger';
+import { logger as realLogger } from '@hughescr/logger';
+import { logger as silentLogger } from '../utils/silent-logger.js';
 import _ from 'lodash';
 import type { BackendServerConfig } from '../types/config.js';
+
+// Use silent logger in admin mode
+const logger = process.env.LOG_LEVEL === 'silent' ? silentLogger : realLogger;
 
 interface ClientState {
     client:     Client
@@ -57,7 +61,11 @@ export class ClientManager {
             const serverParams: StdioServerParameters = {
                 command: serverConfig.command,
                 args:    serverConfig.args ?? [],
-                env:     serverConfig.env,
+                env:     {
+                    ...serverConfig.env,
+                    // Propagate silent mode to backend servers
+                    LOG_LEVEL: process.env.LOG_LEVEL ?? serverConfig.env?.LOG_LEVEL,
+                },
             };
 
             // Create transport - this will spawn the process

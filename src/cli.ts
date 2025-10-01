@@ -23,6 +23,8 @@ const { values } = parseArgs({
 
 async function main() {
     if(values.admin) {
+        // Suppress logger output in admin mode to avoid cluttering the UI
+        process.env.LOG_LEVEL = 'silent';
         const { runAdmin } = await import('./admin/index.js');
         await runAdmin();
     } else if(values.serve) {

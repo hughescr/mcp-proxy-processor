@@ -12,12 +12,24 @@
 
 import React from 'react';
 import { render } from 'ink';
+import { constant } from 'lodash';
 import { App } from './App.js';
 
 /**
  * Run the admin interface
  */
 export async function runAdmin(): Promise<void> {
+    // Silence stderr to prevent backend server logs from polluting the UI
+    const originalStderrWrite = process.stderr.write.bind(process.stderr);
+    // @ts-expect-error -- Temporarily override stderr.write to suppress logs
+    process.stderr.write = constant(true) as typeof process.stderr.write;
+
     // Render the Ink app
-    render(React.createElement(App));
+    const { waitUntilExit } = render(React.createElement(App));
+
+    // Wait for the app to exit
+    await waitUntilExit();
+
+    // Restore stderr
+    process.stderr.write = originalStderrWrite;
 }

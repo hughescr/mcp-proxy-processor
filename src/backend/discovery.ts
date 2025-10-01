@@ -8,10 +8,14 @@
  * - Provides efficient batch discovery across all servers
  */
 
-import { logger } from '@hughescr/logger';
+import { logger as realLogger } from '@hughescr/logger';
+import { logger as silentLogger } from '../utils/silent-logger.js';
 import _ from 'lodash';
 import type { Tool, Resource } from '@modelcontextprotocol/sdk/types';
 import type { ClientManager } from './client-manager.js';
+
+// Use silent logger in admin mode
+const logger = process.env.LOG_LEVEL === 'silent' ? silentLogger : realLogger;
 
 interface DiscoveryCache {
     tools?:          Tool[]
