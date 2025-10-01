@@ -26,5 +26,14 @@ export default defineConfig(
             // Disable @stylistic/indent for JSX files as it conflicts with @stylistic/jsx-indent-props
             '@stylistic/indent': 'off',
         },
+    },
+
+    {
+        name:  'test-files-overrides',
+        files: ['**/*.test.ts', '**/*.test.tsx', '**/*.spec.ts', '**/*.spec.tsx'],
+        rules: {
+            // Can't exclude 'bun:test' from n/no-missing-import as it is needed in test files
+            'n/no-missing-import': 'off',
+        },
     }
 );

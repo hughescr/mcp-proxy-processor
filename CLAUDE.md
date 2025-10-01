@@ -7,6 +7,7 @@
 - **Bun-first workflow:** invoke project scripts via `bun`/`bunx`; avoid `npm`/`npx`.
 - **Watchers via MCP:** manage development watchers with the tmux MCP server (`mcp__tmux__list_workspaces`, `mcp__tmux__run_command`, `mcp__tmux__get_output`). Do not run `tsc`, `astro check`, or `bun test` directly.
 - **Lint enforcement:** the Claude settings run ESLint automatically after each edit—review output and fix issues immediately.
+- **CRITICAL: Zero tolerance for lint issues:** ALL ESLint output must be fixed, including warnings. "Style preferences" are NOT optional. The goal is always 0 errors, 0 warnings. Never dismiss warnings as "just style preferences."
 
 ## Sub-Agent Orchestration
 

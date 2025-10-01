@@ -157,7 +157,7 @@ export class GroupManager {
         return {
             name:        override.name ?? backendTool.name,
             description: override.description ?? backendTool.description,
-            inputSchema: override.inputSchema ?? backendTool.inputSchema,
+            inputSchema: override.inputSchema ? { type: 'object' as const, ...override.inputSchema } : backendTool.inputSchema,
         };
     }
 

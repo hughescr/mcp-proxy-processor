@@ -11,9 +11,10 @@ export interface MockTool extends Tool {
     name:         string
     description?: string
     inputSchema: {
-        type:        string
-        properties?: Record<string, unknown>
-        required?:   string[]
+        type:          'object'
+        properties?:   Record<string, unknown>
+        required?:     string[]
+        [key: string]: unknown
     }
 }
 

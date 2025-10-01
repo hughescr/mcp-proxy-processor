@@ -3,6 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach } from 'bun:test';
+import { find as _find, map as _map } from 'lodash';
 import { GroupManager } from '../../src/middleware/index.js';
 import { createTempConfigFile, validGroupConfig, mockBackendTools, mockBackendResources, mockResourceReadResponse } from '../fixtures/mock-configs.js';
 import type { Resource } from '@modelcontextprotocol/sdk/types';
@@ -167,7 +168,7 @@ describe('Resource Flow Integration', () => {
             expect(resource.uri).toBe('test://resource1'); // URI never changes
 
             // Original backend would have different values
-            const backendResource = mockBackendResources.get('test-server-1')?.find(r => r.uri === 'test://resource1');
+            const backendResource = _find(mockBackendResources.get('test-server-1'), { uri: 'test://resource1' });
             expect(backendResource?.name).not.toBe(resource.name);
             expect(backendResource?.description).not.toBe(resource.description);
             expect(backendResource?.mimeType).not.toBe(resource.mimeType);
@@ -190,12 +191,12 @@ describe('Resource Flow Integration', () => {
 
             // 4. Find resource mapping for a read
             const resourceUri = 'test://resource1';
-            const resource = resources.find(r => r.uri === resourceUri);
+            const resource = _find(resources, { uri: resourceUri });
             expect(resource).toBeDefined();
             expect(resource?.name).toBe('Custom Resource Name');
 
             // 5. Get original resource info for backend read
-            const resourceOverride = group?.resources?.find(r => r.originalUri === resourceUri);
+            const resourceOverride = _find(group?.resources, { originalUri: resourceUri });
             expect(resourceOverride?.originalUri).toBe('test://resource1');
             expect(resourceOverride?.serverName).toBe('test-server-1');
 
@@ -247,7 +248,7 @@ describe('Resource Flow Integration', () => {
 
             // Get backend mappings
             const group = concurrentManager.getGroup('concurrent');
-            const mappings = group?.resources?.map(r => ({
+            const mappings = _map(group?.resources, r => ({
                 uri:    r.originalUri,
                 server: r.serverName,
             }));

@@ -3,9 +3,9 @@
  */
 
 import { describe, it, expect, beforeEach } from 'bun:test';
+import { find as _find } from 'lodash';
 import { GroupManager } from '../../src/middleware/index.js';
 import { createTempConfigFile, validGroupConfig, mockBackendTools, mockBackendResources, groupWithSchemaOverride } from '../fixtures/mock-configs.js';
-import type { Tool, Resource } from '@modelcontextprotocol/sdk/types';
 
 describe('Override Application', () => {
     let groupManager: GroupManager;
@@ -20,7 +20,7 @@ describe('Override Application', () => {
     describe('Tool Override Application', () => {
         it('should apply name override to tool', () => {
             const tools = groupManager.getToolsForGroup('test-group', mockBackendTools);
-            const renamedTool = tools.find(t => t.name === 'renamed_tool');
+            const renamedTool = _find(tools, { name: 'renamed_tool' });
 
             expect(renamedTool).toBeDefined();
             expect(renamedTool?.name).toBe('renamed_tool'); // Override applied
@@ -29,7 +29,7 @@ describe('Override Application', () => {
 
         it('should retain original values when no override specified', () => {
             const tools = groupManager.getToolsForGroup('test-group', mockBackendTools);
-            const anotherTool = tools.find(t => t.name === 'another_tool');
+            const anotherTool = _find(tools, { name: 'another_tool' });
 
             expect(anotherTool).toBeDefined();
             expect(anotherTool?.name).toBe('another_tool'); // No override, original retained
@@ -133,7 +133,7 @@ describe('Override Application', () => {
 
         it('should preserve original input schema when no override provided', () => {
             const tools = groupManager.getToolsForGroup('test-group', mockBackendTools);
-            const anotherTool = tools.find(t => t.name === 'another_tool');
+            const anotherTool = _find(tools, { name: 'another_tool' });
 
             expect(anotherTool?.inputSchema).toEqual({
                 type:       'object',
@@ -190,7 +190,7 @@ describe('Override Application', () => {
     describe('Resource Override Application', () => {
         it('should apply name override to resource', () => {
             const resources = groupManager.getResourcesForGroup('test-group', mockBackendResources);
-            const renamedResource = resources.find(r => r.name === 'Custom Resource Name');
+            const renamedResource = _find(resources, { name: 'Custom Resource Name' });
 
             expect(renamedResource).toBeDefined();
             expect(renamedResource?.name).toBe('Custom Resource Name'); // Override applied
@@ -320,8 +320,8 @@ describe('Override Application', () => {
 
             expect(resource.uri).toBe('test://resource1');
             // Verify URI is exactly the same as backend
-            const backendResource = mockBackendResources.get('test-server-1')?.find(r => r.uri === 'test://resource1');
-            expect(resource.uri).toBe(backendResource?.uri);
+            const backendResource = _find(mockBackendResources.get('test-server-1'), { uri: 'test://resource1' });
+            expect(resource.uri).toBe(backendResource!.uri);
         });
     });
 

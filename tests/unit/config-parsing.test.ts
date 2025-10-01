@@ -3,6 +3,7 @@
  */
 
 import { describe, it, expect } from 'bun:test';
+import { keys as _keys } from 'lodash';
 import { BackendServersConfigSchema, GroupsConfigSchema, ToolOverrideSchema, ResourceOverrideSchema } from '../../src/types/config.js';
 import { validBackendConfig, validGroupConfig, invalidBackendConfig, invalidGroupConfig, emptyBackendConfig, emptyGroupConfig } from '../fixtures/mock-configs.js';
 
@@ -33,7 +34,7 @@ describe('Config Parsing', () => {
         it('should parse empty backend configuration', () => {
             const result = BackendServersConfigSchema.parse(emptyBackendConfig);
             expect(result).toEqual(emptyBackendConfig);
-            expect(Object.keys(result.mcpServers)).toHaveLength(0);
+            expect(_keys(result.mcpServers)).toHaveLength(0);
         });
 
         it('should reject invalid backend configuration missing command', () => {
@@ -98,7 +99,7 @@ describe('Config Parsing', () => {
         it('should parse empty groups configuration', () => {
             const result = GroupsConfigSchema.parse(emptyGroupConfig);
             expect(result).toEqual(emptyGroupConfig);
-            expect(Object.keys(result.groups)).toHaveLength(0);
+            expect(_keys(result.groups)).toHaveLength(0);
         });
 
         it('should default resources to empty array if not provided', () => {

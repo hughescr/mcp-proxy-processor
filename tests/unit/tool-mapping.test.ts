@@ -3,6 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach } from 'bun:test';
+import { map as _map } from 'lodash';
 import { GroupManager } from '../../src/middleware/index.js';
 import { createTempConfigFile, validGroupConfig, mockBackendTools, mockBackendResources, groupWithDuplicateTools, groupWithMissingBackendTool } from '../fixtures/mock-configs.js';
 import type { Tool, Resource } from '@modelcontextprotocol/sdk/types';
@@ -131,8 +132,8 @@ describe('Tool Mapping', () => {
             const tools = groupManager.getToolsForGroup('test-group', mockBackendTools);
 
             expect(tools).toHaveLength(2);
-            expect(tools.map(t => t.name)).toContain('renamed_tool');
-            expect(tools.map(t => t.name)).toContain('another_tool');
+            expect(_map(tools, 'name')).toContain('renamed_tool');
+            expect(_map(tools, 'name')).toContain('another_tool');
         });
 
         it('should return empty array for non-existent group', () => {
@@ -177,8 +178,8 @@ describe('Tool Mapping', () => {
 
             // Both tools should be included with different names
             expect(tools).toHaveLength(2);
-            expect(tools.map(t => t.name)).toContain('renamed_tool_1');
-            expect(tools.map(t => t.name)).toContain('renamed_tool_2');
+            expect(_map(tools, 'name')).toContain('renamed_tool_1');
+            expect(_map(tools, 'name')).toContain('renamed_tool_2');
         });
 
         it('should preserve tool order from configuration', () => {

@@ -2,9 +2,10 @@
  * Integration tests for end-to-end tool call proxying
  */
 
-import { describe, it, expect, beforeEach, mock } from 'bun:test';
+import { describe, it, expect, beforeEach } from 'bun:test';
+import { find as _find } from 'lodash';
 import { GroupManager } from '../../src/middleware/index.js';
-import { createTempConfigFile, validGroupConfig, mockBackendTools, mockBackendResources, mockToolCallResponse, groupWithSchemaOverride } from '../fixtures/mock-configs.js';
+import { createTempConfigFile, validGroupConfig, mockBackendTools, mockToolCallResponse, groupWithSchemaOverride } from '../fixtures/mock-configs.js';
 import type { Tool } from '@modelcontextprotocol/sdk/types';
 
 describe('Proxy Flow Integration', () => {
@@ -31,13 +32,13 @@ describe('Proxy Flow Integration', () => {
             const invalidPath = await createTempConfigFile({ invalid: 'structure' });
             const invalidManager = new GroupManager(invalidPath);
 
-            await expect(invalidManager.load()).rejects.toThrow();
+            expect(invalidManager.load()).rejects.toThrow();
         });
 
         it('should handle non-existent configuration file', async () => {
             const nonExistentManager = new GroupManager('/non/existent/path.json');
 
-            await expect(nonExistentManager.load()).rejects.toThrow();
+            expect(nonExistentManager.load()).rejects.toThrow();
         });
     });
 
@@ -52,8 +53,8 @@ describe('Proxy Flow Integration', () => {
             const tools = groupManager.getToolsForGroup('test-group', mockBackendTools);
 
             expect(tools).toHaveLength(2);
-            expect(tools.find(t => t.name === 'renamed_tool')).toBeDefined();
-            expect(tools.find(t => t.name === 'another_tool')).toBeDefined();
+            expect(_find(tools, { name: 'renamed_tool' })).toBeDefined();
+            expect(_find(tools, { name: 'another_tool' })).toBeDefined();
         });
 
         it('should handle partial backend server availability', () => {
@@ -73,7 +74,7 @@ describe('Proxy Flow Integration', () => {
     describe('Tool Call Proxying', () => {
         it('should apply overrides when proxying tool calls', () => {
             const tools = groupManager.getToolsForGroup('test-group', mockBackendTools);
-            const renamedTool = tools.find(t => t.name === 'renamed_tool');
+            const renamedTool = _find(tools, { name: 'renamed_tool' });
 
             // Verify the tool has overrides applied
             expect(renamedTool?.name).toBe('renamed_tool');
@@ -81,7 +82,7 @@ describe('Proxy Flow Integration', () => {
 
             // The original tool name would be needed for backend call
             const groupConfig = groupManager.getGroup('test-group');
-            const toolOverride = groupConfig?.tools.find(t => t.name === 'renamed_tool');
+            const toolOverride = _find(groupConfig?.tools, { name: 'renamed_tool' });
 
             expect(toolOverride?.originalName).toBe('original_tool');
             expect(toolOverride?.serverName).toBe('test-server-1');
@@ -91,8 +92,8 @@ describe('Proxy Flow Integration', () => {
             const groupConfig = groupManager.getGroup('test-group');
 
             // Each tool should map to its backend server
-            const tool1 = groupConfig?.tools.find(t => t.originalName === 'original_tool');
-            const tool2 = groupConfig?.tools.find(t => t.originalName === 'another_tool');
+            const tool1 = _find(groupConfig?.tools, { originalName: 'original_tool' });
+            const tool2 = _find(groupConfig?.tools, { originalName: 'another_tool' });
 
             expect(tool1?.serverName).toBe('test-server-1');
             expect(tool2?.serverName).toBe('test-server-2');
@@ -121,7 +122,7 @@ describe('Proxy Flow Integration', () => {
             });
 
             // Original backend would need different schema
-            const backendTool = mockBackendTools.get('test-server-1')?.find(t => t.name === 'original_tool');
+            const backendTool = _find(mockBackendTools.get('test-server-1'), { name: 'original_tool' });
             expect(backendTool?.inputSchema).not.toEqual(tool.inputSchema);
         });
     });
@@ -142,11 +143,11 @@ describe('Proxy Flow Integration', () => {
 
             // 4. Find tool mapping for a call
             const toolToCall = 'renamed_tool';
-            const tool = tools.find(t => t.name === toolToCall);
+            const tool = _find(tools, { name: toolToCall });
             expect(tool).toBeDefined();
 
             // 5. Get original tool info for backend call
-            const toolOverride = group?.tools.find(t => t.name === toolToCall);
+            const toolOverride = _find(group?.tools, { name: toolToCall });
             expect(toolOverride?.originalName).toBe('original_tool');
             expect(toolOverride?.serverName).toBe('test-server-1');
 
@@ -160,16 +161,16 @@ describe('Proxy Flow Integration', () => {
             const tools = groupManager.getToolsForGroup('test-group', mockBackendTools);
 
             // Simulate concurrent calls to different tools
-            const tool1 = tools.find(t => t.name === 'renamed_tool');
-            const tool2 = tools.find(t => t.name === 'another_tool');
+            const tool1 = _find(tools, { name: 'renamed_tool' });
+            const tool2 = _find(tools, { name: 'another_tool' });
 
             expect(tool1).toBeDefined();
             expect(tool2).toBeDefined();
 
             // Get backend mapping for both
             const group = groupManager.getGroup('test-group');
-            const override1 = group?.tools.find(t => t.name === 'renamed_tool' || t.originalName === 'original_tool');
-            const override2 = group?.tools.find(t => t.originalName === 'another_tool');
+            const override1 = _find(group?.tools, t => t.name === 'renamed_tool' || t.originalName === 'original_tool');
+            const override2 = _find(group?.tools, { originalName: 'another_tool' });
 
             expect(override1?.serverName).toBe('test-server-1');
             expect(override2?.serverName).toBe('test-server-2');
@@ -206,8 +207,8 @@ describe('Proxy Flow Integration', () => {
             const tools2 = anotherManager.getToolsForGroup('another-group', mockBackendTools);
 
             // Same backend tool, different overrides
-            const tool1 = tools1.find(t => t.name === 'renamed_tool');
-            const tool2 = tools2.find(t => t.name === 'different_name');
+            const tool1 = _find(tools1, { name: 'renamed_tool' });
+            const tool2 = _find(tools2, { name: 'different_name' });
 
             expect(tool1?.description).toBe('Overridden description');
             expect(tool2?.description).toBe('Different description');
@@ -216,8 +217,8 @@ describe('Proxy Flow Integration', () => {
             const group1 = groupManager.getGroup('test-group');
             const group2 = anotherManager.getGroup('another-group');
 
-            const override1 = group1?.tools.find(t => t.originalName === 'original_tool');
-            const override2 = group2?.tools.find(t => t.originalName === 'original_tool');
+            const override1 = _find(group1?.tools, { originalName: 'original_tool' });
+            const override2 = _find(group2?.tools, { originalName: 'original_tool' });
 
             expect(override1?.originalName).toBe(override2?.originalName);
             expect(override1?.serverName).toBe(override2?.serverName);

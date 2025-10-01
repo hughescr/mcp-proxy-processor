@@ -3,6 +3,8 @@
  */
 
 import { describe, it, expect, beforeEach } from 'bun:test';
+import { find as _find } from 'lodash';
+import type { Tool } from '@modelcontextprotocol/sdk/types';
 import { GroupManager } from '../../src/middleware/index.js';
 import { createTempConfigFile, validGroupConfig, mockBackendTools, mockBackendResources, mockToolCallError, invalidGroupConfig, invalidBackendConfig } from '../fixtures/mock-configs.js';
 import { unlink } from 'node:fs/promises';
@@ -21,21 +23,21 @@ describe('Error Handling', () => {
         it('should handle non-existent configuration file', async () => {
             const nonExistentManager = new GroupManager('/path/that/does/not/exist.json');
 
-            await expect(nonExistentManager.load()).rejects.toThrow(/Failed to load groups configuration/);
+            expect(nonExistentManager.load()).rejects.toThrow(/Failed to load groups configuration/);
         });
 
         it('should handle invalid JSON in configuration file', async () => {
             const invalidJsonPath = await createTempConfigFile('{ invalid json }');
             const invalidJsonManager = new GroupManager(invalidJsonPath);
 
-            await expect(invalidJsonManager.load()).rejects.toThrow(/Failed to load groups configuration/);
+            expect(invalidJsonManager.load()).rejects.toThrow(/Failed to load groups configuration/);
         });
 
         it('should handle invalid configuration schema', async () => {
             const invalidSchemaPath = await createTempConfigFile(invalidGroupConfig);
             const invalidSchemaManager = new GroupManager(invalidSchemaPath);
 
-            await expect(invalidSchemaManager.load()).rejects.toThrow(/Failed to load groups configuration/);
+            expect(invalidSchemaManager.load()).rejects.toThrow(/Failed to load groups configuration/);
         });
 
         it('should handle file read permissions error', async () => {
@@ -44,14 +46,14 @@ describe('Error Handling', () => {
             await unlink(tempPath);
 
             const deletedFileManager = new GroupManager(tempPath);
-            await expect(deletedFileManager.load()).rejects.toThrow();
+            expect(deletedFileManager.load()).rejects.toThrow();
         });
 
         it('should handle malformed backend server config', async () => {
             const malformedBackendPath = await createTempConfigFile(invalidBackendConfig);
             const malformedManager = new GroupManager(malformedBackendPath);
 
-            await expect(malformedManager.load()).rejects.toThrow();
+            expect(malformedManager.load()).rejects.toThrow();
         });
     });
 
@@ -97,7 +99,7 @@ describe('Error Handling', () => {
     describe('Backend Server Errors', () => {
         it('should handle non-existent backend server gracefully', () => {
             // Group references server that doesn't exist in backend map
-            const emptyBackendTools = new Map();
+            const emptyBackendTools = new Map<string, Tool[]>();
             const tools = groupManager.getToolsForGroup('test-group', emptyBackendTools);
 
             // Should return empty array, not throw
@@ -125,7 +127,7 @@ describe('Error Handling', () => {
             await failureManager.load();
 
             // Simulate backend server not available
-            const emptyBackend = new Map();
+            const emptyBackend = new Map<string, Tool[]>();
             const tools = failureManager.getToolsForGroup('failure-group', emptyBackend);
 
             expect(tools).toEqual([]);
@@ -142,8 +144,8 @@ describe('Error Handling', () => {
 
             // Should get tools from available server only
             expect(tools.length).toBeGreaterThan(0);
-            expect(tools.find(t => t.name === 'renamed_tool')).toBeDefined();
-            expect(tools.find(t => t.name === 'another_tool')).toBeUndefined();
+            expect(_find(tools, { name: 'renamed_tool' })).toBeDefined();
+            expect(_find(tools, { name: 'another_tool' })).toBeUndefined();
         });
     });
 
@@ -480,7 +482,7 @@ describe('Error Handling', () => {
     describe('Recovery and Resilience', () => {
         it('should recover from transient errors', async () => {
             // First attempt fails
-            const emptyBackend = new Map();
+            const emptyBackend = new Map<string, Tool[]>();
             const tools1 = groupManager.getToolsForGroup('test-group', emptyBackend);
             expect(tools1).toEqual([]);
 
@@ -496,7 +498,7 @@ describe('Error Handling', () => {
 
             // Try to load invalid config (should fail but not crash)
             const invalidManager = new GroupManager('/invalid/path');
-            await expect(invalidManager.load()).rejects.toThrow();
+            expect(invalidManager.load()).rejects.toThrow();
 
             // Original manager should still work
             const group2 = groupManager.getGroup('test-group');

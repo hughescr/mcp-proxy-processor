@@ -2,7 +2,7 @@
  * Test fixtures for MCP Proxy Processor tests
  */
 
-import type { BackendServersConfig, GroupsConfig, GroupConfig, ToolOverride, ResourceOverride } from '../../src/types/config.js';
+import type { BackendServersConfig, GroupsConfig, GroupConfig } from '../../src/types/config.js';
 import type { Tool, Resource } from '@modelcontextprotocol/sdk/types';
 
 // Valid configurations
