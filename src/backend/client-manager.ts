@@ -73,6 +73,9 @@ export class ClientManager {
                     // Propagate silent mode to backend servers
                     ...(process.env.LOG_LEVEL ? { LOG_LEVEL: process.env.LOG_LEVEL } : {}),
                 },
+                // Ignore stderr in admin mode to prevent UI clutter
+                // In serve mode, inherit stderr for debugging
+                stderr: process.env.LOG_LEVEL === 'silent' ? 'ignore' : 'inherit',
             };
 
             // Create transport - this will spawn the process

@@ -9,7 +9,7 @@ import TextInput from 'ink-text-input';
 import _ from 'lodash';
 import type { GroupConfig, ToolOverride } from '../types/config.js';
 import { ToolBrowser } from './ToolBrowser.js';
-import { ToolEditor } from './ToolEditor.js';
+import { EnhancedToolEditor } from './components/EnhancedToolEditor.js';
 
 interface GroupEditorProps {
     groupName: string
@@ -147,8 +147,9 @@ export function GroupEditor({ groupName, group, onSave, onDelete, onCancel }: Gr
     // Tool editor for editing existing tool
     if(mode === 'edit-tool' && editingToolIndex !== null) {
         return (
-            <ToolEditor
+            <EnhancedToolEditor
               tool={currentGroup.tools[editingToolIndex]}
+              groupName={currentGroup.name}
               onSave={tool => handleEditTool(editingToolIndex, tool)}
               onCancel={() => setMode('menu')}
             />
