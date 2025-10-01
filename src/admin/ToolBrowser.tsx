@@ -123,7 +123,7 @@ export function ToolBrowser({ onBack, onSelect }: ToolBrowserProps) {
                     </Text>
                 </Box>
                 <Box marginTop={1}>
-                    <Text dimColor>Press Ctrl+C to go back</Text>
+                    <Text dimColor>Press Esc to go back</Text>
                 </Box>
             </Box>
         );

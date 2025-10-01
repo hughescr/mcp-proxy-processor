@@ -4,6 +4,7 @@
 
 import _ from 'lodash';
 import { describe, it, expect } from 'bun:test';
+import type { StdioServerConfig } from '../src/types/config.js';
 import {
     loadBackendServersFixture,
     loadGroupsFixture,
@@ -42,7 +43,9 @@ describe('Test Infrastructure', () => {
         it('should load specific backend server', async () => {
             const server = await getTestBackendServer('time');
             expect(server).toBeDefined();
-            expect(server.command).toBeDefined();
+            // All test fixtures use stdio transport
+            const stdioServer = server as StdioServerConfig;
+            expect(stdioServer.command).toBeDefined();
         });
 
         it('should throw error for non-existent group', async () => {
@@ -143,14 +146,16 @@ describe('Test Infrastructure', () => {
 
         it('should have time server in backend config', async () => {
             const server = await getTestBackendServer('time');
-            expect(server.command).toBe('uvx');
-            expect(server.args).toContain('mcp-server-time@latest');
+            const stdioServer = server as StdioServerConfig;
+            expect(stdioServer.command).toBe('uvx');
+            expect(stdioServer.args).toContain('mcp-server-time@latest');
         });
 
         it('should have calculator server in backend config', async () => {
             const server = await getTestBackendServer('calculator');
-            expect(server.command).toBe('uvx');
-            expect(server.args).toBeDefined();
+            const stdioServer = server as StdioServerConfig;
+            expect(stdioServer.command).toBe('uvx');
+            expect(stdioServer.args).toBeDefined();
         });
     });
 });

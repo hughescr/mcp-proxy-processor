@@ -69,3 +69,19 @@ export async function loadBackendServersConfig(): Promise<BackendServersConfig> 
         throw new Error(`Failed to load backend servers configuration: ${isError(error) ? error.message : String(error)}`);
     }
 }
+
+/**
+ * Save backend servers configuration to disk
+ */
+export async function saveBackendServersConfig(config: BackendServersConfig): Promise<void> {
+    try {
+        // Validate before saving
+        const validated = BackendServersConfigSchema.parse(config);
+        const content = JSON.stringify(validated, null, 2);
+        await writeFile(BACKEND_SERVERS_CONFIG_PATH, content + '\n', 'utf-8');
+        logger.info({ serverCount: keys(validated.mcpServers).length }, 'Saved backend servers configuration');
+    } catch (error) {
+        logger.error({ error }, 'Failed to save backend servers configuration');
+        throw new Error(`Failed to save backend servers configuration: ${isError(error) ? error.message : String(error)}`);
+    }
+}

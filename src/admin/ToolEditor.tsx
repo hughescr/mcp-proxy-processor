@@ -25,9 +25,18 @@ export function ToolEditor({ tool, onSave, onCancel }: ToolEditorProps) {
     const [currentTool, setCurrentTool] = useState<ToolOverride>(tool);
     const [inputValue, setInputValue] = useState('');
 
-    // Handle Esc and Left Arrow for navigation (only in menu mode)
+    // Handle Esc for navigation - works in all modes
     useInput((input, key) => {
-        if(mode === 'menu' && (key.escape || key.leftArrow)) {
+        if(key.escape) {
+            if(mode === 'menu') {
+                // Esc in menu mode goes back to parent
+                onCancel();
+            } else {
+                // Esc in any input mode cancels and returns to menu
+                setMode('menu');
+            }
+        } else if(mode === 'menu' && key.leftArrow) {
+            // Left arrow also works in menu mode
             onCancel();
         }
     });
@@ -95,7 +104,7 @@ export function ToolEditor({ tool, onSave, onCancel }: ToolEditorProps) {
                       onSubmit={handleNameSubmit}
                     />
                 </Box>
-                <Text dimColor>Press Enter to save, Ctrl+C to cancel</Text>
+                <Text dimColor>Press Enter to save, Esc to cancel</Text>
             </Box>
         );
     }
@@ -113,7 +122,7 @@ export function ToolEditor({ tool, onSave, onCancel }: ToolEditorProps) {
                       onSubmit={handleDescriptionSubmit}
                     />
                 </Box>
-                <Text dimColor>Press Enter to save, Ctrl+C to cancel</Text>
+                <Text dimColor>Press Enter to save, Esc to cancel</Text>
             </Box>
         );
     }

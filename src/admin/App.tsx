@@ -7,8 +7,9 @@ import { Box, Text, useInput } from 'ink';
 import SelectInput from 'ink-select-input';
 import { GroupList } from './GroupList.js';
 import { ToolBrowser } from './ToolBrowser.js';
+import { ServerList } from './ServerList.js';
 
-type Screen = 'main' | 'groups' | 'tools';
+type Screen = 'main' | 'groups' | 'servers' | 'tools';
 
 /**
  * Main app component with navigation between screens
@@ -27,6 +28,7 @@ export function App() {
     // Main menu items
     const mainMenuItems = [
         { label: 'Manage Groups', value: 'groups' },
+        { label: 'Manage Backend Servers', value: 'servers' },
         { label: 'Browse Backend Tools', value: 'tools' },
         { label: 'Exit', value: 'exit' },
     ];
@@ -43,6 +45,10 @@ export function App() {
     // Render current screen
     if(screen === 'groups') {
         return <GroupList onBack={() => setScreen('main')} />;
+    }
+
+    if(screen === 'servers') {
+        return <ServerList onBack={() => setScreen('main')} />;
     }
 
     if(screen === 'tools') {

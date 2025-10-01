@@ -9,8 +9,10 @@ import type {
     BackendServersConfig,
     GroupsConfig,
     GroupConfig,
-    BackendServerConfig
+    BackendServerConfig,
+    StdioServerConfig
 } from '../../src/types/config.js';
+
 import {
     BackendServersConfigSchema,
     GroupsConfigSchema
@@ -77,8 +79,9 @@ export async function getTestBackendServer(serverName: string, filename = 'backe
 
 /**
  * Create a minimal valid backend server config for testing
+ * All test fixtures currently use stdio transport, so this creates a stdio config
  */
-export function createMockBackendServerConfig(overrides: Partial<BackendServerConfig> = {}): BackendServerConfig {
+export function createMockBackendServerConfig(overrides: Partial<StdioServerConfig> = {}): StdioServerConfig {
     return {
         command: '/bin/echo',
         args:    ['test'],

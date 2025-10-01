@@ -99,7 +99,12 @@ export class ServerManager {
      * Supports ${VAR_NAME} syntax
      */
     private substituteEnvVars(config: BackendServersConfig): void {
-        for(const [_serverName, serverConfig] of Object.entries(config.mcpServers)) {
+        for(const [serverName, serverConfig] of Object.entries(config.mcpServers)) {
+            // Only stdio transport is currently supported
+            if('type' in serverConfig) {
+                throw new Error(`Transport type "${serverConfig.type}" is not yet supported for server "${serverName}". Only stdio transport is currently implemented.`);
+            }
+
             // Substitute in command
             serverConfig.command = this.substituteString(serverConfig.command);
 
@@ -110,7 +115,7 @@ export class ServerManager {
 
             // Substitute in env values
             if(serverConfig.env) {
-                for(const [key, value] of Object.entries(serverConfig.env)) {
+                for(const [key, value] of _.toPairs(serverConfig.env)) {
                     serverConfig.env[key] = this.substituteString(value);
                 }
             }
@@ -139,6 +144,11 @@ export class ServerManager {
         if(existingState && !existingState.shuttingDown) {
             logger.warn({ serverName }, 'Server already running, skipping launch');
             return;
+        }
+
+        // Only stdio transport is currently supported
+        if('type' in config) {
+            throw new Error(`Transport type "${config.type}" is not yet supported for server "${serverName}". Only stdio transport is currently implemented.`);
         }
 
         logger.info({ serverName, command: config.command, args: config.args }, 'Launching backend server');

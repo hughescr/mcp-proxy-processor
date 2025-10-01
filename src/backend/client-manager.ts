@@ -53,18 +53,25 @@ export class ClientManager {
         if(!serverConfig) {
             throw new Error(`Server config not found: ${serverName}`);
         }
+        // Only stdio transport is currently supported
+        if('type' in serverConfig) {
+            throw new Error(`Transport type "${serverConfig.type}" is not yet supported for server "${serverName}". Only stdio transport is currently implemented.`);
+        }
 
-        logger.info({ serverName, command: serverConfig.command }, 'Connecting to backend server');
+        // Type guard confirms this is stdio config
+        const stdioConfig = serverConfig;
+
+        logger.info({ serverName, command: stdioConfig.command }, 'Connecting to backend server');
 
         try {
             // StdioClientTransport needs StdioServerParameters
             const serverParams: StdioServerParameters = {
-                command: serverConfig.command,
-                args:    serverConfig.args ?? [],
+                command: stdioConfig.command,
+                args:    stdioConfig.args ?? [],
                 env:     {
-                    ...serverConfig.env,
+                    ...stdioConfig.env,
                     // Propagate silent mode to backend servers
-                    LOG_LEVEL: process.env.LOG_LEVEL ?? serverConfig.env?.LOG_LEVEL,
+                    ...(process.env.LOG_LEVEL ? { LOG_LEVEL: process.env.LOG_LEVEL } : {}),
                 },
             };
 

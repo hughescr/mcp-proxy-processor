@@ -34,9 +34,18 @@ export function GroupEditor({ groupName, group, onSave, onDelete, onCancel }: Gr
 
     const isNewGroup = groupName === '';
 
-    // Handle Esc and Left Arrow for navigation (only in menu mode)
+    // Handle Esc for navigation - works in all modes
     useInput((input, key) => {
-        if(mode === 'menu' && !saving && (key.escape || key.leftArrow)) {
+        if(key.escape) {
+            if(mode === 'menu' && !saving) {
+                // Esc in menu mode goes back to parent
+                onCancel();
+            } else if(mode !== 'menu') {
+                // Esc in any input mode cancels and returns to menu
+                setMode('menu');
+            }
+        } else if(mode === 'menu' && !saving && key.leftArrow) {
+            // Left arrow also works in menu mode
             onCancel();
         }
     });
@@ -159,7 +168,7 @@ export function GroupEditor({ groupName, group, onSave, onDelete, onCancel }: Gr
                       onSubmit={handleNameSubmit}
                     />
                 </Box>
-                <Text dimColor>Press Enter to save, Ctrl+C to cancel</Text>
+                <Text dimColor>Press Enter to save, Esc to cancel</Text>
             </Box>
         );
     }
@@ -177,7 +186,7 @@ export function GroupEditor({ groupName, group, onSave, onDelete, onCancel }: Gr
                       onSubmit={handleDescriptionSubmit}
                     />
                 </Box>
-                <Text dimColor>Press Enter to save, Ctrl+C to cancel</Text>
+                <Text dimColor>Press Enter to save, Esc to cancel</Text>
             </Box>
         );
     }

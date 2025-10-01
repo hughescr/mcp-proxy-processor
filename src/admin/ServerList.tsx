@@ -1,28 +1,38 @@
 /**
- * Group List Component - Display and manage groups
+ * Server List Component - Display and manage backend MCP servers
  */
 
 import React, { useState, useEffect } from 'react';
 import { Box, Text, useInput } from 'ink';
 import SelectInput from 'ink-select-input';
 import { isError, keys, chain, repeat } from 'lodash';
-import type { GroupConfig } from '../types/config.js';
-import { loadGroupsConfig, saveGroupsConfig } from './config-utils.js';
-import { GroupEditor } from './GroupEditor.js';
+import type { BackendServerConfig } from '../types/config.js';
+import { loadBackendServersConfig, saveBackendServersConfig } from './config-utils.js';
+import { ServerEditor } from './ServerEditor.js';
 
-interface GroupListProps {
+interface ServerListProps {
     onBack: () => void
 }
 
 type View = 'list' | 'edit' | 'create';
 
 /**
- * Group list and management screen
+ * Get a human-readable description of server transport type
  */
-export function GroupList({ onBack }: GroupListProps) {
+function getTransportDescription(config: BackendServerConfig): string {
+    if('type' in config) {
+        return config.type === 'streamable-http' ? 'HTTP' : 'SSE';
+    }
+    return 'stdio';
+}
+
+/**
+ * Server list and management screen
+ */
+export function ServerList({ onBack }: ServerListProps) {
     const [view, setView] = useState<View>('list');
-    const [groups, setGroups] = useState<Record<string, GroupConfig>>({});
-    const [selectedGroupName, setSelectedGroupName] = useState<string | null>(null);
+    const [servers, setServers] = useState<Record<string, BackendServerConfig>>({});
+    const [selectedServerName, setSelectedServerName] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -33,12 +43,12 @@ export function GroupList({ onBack }: GroupListProps) {
         }
     });
 
-    // Load groups on mount
+    // Load servers on mount
     useEffect(() => {
         void (async () => {
             try {
-                const config = await loadGroupsConfig();
-                setGroups(config.groups);
+                const config = await loadBackendServersConfig();
+                setServers(config.mcpServers);
                 setLoading(false);
             } catch (err) {
                 setError(isError(err) ? err.message : String(err));
@@ -47,23 +57,23 @@ export function GroupList({ onBack }: GroupListProps) {
         })();
     }, []);
 
-    const handleGroupSelect = (item: { value: string }) => {
+    const handleServerSelect = (item: { value: string }) => {
         if(item.value === 'back') {
             onBack();
         } else if(item.value === 'create') {
-            setSelectedGroupName(null);
+            setSelectedServerName(null);
             setView('create');
         } else {
-            setSelectedGroupName(item.value);
+            setSelectedServerName(item.value);
             setView('edit');
         }
     };
 
-    const handleSaveGroup = async (groupName: string, group: GroupConfig) => {
+    const handleSaveServer = async (serverName: string, server: BackendServerConfig) => {
         try {
-            const newGroups = { ...groups, [groupName]: group };
-            await saveGroupsConfig({ groups: newGroups });
-            setGroups(newGroups);
+            const newServers = { ...servers, [serverName]: server };
+            await saveBackendServersConfig({ mcpServers: newServers });
+            setServers(newServers);
             setView('list');
             setError(null);
         } catch (err) {
@@ -71,12 +81,12 @@ export function GroupList({ onBack }: GroupListProps) {
         }
     };
 
-    const handleDeleteGroup = async (groupName: string) => {
+    const handleDeleteServer = async (serverName: string) => {
         try {
-            const newGroups = { ...groups };
-            delete newGroups[groupName];
-            await saveGroupsConfig({ groups: newGroups });
-            setGroups(newGroups);
+            const newServers = { ...servers };
+            delete newServers[serverName];
+            await saveBackendServersConfig({ mcpServers: newServers });
+            setServers(newServers);
             setView('list');
             setError(null);
         } catch (err) {
@@ -86,35 +96,30 @@ export function GroupList({ onBack }: GroupListProps) {
 
     const handleCancel = () => {
         setView('list');
-        setSelectedGroupName(null);
+        setSelectedServerName(null);
     };
 
-    // Show group editor
-    if(view === 'edit' && selectedGroupName) {
+    // Show server editor
+    if(view === 'edit' && selectedServerName) {
         return (
-            <GroupEditor
-              groupName={selectedGroupName}
-              group={groups[selectedGroupName]}
-              onSave={handleSaveGroup}
-              onDelete={handleDeleteGroup}
+            <ServerEditor
+              serverName={selectedServerName}
+              server={servers[selectedServerName]}
+              onSave={handleSaveServer}
+              onDelete={handleDeleteServer}
               onCancel={handleCancel}
             />
         );
     }
 
-    // Show group creator
+    // Show server creator
     if(view === 'create') {
         return (
-            <GroupEditor
-              groupName=""
-              group={{
-                    name:        '',
-                    description: '',
-                    tools:       [],
-                    resources:   [],
-                }}
-              onSave={handleSaveGroup}
-              onDelete={async () => { /* noop for new group */ }}
+            <ServerEditor
+              serverName=""
+              server={{ command: '', args: [], env: {} }}
+              onSave={handleSaveServer}
+              onDelete={async () => { /* noop for new server */ }}
               onCancel={handleCancel}
             />
         );
@@ -124,7 +129,7 @@ export function GroupList({ onBack }: GroupListProps) {
     if(loading) {
         return (
             <Box padding={1}>
-                <Text>Loading groups...</Text>
+                <Text>Loading backend servers...</Text>
             </Box>
         );
     }
@@ -144,15 +149,15 @@ export function GroupList({ onBack }: GroupListProps) {
 
     // Build menu items
     const menuItems = [
-        ...chain(groups)
+        ...chain(servers)
             .keys()
             .map(name => ({
-                label: `${name} (${groups[name].tools.length} tools)`,
+                label: `${name} (${getTransportDescription(servers[name])})`,
                 value: name,
             }))
             .value(),
         { label: repeat('─', 40), value: 'separator', isDisabled: true },
-        { label: '+ Create New Group', value: 'create' },
+        { label: '+ Create New Server', value: 'create' },
         { label: '← Back', value: 'back' },
     ];
 
@@ -160,17 +165,17 @@ export function GroupList({ onBack }: GroupListProps) {
         <Box flexDirection="column" padding={1}>
             <Box marginBottom={1}>
                 <Text bold color="cyan">
-                    Group Management
+                    Backend Server Management
                 </Text>
             </Box>
             <Box marginBottom={1}>
                 <Text dimColor>
-                    {keys(groups).length === 0
-                        ? 'No groups configured. Create a new group to get started.'
-                        : 'Select a group to edit, or create a new one:'}
+                    {keys(servers).length === 0
+                        ? 'No backend servers configured. Create a new server to get started.'
+                        : 'Select a server to edit, or create a new one:'}
                 </Text>
             </Box>
-            <SelectInput items={menuItems} onSelect={handleGroupSelect} />
+            <SelectInput items={menuItems} onSelect={handleServerSelect} />
         </Box>
     );
 }

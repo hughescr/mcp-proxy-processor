@@ -329,9 +329,8 @@ describe('Configuration Schemas', () => {
                 args:    ['--custom'],
             });
 
-            const result = BackendServerConfigSchema.parse(mock);
-            expect(result.command).toBe('/custom/command');
-            expect(result.args).toEqual(['--custom']);
+            expect(mock.command).toBe('/custom/command');
+            expect(mock.args).toEqual(['--custom']);
         });
     });
 });

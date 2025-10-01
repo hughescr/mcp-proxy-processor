@@ -21,7 +21,7 @@ import { App } from './App.js';
 export async function runAdmin(): Promise<void> {
     // Silence stderr to prevent backend server logs from polluting the UI
     const originalStderrWrite = process.stderr.write.bind(process.stderr);
-    // @ts-expect-error -- Temporarily override stderr.write to suppress logs
+    // Override stderr.write to suppress logs during admin UI
     process.stderr.write = constant(true) as typeof process.stderr.write;
 
     // Render the Ink app

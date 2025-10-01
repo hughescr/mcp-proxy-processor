@@ -6,17 +6,44 @@ import { z } from 'zod';
 
 /**
  * Backend MCP server configuration (compatible with Claude Desktop's mcp.json format)
+ * Supports multiple transport types: stdio, streamable-http, and sse (legacy)
  */
-export const BackendServerConfigSchema = z.object({
+
+// STDIO transport configuration (default/legacy format)
+export const StdioServerConfigSchema = z.object({
     command: z.string(),
     args:    z.array(z.string()).optional(),
     env:     z.record(z.string(), z.string()).optional(),
+    cwd:     z.string().optional(),
 });
+
+// Streamable HTTP transport configuration
+export const StreamableHttpServerConfigSchema = z.object({
+    type:    z.literal('streamable-http'),
+    url:     z.string().url(),
+    headers: z.record(z.string(), z.string()).optional(),
+});
+
+// SSE (Server-Sent Events) transport configuration - legacy, deprecated
+export const SseServerConfigSchema = z.object({
+    type:    z.literal('sse'),
+    url:     z.string().url(),
+    headers: z.record(z.string(), z.string()).optional(),
+});
+
+// Union of all transport types
+export const BackendServerConfigSchema = z.discriminatedUnion('type', [
+    StreamableHttpServerConfigSchema,
+    SseServerConfigSchema,
+]).or(StdioServerConfigSchema); // stdio is default if no type field
 
 export const BackendServersConfigSchema = z.object({
     mcpServers: z.record(z.string(), BackendServerConfigSchema),
 });
 
+export type StdioServerConfig = z.infer<typeof StdioServerConfigSchema>;
+export type StreamableHttpServerConfig = z.infer<typeof StreamableHttpServerConfigSchema>;
+export type SseServerConfig = z.infer<typeof SseServerConfigSchema>;
 export type BackendServerConfig = z.infer<typeof BackendServerConfigSchema>;
 export type BackendServersConfig = z.infer<typeof BackendServersConfigSchema>;
 
