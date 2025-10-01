@@ -57,14 +57,15 @@ export function ServerEditor({ serverName, server, onSave, onDelete, onCancel }:
     const isNewServer = serverName === '';
     const transportType = getTransportType(currentServer);
 
-    // Handle Esc for navigation - works in all modes
+    // Handle Esc for navigation - works in all modes except edit-env
     useInput((input, key) => {
         if(key.escape) {
             if(mode === 'menu' && !saving) {
                 // Esc in menu mode goes back to parent
                 onCancel();
-            } else if(mode !== 'menu') {
-                // Esc in any input mode cancels and returns to menu
+            } else if(mode !== 'menu' && mode !== 'edit-env') {
+                // Esc in any input mode (except edit-env) cancels and returns to menu
+                // edit-env has its own input handler
                 setMode('menu');
             }
         } else if(mode === 'menu' && !saving && key.leftArrow) {
