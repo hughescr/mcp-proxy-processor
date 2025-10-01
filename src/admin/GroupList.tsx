@@ -4,7 +4,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Box, Text, useInput } from 'ink';
-import SelectInput from 'ink-select-input';
+import { EnhancedSelectInput } from 'ink-enhanced-select-input';
 import { isError, keys, chain, repeat } from 'lodash';
 import type { GroupConfig } from '../types/config.js';
 import { loadGroupsConfig, saveGroupsConfig } from './config-utils.js';
@@ -143,7 +143,7 @@ export function GroupList({ onBack }: GroupListProps) {
     }
 
     // Build menu items
-    const menuItems = [
+    const menuItems: { label: string, value: string, disabled?: boolean }[] = [
         ...chain(groups)
             .keys()
             .map(name => ({
@@ -151,7 +151,7 @@ export function GroupList({ onBack }: GroupListProps) {
                 value: name,
             }))
             .value(),
-        { label: repeat('─', 40), value: 'separator', isDisabled: true },
+        { label: repeat('─', 40), value: 'sep1', disabled: true },
         { label: '+ Create New Group', value: 'create' },
         { label: '← Back', value: 'back' },
     ];
@@ -170,7 +170,7 @@ export function GroupList({ onBack }: GroupListProps) {
                         : 'Select a group to edit, or create a new one:'}
                 </Text>
             </Box>
-            <SelectInput items={menuItems} onSelect={handleGroupSelect} />
+            <EnhancedSelectInput items={menuItems} onSelect={handleGroupSelect} />
         </Box>
     );
 }

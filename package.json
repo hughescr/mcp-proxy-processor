@@ -19,11 +19,14 @@
     "test": "bun test",
     "postversion": "git commit -m \"Bump package version to $npm_package_version\" package.json; git flow release start $npm_package_version; git flow release finish -m $npm_package_version $npm_package_version; git checkout develop; git merge master"
   },
+  "resolutions": {
+    "ink-enhanced-select-input/react": "^19.1.1"
+  },
   "dependencies": {
     "@hughescr/logger": "^2.6.0",
     "@modelcontextprotocol/sdk": "^1.18.2",
     "ink": "^6.3.1",
-    "ink-select-input": "^6.2.0",
+    "ink-enhanced-select-input": "^0.2.0",
     "ink-text-input": "^6.0.0",
     "lodash": "^4.17.21",
     "react": "^19.1.1",

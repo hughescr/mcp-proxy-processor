@@ -4,7 +4,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Box, Text, useStdout, useInput } from 'ink';
-import SelectInput from 'ink-select-input';
+import { EnhancedSelectInput } from 'ink-enhanced-select-input';
 import { isError, map, repeat, replace, trim } from 'lodash';
 import type { Tool } from '@modelcontextprotocol/sdk/types';
 import type { ToolOverride } from '../types/config.js';
@@ -157,7 +157,8 @@ export function ToolBrowser({ onBack, onSelect }: ToolBrowserProps) {
         return <Text>{label}</Text>;
     };
     // Build menu items with enhanced formatting and dynamic truncation
-    const menuItems = map(tools, (toolItem, index) => {
+    // Build menu items with enhanced formatting and dynamic truncation
+    const menuItems: { label: string, value: string, disabled?: boolean }[] = map(tools, (toolItem, index) => {
         // Clean description: remove newlines, collapse spaces
         const cleanDesc = trim(replace(replace(toolItem.tool.description ?? '', /[\r\n]+/g, ' '), /\s+/g, ' '));
 
@@ -180,8 +181,9 @@ export function ToolBrowser({ onBack, onSelect }: ToolBrowserProps) {
 
     menuItems.push(
         {
-            label: repeat('\u2500', Math.min(40, terminalWidth - 5)),
-            value: 'separator',
+            label:    repeat('\u2500', Math.min(40, terminalWidth - 5)),
+            value:    'sep1',
+            disabled: true,
         },
         {
             label: '\u2190 Back',
@@ -203,7 +205,7 @@ export function ToolBrowser({ onBack, onSelect }: ToolBrowserProps) {
                         : `Found ${tools.length} tools. Select a tool to add to the group:`}
                 </Text>
             </Box>
-            <SelectInput items={menuItems} onSelect={handleToolSelect} itemComponent={ToolItemComponent} limit={15} />
+            <EnhancedSelectInput items={menuItems} onSelect={handleToolSelect} itemComponent={ToolItemComponent} limit={15} />
         </Box>
     );
 }

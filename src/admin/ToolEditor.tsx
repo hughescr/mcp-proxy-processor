@@ -4,7 +4,7 @@
 
 import React, { useState } from 'react';
 import { Box, Text, useInput } from 'ink';
-import SelectInput from 'ink-select-input';
+import { EnhancedSelectInput } from 'ink-enhanced-select-input';
 import TextInput from 'ink-text-input';
 import { trim, repeat } from 'lodash';
 import type { ToolOverride } from '../types/config.js';
@@ -145,18 +145,19 @@ export function ToolEditor({ tool, onSave, onCancel }: ToolEditorProps) {
     }
 
     // Build menu items
-    const menuItems = [
+    // Build menu items
+    const menuItems: { label: string, value: string, disabled?: boolean }[] = [
         {
-            label:      `Server: ${currentTool.serverName}`,
-            value:      'server-info',
-            isDisabled: true,
+            label:    `Server: ${currentTool.serverName}`,
+            value:    'server-info',
+            disabled: true,
         },
         {
-            label:      `Original Name: ${currentTool.originalName}`,
-            value:      'original-name-info',
-            isDisabled: true,
+            label:    `Original Name: ${currentTool.originalName}`,
+            value:    'original-name-info',
+            disabled: true,
         },
-        { label: repeat('─', 40), value: 'separator1', isDisabled: true },
+        { label: repeat('─', 40), value: 'sep1', disabled: true },
         {
             label: `Name Override: ${currentTool.name ?? '(using original)'}`,
             value: 'edit-name',
@@ -186,7 +187,7 @@ export function ToolEditor({ tool, onSave, onCancel }: ToolEditorProps) {
     }
 
     menuItems.push(
-        { label: repeat('─', 40), value: 'separator2', isDisabled: true },
+        { label: repeat('─', 40), value: 'sep2', disabled: true },
         { label: '💾 Save Tool', value: 'save' },
         { label: '← Cancel', value: 'cancel' }
     );
@@ -200,7 +201,7 @@ export function ToolEditor({ tool, onSave, onCancel }: ToolEditorProps) {
                     {currentTool.name ?? currentTool.originalName}
                 </Text>
             </Box>
-            <SelectInput items={menuItems} onSelect={handleMenuSelect} />
+            <EnhancedSelectInput items={menuItems} onSelect={handleMenuSelect} />
         </Box>
     );
 }

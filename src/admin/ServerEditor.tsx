@@ -4,11 +4,12 @@
 
 import React, { useState } from 'react';
 import { Box, Text, useInput } from 'ink';
-import SelectInput from 'ink-select-input';
+import { EnhancedSelectInput } from 'ink-enhanced-select-input';
 import TextInput from 'ink-text-input';
 import _ from 'lodash';
 import type { BackendServerConfig, StdioServerConfig, StreamableHttpServerConfig, SseServerConfig } from '../types/config.js';
 import { BackendServerConfigSchema } from '../types/config.js';
+import { EnvVarEditor } from './EnvVarEditor.js';
 
 interface ServerEditorProps {
     serverName: string
@@ -149,8 +150,6 @@ export function ServerEditor({ serverName, server, onSave, onDelete, onCancel }:
             }
             setMode('edit-command-line');
         } else if(value === 'edit-env') {
-            const env = 'env' in currentServer && currentServer.env ? currentServer.env : {};
-            setInputValue(_(env).toPairs().map(([k, v]) => `${k}=${v}`).join('\n'));
             setMode('edit-env');
         } else if(value === 'edit-cwd') {
             setInputValue('cwd' in currentServer && currentServer.cwd ? currentServer.cwd : '');
@@ -274,19 +273,7 @@ export function ServerEditor({ serverName, server, onSave, onDelete, onCancel }:
         setMode('menu');
     };
 
-    const handleEnvSubmit = (value: string) => {
-        const env: Record<string, string> = {};
-        const trimmed = _.trim(value);
-        if(trimmed) {
-            _.forEach(_.split(trimmed, '\n'), (line) => {
-                const parts = _.split(line, '=');
-                const key = _.head(parts);
-                const valueParts = _.tail(parts);
-                if(key && valueParts.length > 0) {
-                    env[_.trim(key)] = _.trim(_.join(valueParts, '='));
-                }
-            });
-        }
+    const handleEnvSave = (env: Record<string, string>) => {
         if('env' in currentServer || !('type' in currentServer)) {
             setCurrentServer({ ...currentServer, env });
         }
@@ -368,7 +355,7 @@ export function ServerEditor({ serverName, server, onSave, onDelete, onCancel }:
             <Box flexDirection="column" padding={1}>
                 <Text bold>Select Transport Type</Text>
                 <Box marginTop={1}>
-                    <SelectInput items={transportItems} onSelect={handleTransportSelect} />
+                    <EnhancedSelectInput items={transportItems} onSelect={handleTransportSelect} />
                 </Box>
             </Box>
         );
@@ -414,21 +401,15 @@ export function ServerEditor({ serverName, server, onSave, onDelete, onCancel }:
         );
     }
 
-    // Env input (stdio)
+    // Env editor (stdio)
     if(mode === 'edit-env') {
+        const env = 'env' in currentServer && currentServer.env ? currentServer.env : {};
         return (
-            <Box flexDirection="column" padding={1}>
-                <Text bold>Edit Environment Variables</Text>
-                <Box marginTop={1}>
-                    <Text>Environment (KEY=VALUE, one per line): </Text>
-                    <TextInput
-                      value={inputValue}
-                      onChange={setInputValue}
-                      onSubmit={handleEnvSubmit}
-                    />
-                </Box>
-                <Text dimColor>Press Enter to save, Esc to cancel</Text>
-            </Box>
+            <EnvVarEditor
+              env={env}
+              onSave={handleEnvSave}
+              onCancel={() => setMode('menu')}
+            />
         );
     }
 
@@ -521,10 +502,9 @@ export function ServerEditor({ serverName, server, onSave, onDelete, onCancel }:
     }
 
     // Build menu items based on transport type
-    const menuItems: { label: string, value: string, isDisabled?: boolean }[] = [
+    const menuItems: { label: string, value: string, disabled?: boolean }[] = [
         { label: `Server Name: ${currentServerName || '(not set)'}`, value: 'edit-name' },
         { label: `Transport Type: ${transportType}`, value: 'edit-transport' },
-        { label: _.repeat('─', 40), value: 'separator1', isDisabled: true },
     ];
 
     if(transportType === 'stdio') {
@@ -566,9 +546,8 @@ export function ServerEditor({ serverName, server, onSave, onDelete, onCancel }:
     }
 
     menuItems.push(
-        { label: _.repeat('─', 40), value: 'separator2', isDisabled: true },
+        { label: '───────────────────', value: 'sep1', disabled: true },
         { label: '📋 Edit as JSON', value: 'edit-json' },
-        { label: _.repeat('─', 40), value: 'separator3', isDisabled: true },
         { label: '💾 Save Server', value: 'save' }
     );
 
@@ -593,7 +572,7 @@ export function ServerEditor({ serverName, server, onSave, onDelete, onCancel }:
                     </Text>
                 </Box>
             )}
-            <SelectInput items={menuItems} onSelect={handleMenuSelect} />
+            <EnhancedSelectInput items={menuItems} onSelect={handleMenuSelect} />
         </Box>
     );
 }

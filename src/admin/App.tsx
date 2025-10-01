@@ -4,7 +4,7 @@
 
 import React, { useState } from 'react';
 import { Box, Text, useInput } from 'ink';
-import SelectInput from 'ink-select-input';
+import { EnhancedSelectInput } from 'ink-enhanced-select-input';
 import { GroupList } from './GroupList.js';
 import { ToolBrowser } from './ToolBrowser.js';
 import { ServerList } from './ServerList.js';
@@ -26,10 +26,11 @@ export function App() {
     });
 
     // Main menu items
-    const mainMenuItems = [
+    const mainMenuItems: { label: string, value: string, disabled?: boolean }[] = [
         { label: 'Manage Groups', value: 'groups' },
         { label: 'Manage Backend Servers', value: 'servers' },
         { label: 'Browse Backend Tools', value: 'tools' },
+        { label: '───────────────────', value: 'sep1', disabled: true },
         { label: 'Exit', value: 'exit' },
     ];
 
@@ -66,7 +67,7 @@ export function App() {
             <Box marginBottom={1}>
                 <Text dimColor>Select an option:</Text>
             </Box>
-            <SelectInput items={mainMenuItems} onSelect={handleMainMenuSelect} />
+            <EnhancedSelectInput items={mainMenuItems} onSelect={handleMainMenuSelect} />
         </Box>
     );
 }

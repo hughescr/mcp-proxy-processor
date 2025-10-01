@@ -4,7 +4,7 @@
 
 import React, { useState } from 'react';
 import { Box, Text, useInput } from 'ink';
-import SelectInput from 'ink-select-input';
+import { EnhancedSelectInput } from 'ink-enhanced-select-input';
 import TextInput from 'ink-text-input';
 import _ from 'lodash';
 import type { GroupConfig, ToolOverride } from '../types/config.js';
@@ -201,17 +201,17 @@ export function GroupEditor({ groupName, group, onSave, onDelete, onCancel }: Gr
     }
 
     // Build menu items
-    const menuItems = [
+    const menuItems: { label: string, value: string, disabled?: boolean }[] = [
         { label: `Name: ${currentGroup.name ?? '(not set)'}`, value: 'edit-name' },
         { label: `Description: ${currentGroup.description ?? '(none)'}`, value: 'edit-description' },
-        { label: _.repeat('─', 40), value: 'separator1', isDisabled: true },
-        { label: `Tools (${currentGroup.tools.length}):`, value: 'tools-header', isDisabled: true },
+        { label: _.repeat('─', 40), value: 'sep1', disabled: true },
+        { label: `Tools (${currentGroup.tools.length}):`, value: 'tools-header', disabled: true },
         ..._.map(currentGroup.tools, (tool, index) => ({
             label: `  ${tool.name ?? tool.originalName} (${tool.serverName})`,
             value: `edit-tool-${index}`,
         })),
         { label: '+ Add Tool', value: 'add-tool' },
-        { label: _.repeat('─', 40), value: 'separator2', isDisabled: true },
+        { label: _.repeat('─', 40), value: 'sep2', disabled: true },
         { label: '💾 Save Group', value: 'save' },
     ];
 
@@ -220,7 +220,6 @@ export function GroupEditor({ groupName, group, onSave, onDelete, onCancel }: Gr
     }
 
     menuItems.push({ label: '← Cancel', value: 'cancel' });
-
     return (
         <Box flexDirection="column" padding={1}>
             <Box marginBottom={1}>
@@ -236,7 +235,7 @@ export function GroupEditor({ groupName, group, onSave, onDelete, onCancel }: Gr
                     </Text>
                 </Box>
             )}
-            <SelectInput items={menuItems} onSelect={handleMenuSelect} />
+            <EnhancedSelectInput items={menuItems} onSelect={handleMenuSelect} />
         </Box>
     );
 }

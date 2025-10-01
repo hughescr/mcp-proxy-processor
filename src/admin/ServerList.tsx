@@ -4,8 +4,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { Box, Text, useInput } from 'ink';
-import SelectInput from 'ink-select-input';
-import { isError, keys, chain, repeat } from 'lodash';
+import { EnhancedSelectInput } from 'ink-enhanced-select-input';
+import { isError, keys, chain } from 'lodash';
 import type { BackendServerConfig } from '../types/config.js';
 import { loadBackendServersConfig, saveBackendServersConfig } from './config-utils.js';
 import { ServerEditor } from './ServerEditor.js';
@@ -147,16 +147,18 @@ export function ServerList({ onBack }: ServerListProps) {
         );
     }
 
-    // Build menu items
+    // Build menu items with separators
+    const serverItems = chain(servers)
+        .keys()
+        .map(name => ({
+            label: `${name} (${getTransportDescription(servers[name])})`,
+            value: name,
+        }))
+        .value();
+
     const menuItems = [
-        ...chain(servers)
-            .keys()
-            .map(name => ({
-                label: `${name} (${getTransportDescription(servers[name])})`,
-                value: name,
-            }))
-            .value(),
-        { label: repeat('─', 40), value: 'separator', isDisabled: true },
+        ...serverItems,
+        ...(serverItems.length > 0 ? [{ label: '───────────────────', value: 'sep1', disabled: true }] : []),
         { label: '+ Create New Server', value: 'create' },
         { label: '← Back', value: 'back' },
     ];
@@ -175,7 +177,7 @@ export function ServerList({ onBack }: ServerListProps) {
                         : 'Select a server to edit, or create a new one:'}
                 </Text>
             </Box>
-            <SelectInput items={menuItems} onSelect={handleServerSelect} />
+            <EnhancedSelectInput items={menuItems} onSelect={handleServerSelect} />
         </Box>
     );
 }
