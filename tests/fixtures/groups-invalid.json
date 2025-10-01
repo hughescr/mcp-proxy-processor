@@ -1,0 +1,21 @@
+{
+  "groups": {
+    "missing_server": {
+      "name": "missing_server",
+      "description": "Group referencing a non-existent backend server",
+      "tools": [
+        {
+          "serverName": "nonexistent",
+          "originalName": "some_tool"
+        }
+      ],
+      "resources": []
+    },
+    "empty_tools": {
+      "name": "empty_tools",
+      "description": "Group with no tools",
+      "tools": [],
+      "resources": []
+    }
+  }
+}

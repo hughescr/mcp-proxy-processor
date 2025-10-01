@@ -1,0 +1,92 @@
+{
+  "groups": {
+    "minimal": {
+      "name": "minimal",
+      "description": "Minimal test group with single tool",
+      "tools": [
+        {
+          "serverName": "time",
+          "originalName": "get_current_time"
+        }
+      ],
+      "resources": []
+    },
+    "basic": {
+      "name": "basic",
+      "description": "Basic test group with multiple tools from different servers",
+      "tools": [
+        {
+          "serverName": "time",
+          "originalName": "get_current_time"
+        },
+        {
+          "serverName": "calculator",
+          "originalName": "calculate"
+        }
+      ],
+      "resources": []
+    },
+    "with_overrides": {
+      "name": "with_overrides",
+      "description": "Test group with tool name and description overrides",
+      "tools": [
+        {
+          "serverName": "time",
+          "originalName": "get_current_time",
+          "name": "current_time",
+          "description": "Get the current time in UTC - this description is overridden"
+        },
+        {
+          "serverName": "calculator",
+          "originalName": "calculate",
+          "description": "Perform mathematical calculations - this is an override description"
+        },
+        {
+          "serverName": "calculator",
+          "originalName": "solve",
+          "name": "solve_equation",
+          "description": "Solve algebraic equations for a variable - both name and description overridden"
+        }
+      ],
+      "resources": []
+    },
+    "duplicate_tools": {
+      "name": "duplicate_tools",
+      "description": "Test group with same tool exposed under different names",
+      "tools": [
+        {
+          "serverName": "calculator",
+          "originalName": "calculate",
+          "name": "math_calc"
+        },
+        {
+          "serverName": "calculator",
+          "originalName": "calculate",
+          "name": "simple_math"
+        }
+      ],
+      "resources": []
+    },
+    "schema_override": {
+      "name": "schema_override",
+      "description": "Test group with input schema override",
+      "tools": [
+        {
+          "serverName": "calculator",
+          "originalName": "calculate",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "expression": {
+                "type": "string",
+                "description": "Overridden schema description"
+              }
+            },
+            "required": ["expression"]
+          }
+        }
+      ],
+      "resources": []
+    }
+  }
+}

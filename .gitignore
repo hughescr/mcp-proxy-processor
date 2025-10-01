@@ -40,3 +40,4 @@ lerna-debug.log*
 # Runtime config (user's actual configs, not examples)
 config/backend-servers.json
 config/groups.json
+.eslintcache

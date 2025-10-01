@@ -32,6 +32,13 @@ You can create multiple groups for different purposes:
 
 ## Installation
 
+### Prerequisites
+
+- [Bun](https://bun.sh/) (v1.0 or later)
+- Node.js 24.x or later
+
+### Install from Source
+
 ```bash
 # Clone the repository
 git clone https://github.com/hughescr/mcp-proxy-processor.git
@@ -42,7 +49,12 @@ bun install
 
 # Build the project
 bun run build
+
+# Make the CLI available globally (optional)
+bun link
 ```
+
+After linking, you can use `mcp-proxy` command from anywhere. Otherwise, use `bun run dev` for development.
 
 ## Quick Start
 
@@ -73,13 +85,30 @@ Edit `config/backend-servers.json` to define your backend MCP servers (uses Clau
 
 ### 2. Configure Groups
 
-Use the admin interface to create groups:
+#### Option A: Using the Admin Interface (Recommended)
+
+Launch the interactive admin interface to discover and configure tools:
 
 ```bash
 bun run dev --admin
 ```
 
-Or copy and edit the example:
+The admin interface lets you:
+1. **Discover Tools**: Connect to backend servers and see all available tools
+2. **Create Groups**: Create new groups for different purposes
+3. **Add Tools**: Add tools to groups by selecting from available backend tools
+4. **Override Definitions**: Improve tool names and descriptions
+5. **Save**: Write configuration to `config/groups.json`
+
+**Admin Interface Workflow:**
+- Use arrow keys to navigate menus
+- Press Enter to select options
+- Type to enter text in prompts
+- Press Ctrl+C to exit at any time
+
+#### Option B: Manual Configuration
+
+Copy and edit the example:
 
 ```bash
 cp config/groups.example.json config/groups.json
@@ -96,7 +125,7 @@ Edit `config/groups.json` to define your tool groups:
       "tools": [
         {
           "serverName": "time",
-          "originalName": "current_time"
+          "originalName": "get_current_time"
         },
         {
           "serverName": "calculator",
@@ -104,8 +133,8 @@ Edit `config/groups.json` to define your tool groups:
         },
         {
           "serverName": "calculator",
-          "originalName": "solve_equation",
-          "description": "Solve algebraic equations. Provide the equation as a string (e.g., '2x + 5 = 13') and this tool will solve for the variable."
+          "originalName": "solve",
+          "description": "Solve algebraic equations for a variable. Provide the equation as a string with one variable (e.g., '2*x + 5 = 13' or 'y^2 - 4 = 0'). This override fixes the confusing original description."
         }
       ],
       "resources": []
@@ -223,6 +252,215 @@ Use this to:
 - Override tool definitions
 - Save configurations
 
+## Real-World Usage Examples
+
+### Example 1: Financial Analysis Toolkit
+
+Create a focused group for financial analysis that includes Excel, calculator, web search, and browser tools:
+
+**Backend servers needed:**
+```json
+{
+  "mcpServers": {
+    "calculator": {
+      "command": "uvx",
+      "args": ["--from", "calculator-mcp-server", "--", "calculator-mcp-server", "--stdio"]
+    },
+    "excel": {
+      "command": "bunx",
+      "args": ["--bun", "@negokaz/excel-mcp-server@latest"],
+      "env": {
+        "EXCEL_MCP_PAGING_CELLS_LIMIT": "4000"
+      }
+    },
+    "search": {
+      "command": "bunx",
+      "args": ["--bun", "mcp-omnisearch@latest"],
+      "env": {
+        "BRAVE_API_KEY": "your-api-key-here"
+      }
+    },
+    "browser": {
+      "command": "bunx",
+      "args": ["--bun", "@playwright/mcp@latest"]
+    }
+  }
+}
+```
+
+**Group configuration:**
+```json
+{
+  "groups": {
+    "financial_tools": {
+      "name": "financial_tools",
+      "description": "Tools for financial analysis including Excel, calculator, web search, and browser automation",
+      "tools": [
+        {
+          "serverName": "calculator",
+          "originalName": "calculate"
+        },
+        {
+          "serverName": "calculator",
+          "originalName": "statistics"
+        },
+        {
+          "serverName": "excel",
+          "originalName": "read_workbook"
+        },
+        {
+          "serverName": "excel",
+          "originalName": "write_workbook"
+        },
+        {
+          "serverName": "search",
+          "originalName": "brave_web_search",
+          "description": "Search the web for financial information, SEC filings, market data, and company information. Returns titles, URLs, and snippets."
+        },
+        {
+          "serverName": "browser",
+          "originalName": "browser_navigate"
+        },
+        {
+          "serverName": "browser",
+          "originalName": "browser_snapshot"
+        }
+      ],
+      "resources": []
+    }
+  }
+}
+```
+
+**Usage in Claude Desktop:**
+```json
+{
+  "mcpServers": {
+    "financial_tools": {
+      "command": "mcp-proxy",
+      "args": ["--serve", "financial_tools"]
+    }
+  }
+}
+```
+
+Now when Claude analyzes financial data, it only sees 7 focused tools instead of 30+ tools from all four backend servers.
+
+### Example 2: Research Assistant
+
+Create a research-focused group with web search and browser automation:
+
+```json
+{
+  "groups": {
+    "research_tools": {
+      "name": "research_tools",
+      "description": "Tools for web research, AI-powered search, and browser automation",
+      "tools": [
+        {
+          "serverName": "search",
+          "originalName": "brave_web_search"
+        },
+        {
+          "serverName": "search",
+          "originalName": "perplexity_search",
+          "description": "AI-powered search with reasoning. Use this for complex research questions that require synthesis across multiple sources."
+        },
+        {
+          "serverName": "browser",
+          "originalName": "browser_navigate"
+        },
+        {
+          "serverName": "browser",
+          "originalName": "browser_snapshot"
+        },
+        {
+          "serverName": "browser",
+          "originalName": "browser_click"
+        },
+        {
+          "serverName": "time",
+          "originalName": "get_current_time",
+          "description": "Get the current time in any timezone. Useful for timestamping research findings."
+        }
+      ],
+      "resources": []
+    }
+  }
+}
+```
+
+### Example 3: Fixing Confusing Tool Descriptions
+
+Some backend servers have unclear tool descriptions. Override them to help your AI agent:
+
+**Original tool (confusing):**
+```json
+{
+  "name": "solve",
+  "description": "Solves equations"
+}
+```
+
+**Overridden tool (clear):**
+```json
+{
+  "serverName": "calculator",
+  "originalName": "solve",
+  "description": "Solve algebraic equations for a variable. Provide the equation as a string with one variable (e.g., '2*x + 5 = 13' or 'y^2 - 4 = 0'). Returns the solution(s) for the variable."
+}
+```
+
+### Example 4: Multiple Groups for Different Tasks
+
+Configure multiple groups in Claude Desktop for different workflows:
+
+```json
+{
+  "mcpServers": {
+    "quick_tools": {
+      "command": "mcp-proxy",
+      "args": ["--serve", "standard_tools"]
+    },
+    "financial_analysis": {
+      "command": "mcp-proxy",
+      "args": ["--serve", "financial_tools"]
+    },
+    "research": {
+      "command": "mcp-proxy",
+      "args": ["--serve", "research_tools"]
+    },
+    "coding": {
+      "command": "mcp-proxy",
+      "args": ["--serve", "coding_tools"]
+    }
+  }
+}
+```
+
+Claude Desktop will show all four groups. You can enable/disable groups based on your current task, keeping context windows clean.
+
+### Example 5: Testing a Group Before Adding to Claude
+
+Test your group configuration before adding it to Claude Desktop:
+
+```bash
+# Start the proxy server for your group
+mcp-proxy --serve financial_tools
+
+# In another terminal, use the MCP Inspector
+npx @modelcontextprotocol/inspector mcp-proxy --serve financial_tools
+
+# Or test with curl (requires jq for pretty-printing)
+echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | mcp-proxy --serve financial_tools | jq
+```
+
+This lets you verify that:
+- The proxy starts without errors
+- Backend servers connect successfully
+- Tools are exposed correctly
+- Overrides are applied properly
+
 ## Architecture
 
 ```
@@ -250,6 +488,16 @@ Use this to:
 │  (time, calculator)     │
 └─────────────────────────┘
 ```
+
+## Troubleshooting
+
+For common issues, debugging tips, and frequently asked questions, see [TROUBLESHOOTING.md](./TROUBLESHOOTING.md).
+
+Quick tips:
+- **Backend server won't start:** Verify the command path and required dependencies
+- **Tool not found errors:** Use `--admin` to discover correct tool names
+- **Claude Desktop issues:** Check config file syntax and restart Claude Desktop
+- **Protocol errors:** Ensure backend servers use stdio transport correctly
 
 ## Development
 

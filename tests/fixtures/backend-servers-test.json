@@ -1,0 +1,21 @@
+{
+  "mcpServers": {
+    "time": {
+      "command": "uvx",
+      "args": [
+        "mcp-server-time@latest",
+        "--local-timezone=UTC"
+      ]
+    },
+    "calculator": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "calculator-mcp-server@git+https://github.com/hughescr/calculator-mcp-server.git",
+        "--",
+        "calculator-mcp-server",
+        "--stdio"
+      ]
+    }
+  }
+}

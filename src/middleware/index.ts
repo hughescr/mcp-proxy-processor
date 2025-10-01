@@ -10,7 +10,7 @@
 
 import { readFile } from 'node:fs/promises';
 import { logger } from '@hughescr/logger';
-import { uniq, keys, isError, map, find, isArray } from 'lodash';
+import { uniq, keys, isError, map, find } from 'lodash';
 import { GroupsConfigSchema, type GroupConfig, type GroupsConfig, type ToolOverride, type ResourceOverride } from '../types/config.js';
 import type { Tool, Resource } from '@modelcontextprotocol/sdk/types';
 
@@ -157,13 +157,7 @@ export class GroupManager {
         return {
             name:        override.name ?? backendTool.name,
             description: override.description ?? backendTool.description,
-            inputSchema: override.inputSchema
-                ? {
-                    type:       'object' as const,
-                    properties: override.inputSchema,
-                    ...(override.inputSchema.required && isArray(override.inputSchema.required) ? { required: override.inputSchema.required as string[] } : {}),
-                }
-                : backendTool.inputSchema,
+            inputSchema: override.inputSchema ?? backendTool.inputSchema,
         };
     }
 
