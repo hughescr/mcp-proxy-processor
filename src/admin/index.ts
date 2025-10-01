@@ -10,5 +10,14 @@
  * - Saving group configurations to groups.json
  */
 
-// eslint-disable-next-line no-warning-comments -- Legitimate placeholder for unimplemented module
-// TODO: Implement admin interface
+import React from 'react';
+import { render } from 'ink';
+import { App } from './App.js';
+
+/**
+ * Run the admin interface
+ */
+export async function runAdmin(): Promise<void> {
+    // Render the Ink app
+    render(React.createElement(App));
+}

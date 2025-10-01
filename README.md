@@ -279,7 +279,7 @@ bun run full-test
 - [x] Basic proxy functionality
 - [x] Group configuration
 - [x] Tool overrides
-- [ ] Admin CLI interface
+- [x] Admin CLI interface
 - [ ] Pre/post-processing hooks (jq-style)
 - [ ] TypeScript plugin system
 - [ ] SSE transport support

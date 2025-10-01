@@ -23,10 +23,8 @@ const { values } = parseArgs({
 
 async function main() {
     if(values.admin) {
-        // eslint-disable-next-line no-console -- CLI output to stderr is appropriate
-        console.error('Admin mode - TODO: implement admin UI');
-        // const { runAdmin } = await import('./admin/index.js');
-        // await runAdmin();
+        const { runAdmin } = await import('./admin/index.js');
+        await runAdmin();
     } else if(values.serve) {
         // eslint-disable-next-line no-console -- CLI output to stderr is appropriate
         console.error(`Serving group: ${values.serve} - TODO: implement MCP server`);

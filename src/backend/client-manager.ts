@@ -9,9 +9,9 @@
  * - Provides access to connected clients
  */
 
-import { Client } from '@modelcontextprotocol/sdk/client';
-import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio';
-import type { StdioServerParameters } from '@modelcontextprotocol/sdk/client/stdio';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
+import type { StdioServerParameters } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { logger } from '@hughescr/logger';
 import _ from 'lodash';
 import type { BackendServerConfig } from '../types/config.js';
