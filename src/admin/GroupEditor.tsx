@@ -8,9 +8,7 @@ import SelectInput from 'ink-select-input';
 import TextInput from 'ink-text-input';
 import _ from 'lodash';
 import type { GroupConfig, ToolOverride } from '../types/config.js';
-// @ts-expect-error -- TypeScript expects .js but the file is .tsx
 import { ToolBrowser } from './ToolBrowser.js';
-// @ts-expect-error -- TypeScript expects .js but the file is .tsx
 import { ToolEditor } from './ToolEditor.js';
 
 interface GroupEditorProps {
@@ -124,8 +122,8 @@ export function GroupEditor({ groupName, group, onSave, onDelete, onCancel }: Gr
     if(mode === 'add-tool') {
         return (
             <ToolBrowser
-                onBack={() => setMode('menu')}
-                onSelect={handleAddTool}
+              onBack={() => setMode('menu')}
+              onSelect={handleAddTool}
             />
         );
     }
@@ -134,9 +132,9 @@ export function GroupEditor({ groupName, group, onSave, onDelete, onCancel }: Gr
     if(mode === 'edit-tool' && editingToolIndex !== null) {
         return (
             <ToolEditor
-                tool={currentGroup.tools[editingToolIndex]}
-                onSave={tool => handleEditTool(editingToolIndex, tool)}
-                onCancel={() => setMode('menu')}
+              tool={currentGroup.tools[editingToolIndex]}
+              onSave={tool => handleEditTool(editingToolIndex, tool)}
+              onCancel={() => setMode('menu')}
             />
         );
     }
@@ -149,9 +147,9 @@ export function GroupEditor({ groupName, group, onSave, onDelete, onCancel }: Gr
                 <Box marginTop={1}>
                     <Text>Name: </Text>
                     <TextInput
-                        value={inputValue}
-                        onChange={setInputValue}
-                        onSubmit={handleNameSubmit}
+                      value={inputValue}
+                      onChange={setInputValue}
+                      onSubmit={handleNameSubmit}
                     />
                 </Box>
                 <Text dimColor>Press Enter to save, Ctrl+C to cancel</Text>
@@ -167,9 +165,9 @@ export function GroupEditor({ groupName, group, onSave, onDelete, onCancel }: Gr
                 <Box marginTop={1}>
                     <Text>Description: </Text>
                     <TextInput
-                        value={inputValue}
-                        onChange={setInputValue}
-                        onSubmit={handleDescriptionSubmit}
+                      value={inputValue}
+                      onChange={setInputValue}
+                      onSubmit={handleDescriptionSubmit}
                     />
                 </Box>
                 <Text dimColor>Press Enter to save, Ctrl+C to cancel</Text>

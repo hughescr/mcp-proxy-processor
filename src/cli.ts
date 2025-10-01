@@ -26,10 +26,8 @@ async function main() {
         const { runAdmin } = await import('./admin/index.js');
         await runAdmin();
     } else if(values.serve) {
-        // eslint-disable-next-line no-console -- CLI output to stderr is appropriate
-        console.error(`Serving group: ${values.serve} - TODO: implement MCP server`);
-        // const { startServer } = await import('./frontend/server.js');
-        // await startServer(values.serve);
+        const { startServer } = await import('./frontend/index.js');
+        await startServer(values.serve);
     } else {
         // eslint-disable-next-line no-console -- CLI error message to stderr is appropriate
         console.error('Usage: mcp-proxy --serve <groupname> | --admin');

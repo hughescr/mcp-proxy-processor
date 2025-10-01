@@ -6,6 +6,7 @@ import React, { useState } from 'react';
 import { Box, Text } from 'ink';
 import SelectInput from 'ink-select-input';
 import TextInput from 'ink-text-input';
+import { trim, repeat } from 'lodash';
 import type { ToolOverride } from '../types/config.js';
 
 interface ToolEditorProps {
@@ -48,18 +49,18 @@ export function ToolEditor({ tool, onSave, onCancel }: ToolEditorProps) {
     };
 
     const handleNameSubmit = (value: string) => {
-        setCurrentTool({ ...currentTool, name: value.trim() || undefined });
+        setCurrentTool({ ...currentTool, name: trim(value) || undefined });
         setMode('menu');
     };
 
     const handleDescriptionSubmit = (value: string) => {
-        setCurrentTool({ ...currentTool, description: value.trim() || undefined });
+        setCurrentTool({ ...currentTool, description: trim(value) || undefined });
         setMode('menu');
     };
 
     const handleSchemaSubmit = (value: string) => {
         try {
-            const schema = JSON.parse(value);
+            const schema = JSON.parse(value) as Record<string, unknown>;
             setCurrentTool({ ...currentTool, inputSchema: schema });
             setMode('menu');
         } catch{
@@ -82,9 +83,9 @@ export function ToolEditor({ tool, onSave, onCancel }: ToolEditorProps) {
                 <Box marginTop={1}>
                     <Text>Override: </Text>
                     <TextInput
-                        value={inputValue}
-                        onChange={setInputValue}
-                        onSubmit={handleNameSubmit}
+                      value={inputValue}
+                      onChange={setInputValue}
+                      onSubmit={handleNameSubmit}
                     />
                 </Box>
                 <Text dimColor>Press Enter to save, Ctrl+C to cancel</Text>
@@ -100,9 +101,9 @@ export function ToolEditor({ tool, onSave, onCancel }: ToolEditorProps) {
                 <Box marginTop={1}>
                     <Text>Description: </Text>
                     <TextInput
-                        value={inputValue}
-                        onChange={setInputValue}
-                        onSubmit={handleDescriptionSubmit}
+                      value={inputValue}
+                      onChange={setInputValue}
+                      onSubmit={handleDescriptionSubmit}
                     />
                 </Box>
                 <Text dimColor>Press Enter to save, Ctrl+C to cancel</Text>
@@ -117,9 +118,9 @@ export function ToolEditor({ tool, onSave, onCancel }: ToolEditorProps) {
                 <Text bold>Edit Input Schema (JSON)</Text>
                 <Box marginTop={1}>
                     <TextInput
-                        value={inputValue}
-                        onChange={setInputValue}
-                        onSubmit={handleSchemaSubmit}
+                      value={inputValue}
+                      onChange={setInputValue}
+                      onSubmit={handleSchemaSubmit}
                     />
                 </Box>
                 <Text dimColor>Enter valid JSON and press Enter to save</Text>
@@ -139,7 +140,7 @@ export function ToolEditor({ tool, onSave, onCancel }: ToolEditorProps) {
             value:      'original-name-info',
             isDisabled: true,
         },
-        { label: '─'.repeat(40), value: 'separator1', isDisabled: true },
+        { label: repeat('─', 40), value: 'separator1', isDisabled: true },
         {
             label: `Name Override: ${currentTool.name ?? '(using original)'}`,
             value: 'edit-name',
@@ -169,7 +170,7 @@ export function ToolEditor({ tool, onSave, onCancel }: ToolEditorProps) {
     }
 
     menuItems.push(
-        { label: '─'.repeat(40), value: 'separator2', isDisabled: true },
+        { label: repeat('─', 40), value: 'separator2', isDisabled: true },
         { label: '💾 Save Tool', value: 'save' },
         { label: '← Cancel', value: 'cancel' }
     );

@@ -5,6 +5,7 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { keys, isError } from 'lodash';
 import { logger } from '@hughescr/logger';
 import { GroupsConfigSchema, BackendServersConfigSchema, type GroupsConfig, type BackendServersConfig } from '../types/config.js';
 
@@ -24,7 +25,7 @@ export async function loadGroupsConfig(): Promise<GroupsConfig> {
         const content = await readFile(GROUPS_CONFIG_PATH, 'utf-8');
         const rawConfig: unknown = JSON.parse(content);
         const config = GroupsConfigSchema.parse(rawConfig);
-        logger.debug({ groupCount: Object.keys(config.groups).length }, 'Loaded groups configuration');
+        logger.debug({ groupCount: keys(config.groups).length }, 'Loaded groups configuration');
         return config;
     } catch (error) {
         logger.error({ error }, 'Failed to load groups configuration');
@@ -42,10 +43,10 @@ export async function saveGroupsConfig(config: GroupsConfig): Promise<void> {
         const validated = GroupsConfigSchema.parse(config);
         const content = JSON.stringify(validated, null, 2);
         await writeFile(GROUPS_CONFIG_PATH, content + '\n', 'utf-8');
-        logger.info({ groupCount: Object.keys(validated.groups).length }, 'Saved groups configuration');
+        logger.info({ groupCount: keys(validated.groups).length }, 'Saved groups configuration');
     } catch (error) {
         logger.error({ error }, 'Failed to save groups configuration');
-        throw new Error(`Failed to save groups configuration: ${error instanceof Error ? error.message : String(error)}`);
+        throw new Error(`Failed to save groups configuration: ${isError(error) ? error.message : String(error)}`);
     }
 }
 
@@ -57,10 +58,10 @@ export async function loadBackendServersConfig(): Promise<BackendServersConfig> 
         const content = await readFile(BACKEND_SERVERS_CONFIG_PATH, 'utf-8');
         const rawConfig: unknown = JSON.parse(content);
         const config = BackendServersConfigSchema.parse(rawConfig);
-        logger.debug({ serverCount: Object.keys(config.mcpServers).length }, 'Loaded backend servers configuration');
+        logger.debug({ serverCount: keys(config.mcpServers).length }, 'Loaded backend servers configuration');
         return config;
     } catch (error) {
         logger.error({ error }, 'Failed to load backend servers configuration');
-        throw new Error(`Failed to load backend servers configuration: ${error instanceof Error ? error.message : String(error)}`);
+        throw new Error(`Failed to load backend servers configuration: ${isError(error) ? error.message : String(error)}`);
     }
 }

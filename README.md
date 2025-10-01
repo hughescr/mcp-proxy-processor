@@ -276,15 +276,28 @@ bun run full-test
 
 ## Roadmap
 
+### Completed ✓
 - [x] Basic proxy functionality
 - [x] Group configuration
-- [x] Tool overrides
-- [x] Admin CLI interface
-- [ ] Pre/post-processing hooks (jq-style)
-- [ ] TypeScript plugin system
-- [ ] SSE transport support
+- [x] Tool overrides (name, description, inputSchema)
+- [x] Resource overrides (name, description, mimeType)
+- [x] Admin CLI interface (Ink-based TUI)
+- [x] Backend server management
+- [x] MCP client connections to backends
+- [x] Tool/resource discovery from backends
+- [x] Frontend MCP server with stdio transport
+- [x] Request proxying to backend servers
+- [x] Group-based tool filtering
+
+### Future Enhancements
+- [ ] Pre/post-processing hooks (jq-style transformations)
+- [ ] TypeScript plugin system for custom tool munging
+- [ ] SSE transport support for remote connections
 - [ ] Web-based admin UI
-- [ ] Group inheritance
+- [ ] Group inheritance/composition
+- [ ] Tool call caching/memoization
+- [ ] Rate limiting per backend server
+- [ ] Metrics and monitoring dashboard
 
 ## License
 

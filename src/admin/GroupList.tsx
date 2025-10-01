@@ -5,6 +5,7 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Text } from 'ink';
 import SelectInput from 'ink-select-input';
+import { isError, keys, chain, repeat } from 'lodash';
 import type { GroupConfig } from '../types/config.js';
 import { loadGroupsConfig, saveGroupsConfig } from './config-utils.js';
 import { GroupEditor } from './GroupEditor.js';
@@ -33,7 +34,7 @@ export function GroupList({ onBack }: GroupListProps) {
                 setGroups(config.groups);
                 setLoading(false);
             } catch (err) {
-                setError(err instanceof Error ? err.message : String(err));
+                setError(isError(err) ? err.message : String(err));
                 setLoading(false);
             }
         })();
@@ -59,7 +60,7 @@ export function GroupList({ onBack }: GroupListProps) {
             setView('list');
             setError(null);
         } catch (err) {
-            setError(err instanceof Error ? err.message : String(err));
+            setError(isError(err) ? err.message : String(err));
         }
     };
 
@@ -72,7 +73,7 @@ export function GroupList({ onBack }: GroupListProps) {
             setView('list');
             setError(null);
         } catch (err) {
-            setError(err instanceof Error ? err.message : String(err));
+            setError(isError(err) ? err.message : String(err));
         }
     };
 
@@ -85,11 +86,11 @@ export function GroupList({ onBack }: GroupListProps) {
     if(view === 'edit' && selectedGroupName) {
         return (
             <GroupEditor
-                groupName={selectedGroupName}
-                group={groups[selectedGroupName]}
-                onSave={handleSaveGroup}
-                onDelete={handleDeleteGroup}
-                onCancel={handleCancel}
+              groupName={selectedGroupName}
+              group={groups[selectedGroupName]}
+              onSave={handleSaveGroup}
+              onDelete={handleDeleteGroup}
+              onCancel={handleCancel}
             />
         );
     }
@@ -98,16 +99,16 @@ export function GroupList({ onBack }: GroupListProps) {
     if(view === 'create') {
         return (
             <GroupEditor
-                groupName=""
-                group={{
+              groupName=""
+              group={{
                     name:        '',
                     description: '',
                     tools:       [],
                     resources:   [],
                 }}
-                onSave={handleSaveGroup}
-                onDelete={() => {}}
-                onCancel={handleCancel}
+              onSave={handleSaveGroup}
+              onDelete={async () => { /* noop for new group */ }}
+              onCancel={handleCancel}
             />
         );
     }
@@ -136,11 +137,14 @@ export function GroupList({ onBack }: GroupListProps) {
 
     // Build menu items
     const menuItems = [
-        ...Object.keys(groups).map(name => ({
-            label: `${name} (${groups[name].tools.length} tools)`,
-            value: name,
-        })),
-        { label: '─'.repeat(40), value: 'separator', isDisabled: true },
+        ...chain(groups)
+            .keys()
+            .map(name => ({
+                label: `${name} (${groups[name].tools.length} tools)`,
+                value: name,
+            }))
+            .value(),
+        { label: repeat('─', 40), value: 'separator', isDisabled: true },
         { label: '+ Create New Group', value: 'create' },
         { label: '← Back', value: 'back' },
     ];
@@ -154,7 +158,7 @@ export function GroupList({ onBack }: GroupListProps) {
             </Box>
             <Box marginBottom={1}>
                 <Text dimColor>
-                    {Object.keys(groups).length === 0
+                    {keys(groups).length === 0
                         ? 'No groups configured. Create a new group to get started.'
                         : 'Select a group to edit, or create a new one:'}
                 </Text>
