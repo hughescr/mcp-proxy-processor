@@ -3,7 +3,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Box, Text } from 'ink';
+import { Box, Text, useStdout, useInput } from 'ink';
 import SelectInput from 'ink-select-input';
 import { isError, map, repeat, replace, trim } from 'lodash';
 import type { Tool } from '@modelcontextprotocol/sdk/types';
@@ -29,7 +29,15 @@ export function ToolBrowser({ onBack, onSelect }: ToolBrowserProps) {
     const [tools, setTools] = useState<ToolItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const { stdout } = useStdout();
+    const terminalWidth = stdout?.columns ?? 80;
 
+    // Handle Esc and Left Arrow for navigation
+    useInput((input, key) => {
+        if(!loading && (key.escape || key.leftArrow)) {
+            onBack();
+        }
+    });
     // Load and discover tools on mount
     useEffect(() => {
         void (async () => {
@@ -121,22 +129,64 @@ export function ToolBrowser({ onBack, onSelect }: ToolBrowserProps) {
         );
     }
 
-    // Build menu items
+    // Custom item component for colored rendering
+    // Parse label format: "toolName (serverName) - description"
+    const ToolItemComponent = ({ isSelected: _isSelected, label }: { isSelected?: boolean, label: string }) => {
+        // Parse the structured label
+        const match = /^(.+?) \((.+?)\) - (.+)$/.exec(label);
+        if(match) {
+            const [, toolName, serverName, description] = match;
+            return (
+                <Text>
+                    <Text bold color="cyan">{toolName}</Text>
+                    <Text dimColor color="yellow">
+{' '}
+(
+{serverName}
+)
+                    </Text>
+                    <Text>
+{' '}
+-
+{description}
+                    </Text>
+                </Text>
+            );
+        }
+        // Fallback for special items like separator and back
+        return <Text>{label}</Text>;
+    };
+    // Build menu items with enhanced formatting and dynamic truncation
     const menuItems = map(tools, (toolItem, index) => {
-        // Clean and truncate description: remove newlines, collapse spaces, then truncate
+        // Clean description: remove newlines, collapse spaces
         const cleanDesc = trim(replace(replace(toolItem.tool.description ?? '', /[\r\n]+/g, ' '), /\s+/g, ' '));
-        const description = cleanDesc
-            ? cleanDesc.slice(0, 40) + (cleanDesc.length > 40 ? '...' : '')
+
+        // Calculate available space for description
+        const toolNameLength = toolItem.tool.name.length;
+        const serverNameLength = toolItem.serverName.length;
+        // Reserve space for: " (" + ") - " + "..." + indicator = ~15 chars buffer
+        const reservedSpace = toolNameLength + serverNameLength + 15;
+        const maxDescLength = Math.max(30, terminalWidth - reservedSpace);
+
+        const truncatedDesc = cleanDesc
+            ? cleanDesc.slice(0, maxDescLength) + (cleanDesc.length > maxDescLength ? '...' : '')
             : 'No description';
+
         return {
-            label: `${toolItem.tool.name} (${toolItem.serverName}) - ${description}`,
+            label: `${toolItem.tool.name} (${toolItem.serverName}) - ${truncatedDesc}`,
             value: String(index),
         };
     });
 
     menuItems.push(
-        { label: repeat('─', 40), value: 'separator' },
-        { label: '← Back', value: 'back' }
+        {
+            label: repeat('\u2500', Math.min(40, terminalWidth - 5)),
+            value: 'separator',
+        },
+        {
+            label: '\u2190 Back',
+            value: 'back',
+        }
     );
 
     return (
@@ -153,7 +203,7 @@ export function ToolBrowser({ onBack, onSelect }: ToolBrowserProps) {
                         : `Found ${tools.length} tools. Select a tool to add to the group:`}
                 </Text>
             </Box>
-            <SelectInput items={menuItems} onSelect={handleToolSelect} limit={15} />
+            <SelectInput items={menuItems} onSelect={handleToolSelect} itemComponent={ToolItemComponent} limit={15} />
         </Box>
     );
 }

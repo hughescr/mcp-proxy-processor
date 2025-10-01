@@ -3,7 +3,7 @@
  */
 
 import React, { useState } from 'react';
-import { Box, Text } from 'ink';
+import { Box, Text, useInput } from 'ink';
 import SelectInput from 'ink-select-input';
 import TextInput from 'ink-text-input';
 import { trim, repeat } from 'lodash';
@@ -24,6 +24,13 @@ export function ToolEditor({ tool, onSave, onCancel }: ToolEditorProps) {
     const [mode, setMode] = useState<EditMode>('menu');
     const [currentTool, setCurrentTool] = useState<ToolOverride>(tool);
     const [inputValue, setInputValue] = useState('');
+
+    // Handle Esc and Left Arrow for navigation (only in menu mode)
+    useInput((input, key) => {
+        if(mode === 'menu' && (key.escape || key.leftArrow)) {
+            onCancel();
+        }
+    });
 
     const handleMenuSelect = (item: { value: string }) => {
         if(item.value === 'save') {

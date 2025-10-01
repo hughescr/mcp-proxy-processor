@@ -3,7 +3,7 @@
  */
 
 import React, { useState } from 'react';
-import { Box, Text } from 'ink';
+import { Box, Text, useInput } from 'ink';
 import SelectInput from 'ink-select-input';
 import TextInput from 'ink-text-input';
 import _ from 'lodash';
@@ -33,6 +33,13 @@ export function GroupEditor({ groupName, group, onSave, onDelete, onCancel }: Gr
     const [error, setError] = useState<string | null>(null);
 
     const isNewGroup = groupName === '';
+
+    // Handle Esc and Left Arrow for navigation (only in menu mode)
+    useInput((input, key) => {
+        if(mode === 'menu' && !saving && (key.escape || key.leftArrow)) {
+            onCancel();
+        }
+    });
 
     const handleSave = async () => {
         // Validate

@@ -3,7 +3,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Box, Text } from 'ink';
+import { Box, Text, useInput } from 'ink';
 import SelectInput from 'ink-select-input';
 import { isError, keys, chain, repeat } from 'lodash';
 import type { GroupConfig } from '../types/config.js';
@@ -25,6 +25,13 @@ export function GroupList({ onBack }: GroupListProps) {
     const [selectedGroupName, setSelectedGroupName] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+
+    // Handle Esc and Left Arrow for navigation
+    useInput((input, key) => {
+        if(!loading && view === 'list' && (key.escape || key.leftArrow)) {
+            onBack();
+        }
+    });
 
     // Load groups on mount
     useEffect(() => {

@@ -3,7 +3,7 @@
  */
 
 import React, { useState } from 'react';
-import { Box, Text } from 'ink';
+import { Box, Text, useInput } from 'ink';
 import SelectInput from 'ink-select-input';
 import { GroupList } from './GroupList.js';
 import { ToolBrowser } from './ToolBrowser.js';
@@ -15,6 +15,14 @@ type Screen = 'main' | 'groups' | 'tools';
  */
 export function App() {
     const [screen, setScreen] = useState<Screen>('main');
+
+    // Handle Esc at main menu to exit
+    useInput((input, key) => {
+        if(screen === 'main' && key.escape) {
+            // eslint-disable-next-line n/no-process-exit -- Intentional exit from admin UI
+            process.exit(0);
+        }
+    });
 
     // Main menu items
     const mainMenuItems = [
