@@ -26,6 +26,9 @@ type EditMode = 'loading' | 'menu' | 'edit-name' | 'edit-description';
 const DESCRIPTION_GUIDANCE = `
 ✨ Writing Effective Tool Descriptions
 
+Example:
+"Searches the web using Tavily API. Accepts a query string and returns relevant results with URLs and snippets. Use for factual information and current events. Requires TAVILY_API_KEY."
+
 Keep descriptions concise but informative (aim for 1-3 sentences):
 
 ✓ DO:
@@ -39,9 +42,6 @@ Keep descriptions concise but informative (aim for 1-3 sentences):
   • Include implementation details
   • Use overly technical jargon
   • Make assumptions about context
-
-Example:
-"Searches the web using Tavily API. Accepts a query string and returns relevant results with URLs and snippets. Use for factual information and current events. Requires TAVILY_API_KEY."
 `;
 
 /**
@@ -231,14 +231,16 @@ export function EnhancedToolEditor({ tool, groupName, onSave, onCancel }: Enhanc
                                         Input Schema:
                                     </Text>
                                 </Box>
-                                <Text dimColor>
-                                    {JSON.stringify(backendTool.inputSchema, null, 2)}
-                                </Text>
+                                <Box maxHeight={10} flexDirection="column">
+                                    <Text color="green">
+                                        {JSON.stringify(backendTool.inputSchema, null, 2)}
+                                    </Text>
+                                </Box>
                             </>
                         )}
 
                         <Box marginTop={1}>
-                            <Text dimColor>
+                            <Text color="yellow">
                                 {DESCRIPTION_GUIDANCE}
                             </Text>
                         </Box>
