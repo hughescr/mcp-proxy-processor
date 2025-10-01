@@ -11,11 +11,11 @@ import { parseArgs } from 'node:util';
 const { values } = parseArgs({
     options: {
         serve: {
-            type: 'string',
+            type:    'string',
             'short': 's',
         },
         admin: {
-            type: 'boolean',
+            type:    'boolean',
             'short': 'a',
         },
     },

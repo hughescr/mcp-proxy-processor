@@ -11,7 +11,7 @@
 
 import { logger } from '@hughescr/logger';
 import _ from 'lodash';
-import type { CallToolResult, ReadResourceResult } from '@modelcontextprotocol/sdk/types.js';
+import type { CallToolResult, ReadResourceResult } from '@modelcontextprotocol/sdk/types';
 import type { ClientManager } from './client-manager.js';
 
 /**
@@ -26,7 +26,7 @@ export interface ProxyConfig {
  * Service for proxying tool calls and resource reads to backend servers
  */
 export class ProxyService {
-    private clientManager: ClientManager;
+    private clientManager:    ClientManager;
     private defaultTimeoutMs: number;
 
     constructor(clientManager: ClientManager, config: ProxyConfig = {}) {
@@ -62,9 +62,10 @@ export class ProxyService {
             });
 
             // Race between tool call and timeout
+
             const result = await Promise.race([
                 client.callTool({
-                    name: toolName,
+                    name:      toolName,
                     arguments: args as Record<string, unknown>,
                 }),
                 timeoutPromise,
@@ -77,14 +78,14 @@ export class ProxyService {
             );
 
             return result;
-        } catch(error) {
+        } catch (error) {
             const duration = Date.now() - startTime;
             logger.error(
                 {
                     serverName,
                     toolName,
                     durationMs: duration,
-                    error: _.isError(error) ? error.message : String(error),
+                    error:      _.isError(error) ? error.message : String(error),
                 },
                 'Tool call failed'
             );
@@ -135,14 +136,14 @@ export class ProxyService {
             );
 
             return result;
-        } catch(error) {
+        } catch (error) {
             const duration = Date.now() - startTime;
             logger.error(
                 {
                     serverName,
                     uri,
                     durationMs: duration,
-                    error: _.isError(error) ? error.message : String(error),
+                    error:      _.isError(error) ? error.message : String(error),
                 },
                 'Resource read failed'
             );
@@ -162,9 +163,9 @@ export class ProxyService {
         toolName: string,
         args: unknown,
         options: {
-            maxRetries?: number
+            maxRetries?:   number
             retryDelayMs?: number
-            timeoutMs?: number
+            timeoutMs?:    number
         } = {}
     ): Promise<CallToolResult> {
         const maxRetries = options.maxRetries ?? 2;
@@ -182,7 +183,7 @@ export class ProxyService {
                 }
 
                 return await this.callTool(serverName, toolName, args, options.timeoutMs);
-            } catch(error) {
+            } catch (error) {
                 lastError = _.isError(error) ? error : new Error(String(error));
 
                 if(attempt === maxRetries) {
@@ -210,9 +211,9 @@ export class ProxyService {
         serverName: string,
         uri: string,
         options: {
-            maxRetries?: number
+            maxRetries?:   number
             retryDelayMs?: number
-            timeoutMs?: number
+            timeoutMs?:    number
         } = {}
     ): Promise<ReadResourceResult> {
         const maxRetries = options.maxRetries ?? 2;
@@ -230,7 +231,7 @@ export class ProxyService {
                 }
 
                 return await this.readResource(serverName, uri, options.timeoutMs);
-            } catch(error) {
+            } catch (error) {
                 lastError = _.isError(error) ? error : new Error(String(error));
 
                 if(attempt === maxRetries) {
@@ -265,16 +266,18 @@ export class ProxyService {
             )
         );
 
-        return _.map(results, (result, index) => {
+        return _.map(results, (result, index): { success: boolean, result?: CallToolResult, error?: string } => {
             if(result.status === 'fulfilled') {
-                return { success: true, result: result.value };
+                const toolResult: CallToolResult = result.value;
+
+                return { success: true, result: toolResult };
             } else {
-                const error = _.isError(result.reason) ? result.reason.message : String(result.reason);
+                const errorMsg: string = _.isError(result.reason) ? result.reason.message : String(result.reason);
                 logger.warn(
-                    { serverName: calls[index]?.serverName, toolName: calls[index]?.toolName, error },
+                    { serverName: calls[index]?.serverName, toolName: calls[index]?.toolName, error: errorMsg },
                     'Batch tool call failed'
                 );
-                return { success: false, error };
+                return { success: false, error: errorMsg };
             }
         });
     }
@@ -292,17 +295,18 @@ export class ProxyService {
                 this.readResource(serverName, uri, timeoutMs)
             )
         );
-
-        return _.map(results, (result, index) => {
+        return _.map(results, (result, index): { success: boolean, result?: ReadResourceResult, error?: string } => {
             if(result.status === 'fulfilled') {
-                return { success: true, result: result.value };
+                const resourceResult: ReadResourceResult = result.value;
+
+                return { success: true, result: resourceResult };
             } else {
-                const error = _.isError(result.reason) ? result.reason.message : String(result.reason);
+                const errorMsg: string = _.isError(result.reason) ? result.reason.message : String(result.reason);
                 logger.warn(
-                    { serverName: reads[index]?.serverName, uri: reads[index]?.uri, error },
+                    { serverName: reads[index]?.serverName, uri: reads[index]?.uri, error: errorMsg },
                     'Batch resource read failed'
                 );
-                return { success: false, error };
+                return { success: false, error: errorMsg };
             }
         });
     }

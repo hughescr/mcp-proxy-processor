@@ -9,17 +9,17 @@
  * - Provides access to connected clients
  */
 
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
-import type { StdioServerParameters } from '@modelcontextprotocol/sdk/client/stdio.js';
+import { Client } from '@modelcontextprotocol/sdk/client';
+import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio';
+import type { StdioServerParameters } from '@modelcontextprotocol/sdk/client/stdio';
 import { logger } from '@hughescr/logger';
 import _ from 'lodash';
 import type { BackendServerConfig } from '../types/config.js';
 
 interface ClientState {
-    client: Client
+    client:     Client
     serverName: string
-    connected: boolean
+    connected:  boolean
 }
 
 /**
@@ -56,26 +56,28 @@ export class ClientManager {
             // StdioClientTransport needs StdioServerParameters
             const serverParams: StdioServerParameters = {
                 command: serverConfig.command,
-                args: serverConfig.args || [],
-                env: serverConfig.env,
+                args:    serverConfig.args ?? [],
+                env:     serverConfig.env,
             };
 
             // Create transport - this will spawn the process
+
             const transport = new StdioClientTransport(serverParams);
 
             // Create client
             const client = new Client({
-                name: 'mcp-proxy-processor',
+                name:    'mcp-proxy-processor',
                 version: '0.1.0',
             }, {
                 capabilities: {
                     // Request all capabilities from backend servers
-                    tools: {},
+                    tools:     {},
                     resources: {},
                 },
             });
 
             // Connect and initialize
+
             await client.connect(transport);
 
             const state: ClientState = {
@@ -89,6 +91,7 @@ export class ClientManager {
             logger.info({ serverName }, 'Successfully connected to backend server');
 
             // Handle unexpected disconnections
+
             transport.onclose = () => {
                 logger.warn({ serverName }, 'Backend server connection closed');
                 const currentState = this.clients.get(serverName);
@@ -106,7 +109,7 @@ export class ClientManager {
             };
 
             return client;
-        } catch(error) {
+        } catch (error) {
             logger.error(
                 { serverName, error: _.isError(error) ? error.message : String(error) },
                 'Failed to connect to backend server'
@@ -126,7 +129,7 @@ export class ClientManager {
         const connectPromises = _.map(serverNames, async (serverName) => {
             try {
                 await this.connect(serverName);
-            } catch(error) {
+            } catch (error) {
                 logger.error(
                     { serverName, error: _.isError(error) ? error.message : String(error) },
                     'Failed to connect to backend server during connectAll'
@@ -163,7 +166,7 @@ export class ClientManager {
             state.connected = false;
             this.clients.delete(serverName);
             logger.info({ serverName }, 'Successfully disconnected from backend server');
-        } catch(error) {
+        } catch (error) {
             logger.error(
                 { serverName, error: _.isError(error) ? error.message : String(error) },
                 'Error disconnecting from backend server'
@@ -182,7 +185,7 @@ export class ClientManager {
         const disconnectPromises = _.map(Array.from(this.clients.keys()), async (serverName) => {
             try {
                 await this.disconnect(serverName);
-            } catch(error) {
+            } catch (error) {
                 logger.error(
                     { serverName, error: _.isError(error) ? error.message : String(error) },
                     'Error disconnecting during disconnectAll'
@@ -226,8 +229,8 @@ export class ClientManager {
     getStats(): { total: number, connected: number, disconnected: number } {
         const states = Array.from(this.clients.values());
         return {
-            total: states.length,
-            connected: _.filter(states, 'connected').length,
+            total:        states.length,
+            connected:    _.filter(states, 'connected').length,
             disconnected: _.filter(states, state => !state.connected).length,
         };
     }

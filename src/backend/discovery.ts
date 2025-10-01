@@ -10,12 +10,12 @@
 
 import { logger } from '@hughescr/logger';
 import _ from 'lodash';
-import type { Tool, Resource } from '@modelcontextprotocol/sdk/types.js';
+import type { Tool, Resource } from '@modelcontextprotocol/sdk/types';
 import type { ClientManager } from './client-manager.js';
 
 interface DiscoveryCache {
-    tools?: Tool[]
-    resources?: Resource[]
+    tools?:          Tool[]
+    resources?:      Resource[]
     lastDiscovered?: number
 }
 
@@ -58,7 +58,7 @@ export class DiscoveryService {
 
             logger.info({ serverName, toolCount: tools.length }, 'Successfully discovered tools');
             return tools;
-        } catch(error) {
+        } catch (error) {
             logger.error(
                 { serverName, error: _.isError(error) ? error.message : String(error) },
                 'Failed to discover tools from backend server'
@@ -81,7 +81,7 @@ export class DiscoveryService {
             try {
                 const tools = await this.discoverTools(serverName);
                 results.set(serverName, tools);
-            } catch(error) {
+            } catch (error) {
                 logger.error(
                     { serverName, error: _.isError(error) ? error.message : String(error) },
                     'Failed to discover tools during discoverAllTools'
@@ -126,7 +126,7 @@ export class DiscoveryService {
 
             logger.info({ serverName, resourceCount: resources.length }, 'Successfully discovered resources');
             return resources;
-        } catch(error) {
+        } catch (error) {
             logger.error(
                 { serverName, error: _.isError(error) ? error.message : String(error) },
                 'Failed to discover resources from backend server'
@@ -149,7 +149,7 @@ export class DiscoveryService {
             try {
                 const resources = await this.discoverResources(serverName);
                 results.set(serverName, resources);
-            } catch(error) {
+            } catch (error) {
                 logger.error(
                     { serverName, error: _.isError(error) ? error.message : String(error) },
                     'Failed to discover resources during discoverAllResources'
@@ -220,6 +220,8 @@ export class DiscoveryService {
             return undefined;
         }
 
+        // Type assertion needed because optional array properties are inferred as any[]
+
         return cached.tools;
     }
 
@@ -238,6 +240,8 @@ export class DiscoveryService {
             return undefined;
         }
 
+        // Type assertion needed because optional array properties are inferred as any[]
+
         return cached.resources;
     }
 
@@ -245,7 +249,7 @@ export class DiscoveryService {
      * Update cache for a server
      */
     private updateCache(serverName: string, updates: Partial<DiscoveryCache>): void {
-        const existing = this.cache.get(serverName) || {};
+        const existing = this.cache.get(serverName) ?? {};
         this.cache.set(serverName, {
             ...existing,
             ...updates,
@@ -286,7 +290,7 @@ export class DiscoveryService {
         }
 
         return {
-            serverCount: this.cache.size,
+            serverCount:    this.cache.size,
             cachedServers,
             oldestCacheAge: oldestAge,
         };

@@ -30,15 +30,15 @@
     "zod": "^4.1.11"
   },
   "devDependencies": {
-    "@hughescr/eslint-config-default": "^3.0.4",
+    "@hughescr/eslint-config-default": "^4.0.1",
     "@types/bun": "^1.2.23",
     "@types/lodash": "^4.17.20",
-    "@types/node": "^24.6.0",
-    "@types/react": "^19.1.15",
+    "@types/node": "^24.6.1",
+    "@types/react": "^19.1.16",
     "eslint": "^9.36.0",
     "eslint-formatter-unix": "^8.40.0",
     "eslint-plugin-package-json": "^0.56.3",
-    "typescript": "^5.9.2",
+    "typescript": "^5.9.3",
     "typescript-eslint": "^8.45.0"
   },
   "engines": {

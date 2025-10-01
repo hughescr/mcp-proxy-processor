@@ -9,8 +9,8 @@ import { z } from 'zod';
  */
 export const BackendServerConfigSchema = z.object({
     command: z.string(),
-    args: z.array(z.string()).optional(),
-    env: z.record(z.string(), z.string()).optional(),
+    args:    z.array(z.string()).optional(),
+    env:     z.record(z.string(), z.string()).optional(),
 });
 
 export const BackendServersConfigSchema = z.object({
@@ -27,13 +27,13 @@ export const ToolOverrideSchema = z.object({
     /** Original tool name from backend server */
     originalName: z.string(),
     /** Backend server name this tool comes from */
-    serverName: z.string(),
+    serverName:   z.string(),
     /** Optional: Override the tool name exposed to clients */
-    name: z.string().optional(),
+    name:         z.string().optional(),
     /** Optional: Override the tool description */
-    description: z.string().optional(),
+    description:  z.string().optional(),
     /** Optional: Override the input schema */
-    inputSchema: z.record(z.string(), z.unknown()).optional(),
+    inputSchema:  z.record(z.string(), z.unknown()).optional(),
 });
 
 export type ToolOverride = z.infer<typeof ToolOverrideSchema>;
@@ -45,13 +45,13 @@ export const ResourceOverrideSchema = z.object({
     /** Original resource URI from backend server */
     originalUri: z.string(),
     /** Backend server name this resource comes from */
-    serverName: z.string(),
+    serverName:  z.string(),
     /** Optional: Override the resource name */
-    name: z.string().optional(),
+    name:        z.string().optional(),
     /** Optional: Override the resource description */
     description: z.string().optional(),
     /** Optional: Override the MIME type */
-    mimeType: z.string().optional(),
+    mimeType:    z.string().optional(),
 });
 
 export type ResourceOverride = z.infer<typeof ResourceOverrideSchema>;
@@ -61,13 +61,13 @@ export type ResourceOverride = z.infer<typeof ResourceOverrideSchema>;
  */
 export const GroupConfigSchema = z.object({
     /** Group name */
-    name: z.string(),
+    name:        z.string(),
     /** Optional: Group description */
     description: z.string().optional(),
     /** Tools to expose in this group */
-    tools: z.array(ToolOverrideSchema),
+    tools:       z.array(ToolOverrideSchema),
     /** Resources to expose in this group */
-    resources: z.array(ResourceOverrideSchema).optional().default([]),
+    resources:   z.array(ResourceOverrideSchema).optional().default([]),
 });
 
 export const GroupsConfigSchema = z.object({
