@@ -4,12 +4,30 @@ An MCP (Model Context Protocol) proxy server that allows selective re-exposure o
 
 ## Why Use MCP Proxy Processor?
 
-Modern MCP servers can expose dozens of tools, cluttering your AI agent's context window. MCP Proxy Processor lets you:
+Modern MCP servers often expose 20-50+ tools with verbose descriptions and numerous optional parameters, creating serious context window bloat that harms AI agent performance and increases costs.
 
-- **Curate tool sets**: Create named groups containing only the tools you need
-- **Override descriptions**: Improve poorly-written tool descriptions to reduce agent confusion
-- **Organize by purpose**: Different tool sets for different tasks (coding, financial analysis, etc.)
-- **Keep context clean**: Agents only see relevant tools, improving focus and reducing token usage
+### The Problem with Tool Overload
+
+**Backend MCP servers often expose all their tools at once.** You might only need 5 specific tools from a server, but it exposes all 50. Every tool definition—including description and full parameter schema—gets loaded into the agent's context window. This wastes precious context tokens on irrelevant tools.
+
+**In Claude Code, denying tool permissions doesn't solve the problem.** Even when you mark a tool as "deny", its complete definition—including description and full parameter schema—still gets loaded into the agent's context window on every conversation turn. This wastes precious context tokens on tools the agent can't even use.
+
+**Tool authors frequently write overly verbose descriptions.** A simple "get current time" tool might have a 200-word description explaining timezones, edge cases, and implementation details. Multiply this by 50 tools and you've consumed thousands of tokens before the agent even reads your first message.
+
+**Optional parameters bloat the context.** Many tools expose 10-15 parameters where only 2-3 are commonly used. Each parameter definition—with its type, description, constraints, and examples—consumes tokens. Most agents will never use `dewpoint_precision` or `barometric_pressure_unit`, but these parameters still occupy valuable context space.
+
+**You can't easily fix this at the MCP client level.** You're connecting to the full backend server and receiving its entire tool catalog. You can't selectively expose tools, override verbose descriptions, or hide unnecessary parameters without a proxy layer.
+
+### How MCP Proxy Processor Helps
+
+MCP Proxy Processor **completely excludes** unwanted tools from your agent's context. The agent never sees them, never wastes tokens on them, and never gets confused by irrelevant options.
+
+- **Curate tool sets**: Reduce 50 backend tools to 5 focused tools. Save thousands of context tokens per conversation.
+- **Rewrite verbose descriptions**: Transform 200-word descriptions into clear, concise 20-word summaries.
+- **Hide unnecessary parameters**: Remove rarely-used optional parameters from the agent-visible schema entirely. The agent sees only the 3 parameters that matter.
+- **Inject hidden parameters**: Add API keys, default values, and configuration as constants—agents never see or waste tokens on them.
+- **Organize by purpose**: Create different tool groups for different tasks (coding, research, financial analysis), each optimized for its specific workflow.
+- **Improve agent performance**: Cleaner, smaller tool sets help agents make better decisions faster with less confusion.
 
 ## Example Use Case
 
