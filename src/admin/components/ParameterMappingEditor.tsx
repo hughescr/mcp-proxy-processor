@@ -472,7 +472,7 @@ Examples: "text", 123, true,
         }
 
         menuItems.push(
-            { label: repeat('─', 40), value: 'sep' },
+            { label: repeat('─', 40), value: 'sep', disabled: true },
             { label: '💾 Save Parameter', value: 'save-param' },
             { label: '← Back', value: 'back' }
         );
