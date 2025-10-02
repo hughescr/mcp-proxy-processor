@@ -6,8 +6,9 @@ import React, { useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { EnhancedSelectInput } from 'ink-enhanced-select-input';
 import TextInput from 'ink-text-input';
+import { MultiLineTextEditor } from './MultiLineTextEditor.js';
 import { repeat, map, keys, startsWith, replace, isArray as _isArray } from 'lodash';
-import type { ArgumentMapping, TemplateMapping, ParameterMapping } from '../../types/config.js';
+import type { ArgumentMapping, TemplateMapping, ParameterMapping, JsonataMapping } from '../../types/config.js';
 import { ArgumentTransformer } from '../../middleware/argument-transformer.js';
 
 interface ParameterMappingEditorProps {
@@ -32,6 +33,7 @@ type EditorMode
       | 'edit-value'
       | 'edit-name'
       | 'edit-description'
+      | 'edit-jsonata-expression'
       | 'test-preview';
 
 interface MappingEditorState {
@@ -59,9 +61,41 @@ Template Mappings:
 • Rename: Copy from a different client parameter name
 • Omit: Hide parameter from agent (not included in schema)
 
+JSONata Expressions:
+• Complex transformations with conditional logic
+• Object restructuring and nested value extraction
+• String manipulation and array operations
+• Full JSONata expression language support
+
 You can override parameter names and descriptions for agent.
 Each backend parameter can have one mapping.
 Missing parameters won't be sent to backend.
+`;
+
+const JSONATA_GUIDANCE = `
+📋 JSONata Expression Guide
+
+JSONata provides powerful transformation capabilities:
+
+• Access client args directly: query, limit, timezone
+• Conditional logic: condition ? trueValue : falseValue
+• Default values: field ? field : "default"
+• Object restructuring: { "newKey": oldKey, "nested": { "value": field } }
+• String operations: $uppercase(name), $substring(text, 0, 10)
+• Array operations: items[0], $map(items, function($i) { $i.name })
+
+Example:
+{
+  "search": {
+    "q": query,
+    "limit": limit ? limit : 10
+  },
+  "apiKey": "secret-key",
+  "timezone": timezone ? timezone : "UTC"
+}
+
+The expression receives client arguments as input and must return
+the object to send to the backend server.
 `;
 
 /**
@@ -84,6 +118,8 @@ export function ParameterMappingEditor({
     const transformer = new ArgumentTransformer();
 
     // Handle Esc for navigation
+    // Note: Don't handle ESC for modes using TextInput (edit-value, edit-name, edit-description)
+    // as TextInput doesn't have onCancel - user must press Enter or navigate away
     useInput((_input, key) => {
         if(mode === 'menu') {
             if(key.escape || key.leftArrow) {
@@ -93,21 +129,10 @@ export function ParameterMappingEditor({
             if(key.escape) {
                 setMode('menu');
             }
-        } else if(mode === 'edit-value') {
-            if(key.escape) {
-                setMode('edit-mapping');
-            }
-        } else if(mode === 'edit-name') {
-            if(key.escape) {
-                setMode('edit-mapping');
-            }
-        } else if(mode === 'edit-description') {
-            if(key.escape) {
-                setMode('edit-mapping');
-            }
         }
+        // edit-jsonata-expression is handled by MultiLineTextEditor component
+        // edit-value, edit-name, edit-description use TextInput which doesn't handle ESC
     });
-
     const getClientParams = (): string[] => {
         if(!clientSchema?.properties) {
             return [];
@@ -144,7 +169,6 @@ export function ParameterMappingEditor({
             }
         }
     };
-
     const handleMenuSelect = (item: { value: string }) => {
         switch(item.value) {
             case 'save':
@@ -165,6 +189,14 @@ export function ParameterMappingEditor({
             case 'remove-template':
                 setCurrentMapping(undefined);
                 break;
+            case 'add-jsonata':
+                setInputValue('');
+                setMode('edit-jsonata-expression');
+                break;
+            case 'edit-jsonata':
+                setInputValue(currentMapping?.type === 'jsonata' ? currentMapping.expression : '');
+                setMode('edit-jsonata-expression');
+                break;
             default:
                 // Editing specific parameter
                 if(startsWith(item.value, 'edit-')) {
@@ -177,7 +209,6 @@ export function ParameterMappingEditor({
                 break;
         }
     };
-
     const handleParamSelect = (item: { value: string }) => {
         if(item.value === 'cancel') {
             setMode('menu');
@@ -441,10 +472,10 @@ for:
                 <Box marginTop={1}>
                     <Text dimColor>
 Examples: "text", 123, true,
-{'{"key":"value"}'}
+{'{"{"key":"value"}"}'}
                     </Text>
                 </Box>
-                <Text dimColor>Press Enter to save, Esc to cancel</Text>
+                <Text dimColor>Press Enter to save</Text>
             </Box>
         );
     };
@@ -520,7 +551,7 @@ Examples: "text", 123, true,
                 )}
 
                 <Box marginTop={1}>
-                    <Text dimColor>Leave empty to use backend name. Press Enter to save, Esc to cancel</Text>
+                    <Text dimColor>Leave empty to use backend name. Press Enter to save</Text>
                 </Box>
             </Box>
         );
@@ -572,7 +603,7 @@ Examples: "text", 123, true,
                 )}
 
                 <Box marginTop={1}>
-                    <Text dimColor>Press Enter to save, Esc to cancel</Text>
+                    <Text dimColor>Press Enter to save</Text>
                 </Box>
             </Box>
         );
@@ -778,7 +809,56 @@ Examples: "text", 123, true,
         );
     };
 
+    const handleJsonataSubmit = (expression: string) => {
+        const jsonataMapping: JsonataMapping = {
+            type:       'jsonata',
+            expression: expression,
+        };
+        setCurrentMapping(jsonataMapping);
+        setMode('menu');
+    };
+
+    const renderJsonataEditor = () => {
+        return (
+            <Box flexDirection="column" padding={1}>
+                <Box marginBottom={1}>
+                    <Text bold color="cyan">
+                        Edit JSONata Expression
+                    </Text>
+                </Box>
+
+                <Box flexDirection="row" gap={2}>
+                    {/* Left side - Editor */}
+                    <Box flexDirection="column" flexGrow={1} minWidth="50%">
+                        <Text bold underline>
+                            JSONata Expression:
+                        </Text>
+                        <Box marginTop={1}>
+                            <MultiLineTextEditor
+                              value={inputValue}
+                              onSubmit={handleJsonataSubmit}
+                              onCancel={() => setMode('menu')}
+                              showLineNumbers={false}
+                            />
+                        </Box>
+                    </Box>
+
+                    {/* Right side - Guidance */}
+                    <Box flexDirection="column" flexGrow={1} minWidth="40%" borderStyle="single" paddingX={1}>
+                        <Text color="yellow">
+                            {JSONATA_GUIDANCE}
+                        </Text>
+                    </Box>
+                </Box>
+            </Box>
+        );
+    };
+
     // Mode-based rendering
+    if(mode === 'edit-jsonata-expression') {
+        return renderJsonataEditor();
+    }
+
     if(mode === 'test-preview') {
         return renderTestPreview();
     }
@@ -818,6 +898,7 @@ Examples: "text", 123, true,
         if(!currentMapping) {
             menuItems.push(
                 { label: '➕ Add Template Mapping', value: 'add-param' },
+                { label: '➕ Add JSONata Expression', value: 'add-jsonata' },
                 { label: repeat('─', 60), value: 'sep1', disabled: true }
             );
         } else if(currentMapping.type === 'template') {
@@ -863,6 +944,19 @@ Examples: "text", 123, true,
                 { label: '➕ Add Parameter Mapping', value: 'add-param' },
                 { label: '🧪 Test Preview', value: 'test-preview' },
                 { label: '🗑️  Remove All Mappings', value: 'remove-template' }
+            );
+        } else if(currentMapping.type === 'jsonata') {
+            // Show JSONata expression
+            const expressionPreview = currentMapping.expression.length > 100
+                ? currentMapping.expression.slice(0, 100) + '...'
+                : currentMapping.expression;
+
+            menuItems.push(
+                { label: '📋 Current JSONata Expression:', value: 'header', disabled: true },
+                { label: `  ${expressionPreview}`, value: 'edit-jsonata' },
+                { label: repeat('─', 60), value: 'sep2', disabled: true },
+                { label: '🧪 Test Preview', value: 'test-preview' },
+                { label: '🗑️  Remove Expression', value: 'remove-template' }
             );
         }
 

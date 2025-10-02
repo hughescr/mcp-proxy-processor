@@ -57,17 +57,17 @@ export function ServerEditor({ serverName, server, onSave, onDelete, onCancel }:
     const isNewServer = serverName === '';
     const transportType = getTransportType(currentServer);
 
-    // Handle Esc for navigation - works in all modes except edit-env
+    // Handle Esc for navigation
+    // Note: Don't handle ESC for modes using TextInput - user must press Enter
+    // edit-env is a separate component that handles its own ESC
     useInput((input, key) => {
         if(key.escape) {
             if(mode === 'menu' && !saving) {
                 // Esc in menu mode goes back to parent
                 onCancel();
-            } else if(mode !== 'menu' && mode !== 'edit-env') {
-                // Esc in any input mode (except edit-env) cancels and returns to menu
-                // edit-env has its own input handler
-                setMode('menu');
             }
+            // Don't handle ESC in text input modes - TextInput doesn't have onCancel
+            // edit-env has its own input handler
         } else if(mode === 'menu' && !saving && key.leftArrow) {
             // Left arrow also works in menu mode
             onCancel();
@@ -375,7 +375,7 @@ export function ServerEditor({ serverName, server, onSave, onDelete, onCancel }:
                       onSubmit={handleNameSubmit}
                     />
                 </Box>
-                <Text dimColor>Press Enter to save, Esc to cancel</Text>
+                <Text dimColor>Press Enter to save</Text>
             </Box>
         );
     }
@@ -397,7 +397,7 @@ export function ServerEditor({ serverName, server, onSave, onDelete, onCancel }:
                     Enter full command with arguments. Use quotes for args with spaces.
                 </Text>
                 <Text dimColor>Example: uvx mcp-server-time --local-timezone "America/Los Angeles"</Text>
-                <Text dimColor>Press Enter to save, Esc to cancel</Text>
+                <Text dimColor>Press Enter to save</Text>
             </Box>
         );
     }
@@ -427,7 +427,7 @@ export function ServerEditor({ serverName, server, onSave, onDelete, onCancel }:
                       onSubmit={handleCwdSubmit}
                     />
                 </Box>
-                <Text dimColor>Press Enter to save, Esc to cancel</Text>
+                <Text dimColor>Press Enter to save</Text>
             </Box>
         );
     }
@@ -445,7 +445,7 @@ export function ServerEditor({ serverName, server, onSave, onDelete, onCancel }:
                       onSubmit={handleUrlSubmit}
                     />
                 </Box>
-                <Text dimColor>Press Enter to save, Esc to cancel</Text>
+                <Text dimColor>Press Enter to save</Text>
             </Box>
         );
     }
@@ -463,7 +463,7 @@ export function ServerEditor({ serverName, server, onSave, onDelete, onCancel }:
                       onSubmit={handleHeadersSubmit}
                     />
                 </Box>
-                <Text dimColor>Press Enter to save, Esc to cancel</Text>
+                <Text dimColor>Press Enter to save</Text>
             </Box>
         );
     }
@@ -488,7 +488,7 @@ export function ServerEditor({ serverName, server, onSave, onDelete, onCancel }:
                         </Text>
                     </Box>
                 )}
-                <Text dimColor>Press Enter to parse, Esc to cancel</Text>
+                <Text dimColor>Press Enter to parse</Text>
             </Box>
         );
     }
