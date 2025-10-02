@@ -228,6 +228,144 @@ The `config/groups.json` file defines tool groups:
 - `name` (optional): Override the tool name
 - `description` (optional): Override the tool description
 - `inputSchema` (optional): Override the input schema
+- `argumentMapping` (optional): Transform arguments before sending to backend
+
+## Argument Mapping
+
+Argument mapping allows you to transform tool call arguments from the AI agent format to the backend server format. This is useful for:
+
+- Adding default values for optional parameters
+- Injecting authentication credentials or API keys
+- Renaming parameters between client and backend
+- Restructuring complex argument schemas
+
+### Template Mappings
+
+Template mappings provide declarative parameter transformations for common use cases. They're easier to configure and validate than JSONata expressions.
+
+#### Passthrough
+
+Pass a parameter through unchanged:
+
+```json
+{
+  "argumentMapping": {
+    "type": "template",
+    "mappings": {
+      "query": { "type": "passthrough", "source": "query" }
+    }
+  }
+}
+```
+
+#### Constant
+
+Always use a fixed value (useful for API keys, modes, etc.):
+
+```json
+{
+  "argumentMapping": {
+    "type": "template",
+    "mappings": {
+      "apiKey": { "type": "constant", "value": "secret-key-123" },
+      "mode": { "type": "constant", "value": "production" }
+    }
+  }
+}
+```
+
+#### Default
+
+Use client value if provided, otherwise use a default:
+
+```json
+{
+  "argumentMapping": {
+    "type": "template",
+    "mappings": {
+      "timezone": {
+        "type": "default",
+        "source": "timezone",
+        "default": "America/Los_Angeles"
+      }
+    }
+  }
+}
+```
+
+This is perfect for making required backend parameters optional for the AI agent.
+
+#### Rename
+
+Rename a parameter from client to backend:
+
+```json
+{
+  "argumentMapping": {
+    "type": "template",
+    "mappings": {
+      "search_query": { "type": "rename", "source": "query" }
+    }
+  }
+}
+```
+
+### JSONata Expressions
+
+For complex transformations, use [JSONata](https://jsonata.org/) expressions:
+
+```json
+{
+  "argumentMapping": {
+    "type": "jsonata",
+    "expression": "{ \"search\": { \"q\": query, \"limit\": limit ? limit : 10 }, \"tz\": timezone ? timezone : \"UTC\" }"
+  }
+}
+```
+
+JSONata provides conditional logic, object restructuring, string manipulation, array operations, and more.
+
+### Complete Example
+
+Here's a complete tool override with argument mapping:
+
+```json
+{
+  "tools": [
+    {
+      "serverName": "time",
+      "originalName": "get_current_time",
+      "name": "get_time",
+      "description": "Get current time in a timezone",
+      "inputSchema": {
+        "properties": {
+          "timezone": {
+            "type": "string",
+            "description": "IANA timezone (optional, defaults to America/Los_Angeles)"
+          }
+        }
+      },
+      "argumentMapping": {
+        "type": "template",
+        "mappings": {
+          "timezone": {
+            "type": "default",
+            "source": "timezone",
+            "default": "America/Los_Angeles"
+          }
+        }
+      }
+    }
+  ]
+}
+```
+
+**How it works:**
+1. The `inputSchema` makes `timezone` optional for the AI agent
+2. The `argumentMapping` adds `America/Los_Angeles` as default if not provided
+3. The backend always receives a timezone parameter
+
+For detailed documentation and more examples, see [docs/argument-mapping.md](./docs/argument-mapping.md).
 
 ## Usage
 
@@ -594,6 +732,8 @@ bun run full-test
 - [x] Group configuration
 - [x] Tool overrides (name, description, inputSchema)
 - [x] Resource overrides (name, description, mimeType)
+- [x] Argument mapping (template & JSONata transformations)
+- [x] Admin UI for argument mapping configuration
 - [x] Admin CLI interface (Ink-based TUI)
 - [x] Backend server management
 - [x] MCP client connections to backends
@@ -603,18 +743,17 @@ bun run full-test
 - [x] Group-based tool filtering
 
 ### Future Enhancements
-- [ ] Pre/post-processing hooks (jq-style transformations)
-- [ ] TypeScript plugin system for custom tool munging
+- [ ] Response transformation (JSONata-based post-processing)
+- [ ] Custom JSONata functions via plugin system (using `registerFunction` API)
 - [ ] SSE transport support for remote connections
 - [ ] Web-based admin UI
 - [ ] Group inheritance/composition
-- [ ] Tool call caching/memoization
 - [ ] Rate limiting per backend server
 - [ ] Metrics and monitoring dashboard
 
 ## License
 
-Apache-2.0
+[Apache-2.0](./LICENSE)
 
 ## Author
 
