@@ -63,8 +63,12 @@ export function EnhancedToolEditor({ tool, groupName, onSave, onRemove, onCancel
             if(key.escape || key.leftArrow) {
                 onCancel();
             }
+        } else if(mode === 'edit-name') {
+            if(key.escape) {
+                setMode('menu');
+            }
         }
-        // Note: edit-name and edit-description modes are handled by their respective input components
+        // Note: edit-description mode is handled by the MultiLineTextEditor component
     });
 
     // Load backend tool information on mount
@@ -170,38 +174,29 @@ export function EnhancedToolEditor({ tool, groupName, onSave, onRemove, onCancel
         return renderLoadingState();
     }
 
-    const renderNameEditor = () => {
-        // Handle Esc to cancel name editing
-        useInput((input, key) => {
-            if(key.escape) {
-                setMode('menu');
-            }
-        });
-
-        return (
-            <Box flexDirection="column" padding={1}>
-                <Text bold color="cyan">
-                    Edit Tool Name
+    const renderNameEditor = () => (
+        <Box flexDirection="column" padding={1}>
+            <Text bold color="cyan">
+                Edit Tool Name
+            </Text>
+            <Box marginTop={1}>
+                <Text dimColor>
+                    Original:
+                    {' '}
+                    {currentTool.originalName}
                 </Text>
-                <Box marginTop={1}>
-                    <Text dimColor>
-                        Original:
-                        {' '}
-                        {currentTool.originalName}
-                    </Text>
-                </Box>
-                <Box marginTop={1}>
-                    <Text>Override: </Text>
-                    <TextInput
-                      value={inputValue}
-                      onChange={setInputValue}
-                      onSubmit={handleNameSubmit}
-                    />
-                </Box>
-                <Text dimColor>Press Enter to save, Esc to cancel</Text>
             </Box>
-        );
-    };
+            <Box marginTop={1}>
+                <Text>Override: </Text>
+                <TextInput
+                  value={inputValue}
+                  onChange={setInputValue}
+                  onSubmit={handleNameSubmit}
+                />
+            </Box>
+            <Text dimColor>Press Enter to save, Esc to cancel</Text>
+        </Box>
+    );
 
     // Name input
     if(mode === 'edit-name') {
