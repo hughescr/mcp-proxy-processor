@@ -164,8 +164,6 @@ Add the proxy to your Claude Desktop config (`~/Library/Application Support/Clau
 }
 ```
 
-**Note:** The legacy `--serve` format is still supported for backward compatibility, but the new `serve` command format is recommended.
-
 ### 4. Test It
 
 Restart Claude Desktop. Your agent now has access to the curated tool sets!
@@ -379,11 +377,11 @@ Start the MCP proxy server for a specific group:
 
 ```bash
 mcp-proxy serve standard_tools
-# or legacy format:
-mcp-proxy --serve standard_tools
 ```
 
 This starts an MCP server (stdio transport) exposing only the tools defined in the "standard_tools" group.
+
+**Note:** The legacy `--serve <groupname>` format is still supported for backward compatibility.
 
 #### Admin Interface
 
@@ -391,8 +389,6 @@ Launch the interactive admin interface:
 
 ```bash
 mcp-proxy admin
-# or legacy format:
-mcp-proxy --admin
 ```
 
 Use this to:
@@ -694,7 +690,7 @@ For common issues, debugging tips, and frequently asked questions, see [TROUBLES
 
 Quick tips:
 - **Backend server won't start:** Verify the command path and required dependencies
-- **Tool not found errors:** Use `--admin` to discover correct tool names
+- **Tool not found errors:** Use `mcp-proxy admin` to discover correct tool names
 - **Claude Desktop issues:** Check config file syntax and restart Claude Desktop
 - **Protocol errors:** Ensure backend servers use stdio transport correctly
 
