@@ -1,6 +1,6 @@
 {
   "name": "mcp-proxy-processor",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "description": "An MCP proxy server that allows selective re-exposure of tools from backend MCP servers through configurable groups",
   "license": "Apache-2.0",
@@ -17,7 +17,7 @@
     "lint": "eslint --fix",
     "package-check": "bunx npm-check@latest -i bun:test",
     "test": "bun test",
-    "postversion": "git commit -m \"Bump package version to $npm_package_version\" package.json; git flow release start $npm_package_version; git flow release finish -m $npm_package_version $npm_package_version; git checkout develop; git merge master"
+    "postversion": "git commit -m \"Bump package version to $npm_package_version\" package.json; git flow release start $npm_package_version; git flow release finish -m $npm_package_version $npm_package_version; git checkout develop; git merge main"
   },
   "resolutions": {
     "react": "^19.2.0",
