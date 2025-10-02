@@ -14,12 +14,14 @@ import { logger } from '@hughescr/logger';
 import { uniq, keys, isError, map, find } from 'lodash';
 import { GroupsConfigSchema, type GroupConfig, type GroupsConfig, type ToolOverride, type ResourceOverride } from '../types/config.js';
 import type { Tool, Resource } from '@modelcontextprotocol/sdk/types';
+import { SchemaGenerator } from './schema-generator.js';
 
 /**
  * Manages group configurations and applies overrides to backend tools/resources
  */
 export class GroupManager {
-    private groupsConfig: GroupsConfig;
+    private groupsConfig:    GroupsConfig;
+    private schemaGenerator: SchemaGenerator;
 
     /**
      * Create a new GroupManager
@@ -27,6 +29,7 @@ export class GroupManager {
      */
     constructor(private configPath: string) {
         this.groupsConfig = { groups: {} };
+        this.schemaGenerator = new SchemaGenerator();
     }
 
     /**
@@ -155,10 +158,28 @@ export class GroupManager {
      * @returns A new tool with overrides applied
      */
     private applyToolOverrides(backendTool: Tool, override: ToolOverride): Tool {
+        // Determine the input schema to use
+        let inputSchema: { type: 'object', properties?: Record<string, unknown>, required?: string[] } & Record<string, unknown>;
+
+        if(override.argumentMapping?.type === 'template') {
+            // Generate schema from argument mapping
+            const generated = this.schemaGenerator.generateClientSchema(
+                backendTool.inputSchema,
+                override.argumentMapping
+            );
+            inputSchema = { type: 'object' as const, ...generated };
+        } else if(override.inputSchema) {
+            // Use explicit override
+            inputSchema = { type: 'object' as const, ...override.inputSchema };
+        } else {
+            // Use backend schema as-is (ensure it has the required type)
+            inputSchema = backendTool.inputSchema as { type: 'object', properties?: Record<string, unknown>, required?: string[] } & Record<string, unknown>;
+        }
+
         return {
             name:        override.name ?? backendTool.name,
             description: override.description ?? backendTool.description,
-            inputSchema: override.inputSchema ? { type: 'object' as const, ...override.inputSchema } : backendTool.inputSchema,
+            inputSchema,
         };
     }
 

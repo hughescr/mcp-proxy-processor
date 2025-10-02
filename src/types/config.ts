@@ -53,8 +53,10 @@ export type BackendServersConfig = z.infer<typeof BackendServersConfigSchema>;
 
 /** Pass parameter through unchanged from client to backend */
 export const PassthroughMappingSchema = z.object({
-    type:   z.literal('passthrough'),
-    source: z.string(), // Parameter name from client
+    type:        z.literal('passthrough'),
+    source:      z.string(), // Parameter name from client
+    name:        z.string().optional(), // Override parameter name shown to agent
+    description: z.string().optional(), // Override parameter description shown to agent
 });
 
 /** Always use a constant value, regardless of client input */
@@ -64,16 +66,26 @@ export const ConstantMappingSchema = z.object({
 });
 
 /** Use client value if provided, otherwise use default */
+/** Use client value if provided, otherwise use default */
 export const DefaultMappingSchema = z.object({
-    type:      z.literal('default'),
-    source:    z.string(), // Parameter name from client
-    'default': z.unknown(), // Default value if not provided
+    type:        z.literal('default'),
+    source:      z.string(), // Parameter name from client
+    'default':   z.unknown(), // Default value if not provided
+    name:        z.string().optional(), // Override parameter name shown to agent
+    description: z.string().optional(), // Override parameter description shown to agent
 });
 
 /** Rename parameter from client to backend */
 export const RenameMappingSchema = z.object({
-    type:   z.literal('rename'),
-    source: z.string(), // Parameter name from client
+    type:        z.literal('rename'),
+    source:      z.string(), // Parameter name from client
+    name:        z.string().optional(), // Override parameter name shown to agent
+    description: z.string().optional(), // Override parameter description shown to agent
+});
+
+/** Omit parameter from agent schema (not sent to backend) */
+export const OmitMappingSchema = z.object({
+    type: z.literal('omit'),
 });
 
 export const ParameterMappingSchema = z.discriminatedUnion('type', [
@@ -81,12 +93,14 @@ export const ParameterMappingSchema = z.discriminatedUnion('type', [
     ConstantMappingSchema,
     DefaultMappingSchema,
     RenameMappingSchema,
+    OmitMappingSchema,
 ]);
 
 export type PassthroughMapping = z.infer<typeof PassthroughMappingSchema>;
 export type ConstantMapping = z.infer<typeof ConstantMappingSchema>;
 export type DefaultMapping = z.infer<typeof DefaultMappingSchema>;
 export type RenameMapping = z.infer<typeof RenameMappingSchema>;
+export type OmitMapping = z.infer<typeof OmitMappingSchema>;
 export type ParameterMapping = z.infer<typeof ParameterMappingSchema>;
 
 /** Template-based argument mapping */
