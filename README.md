@@ -90,7 +90,9 @@ Edit `config/backend-servers.json` to define your backend MCP servers (uses Clau
 Launch the interactive admin interface to discover and configure tools:
 
 ```bash
-bun run dev --admin
+bun run dev admin
+# or if installed globally:
+mcp-proxy admin
 ```
 
 The admin interface lets you:
@@ -152,15 +154,17 @@ Add the proxy to your Claude Desktop config (`~/Library/Application Support/Clau
   "mcpServers": {
     "standard_tools": {
       "command": "mcp-proxy",
-      "args": ["--serve", "standard_tools"]
+      "args": ["serve", "standard_tools"]
     },
     "financial_tools": {
       "command": "mcp-proxy",
-      "args": ["--serve", "financial_tools"]
+      "args": ["serve", "financial_tools"]
     }
   }
 }
 ```
+
+**Note:** The legacy `--serve` format is still supported for backward compatibility, but the new `serve` command format is recommended.
 
 ### 4. Test It
 
@@ -227,21 +231,29 @@ The `config/groups.json` file defines tool groups:
 
 ## Usage
 
-### Serve a Group
+### CLI Commands
+
+The CLI uses Commander.js with automatic help generation. Run `mcp-proxy --help` to see all available commands.
+
+#### Serve a Group
 
 Start the MCP proxy server for a specific group:
 
 ```bash
+mcp-proxy serve standard_tools
+# or legacy format:
 mcp-proxy --serve standard_tools
 ```
 
 This starts an MCP server (stdio transport) exposing only the tools defined in the "standard_tools" group.
 
-### Admin Interface
+#### Admin Interface
 
 Launch the interactive admin interface:
 
 ```bash
+mcp-proxy admin
+# or legacy format:
 mcp-proxy --admin
 ```
 
@@ -251,6 +263,46 @@ Use this to:
 - Add/remove tools from groups
 - Override tool definitions
 - Save configurations
+
+#### List Groups
+
+List all configured groups:
+
+```bash
+mcp-proxy list-groups
+```
+
+Shows all groups with their descriptions and tool/resource counts.
+
+#### Describe Group
+
+Show detailed information about a specific group:
+
+```bash
+mcp-proxy describe-group standard_tools
+```
+
+Displays all tools and resources in the group, including overrides.
+
+#### List Backend Servers
+
+List all configured backend servers:
+
+```bash
+mcp-proxy list-backends
+```
+
+Shows all backend servers with their commands and configuration.
+
+#### Validate Configuration
+
+Validate configuration files without starting servers:
+
+```bash
+mcp-proxy validate
+```
+
+Checks that both `backend-servers.json` and `groups.json` are valid.
 
 ## Real-World Usage Examples
 
@@ -338,7 +390,7 @@ Create a focused group for financial analysis that includes Excel, calculator, w
   "mcpServers": {
     "financial_tools": {
       "command": "mcp-proxy",
-      "args": ["--serve", "financial_tools"]
+      "args": ["serve", "financial_tools"]
     }
   }
 }
@@ -420,19 +472,19 @@ Configure multiple groups in Claude Desktop for different workflows:
   "mcpServers": {
     "quick_tools": {
       "command": "mcp-proxy",
-      "args": ["--serve", "standard_tools"]
+      "args": ["serve", "standard_tools"]
     },
     "financial_analysis": {
       "command": "mcp-proxy",
-      "args": ["--serve", "financial_tools"]
+      "args": ["serve", "financial_tools"]
     },
     "research": {
       "command": "mcp-proxy",
-      "args": ["--serve", "research_tools"]
+      "args": ["serve", "research_tools"]
     },
     "coding": {
       "command": "mcp-proxy",
-      "args": ["--serve", "coding_tools"]
+      "args": ["serve", "coding_tools"]
     }
   }
 }
@@ -445,14 +497,23 @@ Claude Desktop will show all four groups. You can enable/disable groups based on
 Test your group configuration before adding it to Claude Desktop:
 
 ```bash
+# Validate configuration files
+mcp-proxy validate
+
+# List all configured groups
+mcp-proxy list-groups
+
+# Show details about a specific group
+mcp-proxy describe-group financial_tools
+
 # Start the proxy server for your group
-mcp-proxy --serve financial_tools
+mcp-proxy serve financial_tools
 
 # In another terminal, use the MCP Inspector
-npx @modelcontextprotocol/inspector mcp-proxy --serve financial_tools
+npx @modelcontextprotocol/inspector mcp-proxy serve financial_tools
 
 # Or test with curl (requires jq for pretty-printing)
-echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | mcp-proxy --serve financial_tools | jq
+echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | mcp-proxy serve financial_tools | jq
 ```
 
 This lets you verify that:
@@ -506,8 +567,12 @@ Quick tips:
 bun install
 
 # Run in development mode
-bun run dev --serve standard_tools
-bun run dev --admin
+bun run dev serve standard_tools
+bun run dev admin
+bun run dev list-groups
+bun run dev describe-group standard_tools
+bun run dev list-backends
+bun run dev validate
 
 # Run tests
 bun test
