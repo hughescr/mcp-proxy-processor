@@ -36,7 +36,7 @@ describe('Override Application', () => {
             expect(anotherTool?.description).toBe('Another tool from server 2'); // Original retained
         });
 
-        it('should apply description override while keeping original name', () => {
+        it('should apply description override while keeping original name', async () => {
             const customGroup = {
                 groups: {
                     'desc-override': {
@@ -54,17 +54,15 @@ describe('Override Application', () => {
             };
 
             // Create a new group manager with custom config
-            beforeEach(async () => {
-                const customPath = await createTempConfigFile(customGroup);
-                const customManager = new GroupManager(customPath);
-                await customManager.load();
+            const customPath = await createTempConfigFile(customGroup);
+            const customManager = new GroupManager(customPath);
+            await customManager.load();
 
-                const tools = customManager.getToolsForGroup('desc-override', mockBackendTools);
-                const tool = tools[0];
+            const tools = customManager.getToolsForGroup('desc-override', mockBackendTools);
+            const tool = tools[0];
 
-                expect(tool.name).toBe('original_tool'); // Name unchanged
-                expect(tool.description).toBe('Only description changed'); // Description overridden
-            });
+            expect(tool.name).toBe('original_tool'); // Name unchanged
+            expect(tool.description).toBe('Only description changed'); // Description overridden
         });
 
         it('should apply schema override completely', async () => {

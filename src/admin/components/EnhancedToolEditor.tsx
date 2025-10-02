@@ -57,18 +57,16 @@ export function EnhancedToolEditor({ tool, groupName, onSave, onRemove, onCancel
     const [error, setError] = useState<string | null>(null);
 
     // Handle Esc for navigation - only works in menu and loading modes
-    // In edit modes, let the input components handle Esc themselves
+    // Note: edit-name uses TextInput which doesn't handle ESC - user must press Enter
+    // edit-description is handled by the MultiLineTextEditor component which has onCancel
     useInput((input, key) => {
         if(mode === 'menu') {
             if(key.escape || key.leftArrow) {
                 onCancel();
             }
-        } else if(mode === 'edit-name') {
-            if(key.escape) {
-                setMode('menu');
-            }
         }
-        // Note: edit-description mode is handled by the MultiLineTextEditor component
+        // Don't handle ESC for edit-name mode - TextInput doesn't have onCancel
+        // edit-description is handled by MultiLineTextEditor component
     });
 
     // Load backend tool information on mount
@@ -194,7 +192,7 @@ export function EnhancedToolEditor({ tool, groupName, onSave, onRemove, onCancel
                   onSubmit={handleNameSubmit}
                 />
             </Box>
-            <Text dimColor>Press Enter to save, Esc to cancel</Text>
+            <Text dimColor>Press Enter to save</Text>
         </Box>
     );
 
@@ -286,7 +284,7 @@ export function EnhancedToolEditor({ tool, groupName, onSave, onRemove, onCancel
         return (
             <ParameterMappingEditor
               mapping={currentTool.argumentMapping}
-              clientSchema={currentTool.inputSchema}
+              clientSchema={backendTool?.inputSchema}
               backendSchema={backendTool?.inputSchema}
               onSave={handleMappingSave}
               onCancel={() => setMode('menu')}

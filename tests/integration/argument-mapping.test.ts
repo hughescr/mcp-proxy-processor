@@ -13,7 +13,7 @@ describe('Argument Mapping Integration', () => {
         const groupManager = new GroupManager('config/groups.json');
         await groupManager.load();
 
-        const group = groupManager.getGroup('standard_tools');
+        const group = groupManager.getGroup('research_tools');
         expect(group).toBeDefined();
 
         // Find the get_current_time tool
@@ -50,7 +50,7 @@ describe('Argument Mapping Integration', () => {
         const groupManager = new GroupManager('config/groups.json');
         await groupManager.load();
 
-        const group = groupManager.getGroup('standard_tools');
+        const group = groupManager.getGroup('research_tools');
         const timeTool = find(group?.tools, { originalName: 'get_current_time' });
 
         if(timeTool?.argumentMapping) {
@@ -67,7 +67,7 @@ describe('Argument Mapping Integration', () => {
         const groupManager = new GroupManager('config/groups.json');
         await groupManager.load();
 
-        const group = groupManager.getGroup('standard_tools');
+        const group = groupManager.getGroup('research_tools');
         const timeTool = find(group?.tools, { originalName: 'get_current_time' });
 
         expect(timeTool?.argumentMapping).toBeDefined();
