@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access -- logger is typed as any */
 /**
  * Frontend MCP Server Implementation
  *
@@ -22,6 +23,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { logger } from '@hughescr/logger';
 import { GroupManager } from '../middleware/index.js';
+import { ArgumentTransformer } from '../middleware/argument-transformer.js';
 import { ClientManager } from '../backend/client-manager.js';
 import { DiscoveryService } from '../backend/discovery.js';
 import { ProxyService } from '../backend/proxy.js';
@@ -98,16 +100,19 @@ export async function startServer(groupName: string): Promise<void> {
         const totalBackendResources = reduce(Array.from(backendResources.values()), (sum, resources) => sum + resources.length, 0);
         logger.info({ totalBackendTools, totalBackendResources }, 'Discovery completed');
 
-        // 7. Create proxy service
+        // 7. Create argument transformer
+        const argumentTransformer = new ArgumentTransformer();
+
+        // 8. Create proxy service
         const proxyService = new ProxyService(clientManager);
 
-        // 8. Get tools and resources for this group (with overrides applied)
+        // 9. Get tools and resources for this group (with overrides applied)
         const groupTools = groupManager.getToolsForGroup(groupName, backendTools);
         const groupResources = groupManager.getResourcesForGroup(groupName, backendResources);
 
         logger.info({ toolCount: groupTools.length, resourceCount: groupResources.length }, 'Group tools and resources prepared');
 
-        // 9. Create MCP server instance
+        // 10. Create MCP server instance
         const server = new Server(
             {
                 name:    `mcp-proxy-${groupName}`,
@@ -121,7 +126,7 @@ export async function startServer(groupName: string): Promise<void> {
             }
         );
 
-        // 10. Register handlers
+        // 11. Register handlers
 
         // tools/list handler
         server.setRequestHandler(ListToolsRequestSchema, async () => {
@@ -139,12 +144,19 @@ export async function startServer(groupName: string): Promise<void> {
             if(!toolOverride) {
                 throw new Error(`Tool not found in group: ${toolName}`);
             }
+            // Transform arguments if mapping is configured
+            let backendArgs = args;
+            if(toolOverride.argumentMapping) {
+                logger.debug({ clientArgs: args, mapping: toolOverride.argumentMapping }, 'Transforming arguments');
+                backendArgs = await argumentTransformer.transform(args, toolOverride.argumentMapping);
+                logger.debug({ backendArgs }, 'Arguments transformed');
+            }
 
             // Proxy to the backend server using the original tool name
             const result = await proxyService.callTool(
                 toolOverride.serverName,
                 toolOverride.originalName,
-                args
+                backendArgs
             );
 
             // Return the result directly (it already has content and isError fields)

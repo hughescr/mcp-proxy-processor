@@ -6,13 +6,14 @@ import React, { useState, useEffect } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { EnhancedSelectInput } from 'ink-enhanced-select-input';
 import TextInput from 'ink-text-input';
-import { trim, repeat, isError, find } from 'lodash';
+import { trim, repeat, isError, find, keys } from 'lodash';
 import type { Tool } from '@modelcontextprotocol/sdk/types';
-import type { ToolOverride } from '../../types/config.js';
+import type { ToolOverride, ArgumentMapping } from '../../types/config.js';
 import { loadBackendServersConfig } from '../config-utils.js';
 import { ClientManager } from '../../backend/client-manager.js';
 import { DiscoveryService } from '../../backend/discovery.js';
 import { MultiLineTextEditor } from './MultiLineTextEditor.js';
+import { ParameterMappingEditor } from './ParameterMappingEditor.js';
 
 interface EnhancedToolEditorProps {
     tool:      ToolOverride
@@ -21,7 +22,7 @@ interface EnhancedToolEditorProps {
     onCancel:  () => void
 }
 
-type EditMode = 'loading' | 'menu' | 'edit-name' | 'edit-description';
+type EditMode = 'loading' | 'menu' | 'edit-name' | 'edit-description' | 'edit-argument-mapping';
 
 const DESCRIPTION_GUIDANCE = `
 ✨ Writing Effective Tool Descriptions
@@ -110,11 +111,17 @@ export function EnhancedToolEditor({ tool, groupName, onSave, onCancel }: Enhanc
                 setInputValue(currentTool.description ?? backendTool?.description ?? '');
                 setMode('edit-description');
                 break;
+            case 'edit-argument-mapping':
+                setMode('edit-argument-mapping');
+                break;
             case 'clear-name':
                 setCurrentTool({ ...currentTool, name: undefined });
                 break;
             case 'clear-description':
                 setCurrentTool({ ...currentTool, description: undefined });
+                break;
+            case 'clear-argument-mapping':
+                setCurrentTool({ ...currentTool, argumentMapping: undefined });
                 break;
             default:
                 break;
@@ -255,6 +262,24 @@ export function EnhancedToolEditor({ tool, groupName, onSave, onCancel }: Enhanc
         return renderDescriptionEditor();
     }
 
+    // Argument mapping editor
+    if(mode === 'edit-argument-mapping') {
+        const handleMappingSave = (mapping: ArgumentMapping | undefined) => {
+            setCurrentTool({ ...currentTool, argumentMapping: mapping });
+            setMode('menu');
+        };
+
+        return (
+            <ParameterMappingEditor
+              mapping={currentTool.argumentMapping}
+              clientSchema={currentTool.inputSchema}
+              backendSchema={backendTool?.inputSchema}
+              onSave={handleMappingSave}
+              onCancel={() => setMode('menu')}
+            />
+        );
+    }
+
     const buildMenuItems = () => {
         const effectiveName = currentTool.name ?? currentTool.originalName;
         const effectiveDescription = currentTool.description ?? backendTool?.description ?? '(no description)';
@@ -286,6 +311,25 @@ export function EnhancedToolEditor({ tool, groupName, onSave, onCancel }: Enhanc
 
         if(currentTool.description) {
             menuItems.push({ label: '  ✕ Clear Description Override', value: 'clear-description' });
+        }
+
+        // Argument mapping status
+        let mappingStatus = '(none)';
+        if(currentTool.argumentMapping) {
+            if(currentTool.argumentMapping.type === 'template') {
+                const paramCount = keys(currentTool.argumentMapping.mappings).length;
+                mappingStatus = `Template (${paramCount} params)`;
+            } else {
+                mappingStatus = 'JSONata';
+            }
+        }
+        menuItems.push({
+            label: `Argument Mapping: ${mappingStatus}`,
+            value: 'edit-argument-mapping',
+        });
+
+        if(currentTool.argumentMapping) {
+            menuItems.push({ label: '  ✕ Clear Argument Mapping', value: 'clear-argument-mapping' });
         }
 
         menuItems.push(

@@ -48,19 +48,84 @@ export type BackendServerConfig = z.infer<typeof BackendServerConfigSchema>;
 export type BackendServersConfig = z.infer<typeof BackendServersConfigSchema>;
 
 /**
+ * Parameter mapping types for argument transformation
+ */
+
+/** Pass parameter through unchanged from client to backend */
+export const PassthroughMappingSchema = z.object({
+    type:   z.literal('passthrough'),
+    source: z.string(), // Parameter name from client
+});
+
+/** Always use a constant value, regardless of client input */
+export const ConstantMappingSchema = z.object({
+    type:  z.literal('constant'),
+    value: z.unknown(), // Fixed value to use
+});
+
+/** Use client value if provided, otherwise use default */
+export const DefaultMappingSchema = z.object({
+    type:      z.literal('default'),
+    source:    z.string(), // Parameter name from client
+    'default': z.unknown(), // Default value if not provided
+});
+
+/** Rename parameter from client to backend */
+export const RenameMappingSchema = z.object({
+    type:   z.literal('rename'),
+    source: z.string(), // Parameter name from client
+});
+
+export const ParameterMappingSchema = z.discriminatedUnion('type', [
+    PassthroughMappingSchema,
+    ConstantMappingSchema,
+    DefaultMappingSchema,
+    RenameMappingSchema,
+]);
+
+export type PassthroughMapping = z.infer<typeof PassthroughMappingSchema>;
+export type ConstantMapping = z.infer<typeof ConstantMappingSchema>;
+export type DefaultMapping = z.infer<typeof DefaultMappingSchema>;
+export type RenameMapping = z.infer<typeof RenameMappingSchema>;
+export type ParameterMapping = z.infer<typeof ParameterMappingSchema>;
+
+/** Template-based argument mapping */
+export const TemplateMappingSchema = z.object({
+    type:     z.literal('template'),
+    mappings: z.record(z.string(), ParameterMappingSchema), // backend param -> mapping config
+});
+
+/** JSONata expression-based argument mapping */
+export const JsonataMappingSchema = z.object({
+    type:       z.literal('jsonata'),
+    expression: z.string(), // JSONata expression that transforms args
+});
+
+export const ArgumentMappingSchema = z.discriminatedUnion('type', [
+    TemplateMappingSchema,
+    JsonataMappingSchema,
+]);
+
+export type TemplateMapping = z.infer<typeof TemplateMappingSchema>;
+export type JsonataMapping = z.infer<typeof JsonataMappingSchema>;
+export type ArgumentMapping = z.infer<typeof ArgumentMappingSchema>;
+
+/**
  * Tool override configuration
  */
 export const ToolOverrideSchema = z.object({
     /** Original tool name from backend server */
-    originalName: z.string(),
+    originalName:    z.string(),
     /** Backend server name this tool comes from */
-    serverName:   z.string(),
+    serverName:      z.string(),
     /** Optional: Override the tool name exposed to clients */
-    name:         z.string().optional(),
+    name:            z.string().optional(),
     /** Optional: Override the tool description */
-    description:  z.string().optional(),
+    description:     z.string().optional(),
     /** Optional: Override the input schema */
-    inputSchema:  z.record(z.string(), z.unknown()).optional(),
+    inputSchema:     z.record(z.string(), z.unknown()).optional(),
+    /** Optional: Argument mapping configuration for transforming client args to backend args */
+    argumentMapping: ArgumentMappingSchema.optional(),
 });
 
 export type ToolOverride = z.infer<typeof ToolOverrideSchema>;
