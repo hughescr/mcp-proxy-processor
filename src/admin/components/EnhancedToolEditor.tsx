@@ -6,7 +6,7 @@ import React, { useState, useEffect } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { EnhancedSelectInput } from 'ink-enhanced-select-input';
 import TextInput from 'ink-text-input';
-import { trim, repeat, isError, find, keys } from 'lodash';
+import { trim, repeat, isError, find, keys, map } from 'lodash';
 import type { Tool } from '@modelcontextprotocol/sdk/types';
 import type { ToolOverride, ArgumentMapping } from '../../types/config.js';
 import { loadBackendServersConfig } from '../config-utils.js';
@@ -19,6 +19,7 @@ interface EnhancedToolEditorProps {
     tool:      ToolOverride
     groupName: string
     onSave:    (tool: ToolOverride) => void
+    onRemove?: () => void
     onCancel:  () => void
 }
 
@@ -48,7 +49,7 @@ Keep descriptions concise but informative (aim for 1-3 sentences):
 /**
  * Enhanced tool override editor with backend tool context
  */
-export function EnhancedToolEditor({ tool, groupName, onSave, onCancel }: EnhancedToolEditorProps) {
+export function EnhancedToolEditor({ tool, groupName, onSave, onRemove, onCancel }: EnhancedToolEditorProps) {
     const [mode, setMode] = useState<EditMode>('loading');
     const [currentTool, setCurrentTool] = useState<ToolOverride>(tool);
     const [backendTool, setBackendTool] = useState<Tool | null>(null);
@@ -84,6 +85,19 @@ export function EnhancedToolEditor({ tool, groupName, onSave, onCancel }: Enhanc
 
                 if(foundTool) {
                     setBackendTool(foundTool);
+                    // Debug logging to see what we received
+                    if(process.env.LOG_LEVEL !== 'silent') {
+                        // eslint-disable-next-line no-console -- Debug logging for tool discovery
+                        console.error(`[DEBUG] Found tool ${tool.originalName} from ${tool.serverName}:`, {
+                            hasDescription: !!foundTool.description,
+                            description:    foundTool.description,
+                            hasInputSchema: !!foundTool.inputSchema,
+                            inputSchema:    foundTool.inputSchema,
+                        });
+                    }
+                } else if(process.env.LOG_LEVEL !== 'silent') {
+                    // eslint-disable-next-line no-console -- Debug logging for tool discovery
+                    console.error(`[DEBUG] Tool ${tool.originalName} not found in server ${tool.serverName}. Available tools:`, map(serverTools, 'name'));
                 }
 
                 await clientManager.disconnectAll();
@@ -99,6 +113,11 @@ export function EnhancedToolEditor({ tool, groupName, onSave, onCancel }: Enhanc
         switch(item.value) {
             case 'save':
                 onSave(currentTool);
+                break;
+            case 'remove':
+                if(onRemove) {
+                    onRemove();
+                }
                 break;
             case 'cancel':
                 onCancel();
@@ -334,9 +353,14 @@ export function EnhancedToolEditor({ tool, groupName, onSave, onCancel }: Enhanc
 
         menuItems.push(
             { label: repeat('─', 60), value: 'sep2', disabled: true },
-            { label: '💾 Save Tool', value: 'save' },
-            { label: '← Cancel', value: 'cancel' }
+            { label: '💾 Save Tool', value: 'save' }
         );
+
+        if(onRemove) {
+            menuItems.push({ label: '🗑️  Remove from Group', value: 'remove' });
+        }
+
+        menuItems.push({ label: '← Cancel', value: 'cancel' });
 
         return menuItems;
     };

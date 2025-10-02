@@ -39,6 +39,93 @@ export class ClientManager {
     }
 
     /**
+     * Attempt to connect to a backend server (single attempt, no retries)
+     */
+    private async attemptConnection(serverName: string, serverConfig: BackendServerConfig): Promise<Client> {
+        // Only stdio transport is currently supported
+        if('type' in serverConfig) {
+            throw new Error(`Transport type "${serverConfig.type}" is not yet supported for server "${serverName}". Only stdio transport is currently implemented.`);
+        }
+
+        // Type guard confirms this is stdio config
+        const stdioConfig = serverConfig;
+
+        logger.debug({ serverName, command: stdioConfig.command }, 'Attempting connection to backend server');
+
+        // StdioClientTransport needs StdioServerParameters
+        const serverParams: StdioServerParameters = {
+            command: stdioConfig.command,
+            args:    stdioConfig.args ?? [],
+            env:     {
+                ...stdioConfig.env,
+                // Propagate silent mode to backend servers
+                ...(process.env.LOG_LEVEL ? { LOG_LEVEL: process.env.LOG_LEVEL } : {}),
+            },
+            // Ignore stderr in admin mode to prevent UI clutter
+            // In serve mode, inherit stderr for debugging
+            stderr: process.env.LOG_LEVEL === 'silent' ? 'ignore' : 'inherit',
+        };
+
+        // Create transport - this will spawn the process
+        const transport = new StdioClientTransport(serverParams);
+
+        // Create client
+        const client = new Client({
+            name:    'mcp-proxy-processor',
+            version: '0.1.0',
+        }, {
+            capabilities: {
+                // Request all capabilities from backend servers
+                tools:     {},
+                resources: {},
+            },
+        });
+
+        // Connect and initialize
+        await client.connect(transport);
+
+        return client;
+    }
+
+    /**
+     * Wait for a backend server to be ready to accept connections
+     * Retries connection with exponential backoff
+     */
+    private async waitForConnection(serverName: string, serverConfig: BackendServerConfig, maxAttempts = 3): Promise<Client> {
+        let lastError: Error | undefined;
+
+        for(let attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+                // Create client and attempt connection
+                const client = await this.attemptConnection(serverName, serverConfig);
+
+                // Connection successful
+                logger.info({ serverName, attempt }, 'Successfully connected to backend server');
+                return client;
+            } catch (error) {
+                lastError = _.isError(error) ? error : new Error(String(error));
+
+                if(attempt < maxAttempts) {
+                    // Exponential backoff: 500ms, 1000ms, 2000ms
+                    const delayMs = 500 * Math.pow(2, attempt - 1);
+                    logger.warn(
+                        { serverName, attempt, maxAttempts, delayMs, error: lastError.message },
+                        'Connection attempt failed, retrying'
+                    );
+                    await new Promise(resolve => setTimeout(resolve, delayMs));
+                } else {
+                    logger.error(
+                        { serverName, attempt, error: lastError.message },
+                        'All connection attempts failed'
+                    );
+                }
+            }
+        }
+
+        throw new Error(`Failed to connect to backend server ${serverName} after ${maxAttempts} attempts: ${lastError?.message ?? 'Unknown error'}`);
+    }
+
+    /**
      * Connect to a specific backend server
      */
     async connect(serverName: string): Promise<Client> {
@@ -54,50 +141,12 @@ export class ClientManager {
         if(!serverConfig) {
             throw new Error(`Server config not found: ${serverName}`);
         }
-        // Only stdio transport is currently supported
-        if('type' in serverConfig) {
-            throw new Error(`Transport type "${serverConfig.type}" is not yet supported for server "${serverName}". Only stdio transport is currently implemented.`);
-        }
 
-        // Type guard confirms this is stdio config
-        const stdioConfig = serverConfig;
-
-        logger.info({ serverName, command: stdioConfig.command }, 'Connecting to backend server');
+        logger.info({ serverName }, 'Connecting to backend server with retry logic');
 
         try {
-            // StdioClientTransport needs StdioServerParameters
-            const serverParams: StdioServerParameters = {
-                command: stdioConfig.command,
-                args:    stdioConfig.args ?? [],
-                env:     {
-                    ...stdioConfig.env,
-                    // Propagate silent mode to backend servers
-                    ...(process.env.LOG_LEVEL ? { LOG_LEVEL: process.env.LOG_LEVEL } : {}),
-                },
-                // Ignore stderr in admin mode to prevent UI clutter
-                // In serve mode, inherit stderr for debugging
-                stderr: process.env.LOG_LEVEL === 'silent' ? 'ignore' : 'inherit',
-            };
-
-            // Create transport - this will spawn the process
-
-            const transport = new StdioClientTransport(serverParams);
-
-            // Create client
-            const client = new Client({
-                name:    'mcp-proxy-processor',
-                version: '0.1.0',
-            }, {
-                capabilities: {
-                    // Request all capabilities from backend servers
-                    tools:     {},
-                    resources: {},
-                },
-            });
-
-            // Connect and initialize
-
-            await client.connect(transport);
+            // Use retry logic for connection
+            const client = await this.waitForConnection(serverName, serverConfig);
 
             const state: ClientState = {
                 client,
@@ -107,11 +156,8 @@ export class ClientManager {
 
             this.clients.set(serverName, state);
 
-            logger.info({ serverName }, 'Successfully connected to backend server');
-
-            // Handle unexpected disconnections
-
-            transport.onclose = () => {
+            // Handle unexpected disconnections by monitoring client events
+            client.onclose = () => {
                 logger.warn({ serverName }, 'Backend server connection closed');
                 const currentState = this.clients.get(serverName);
                 if(currentState) {
@@ -119,7 +165,7 @@ export class ClientManager {
                 }
             };
 
-            transport.onerror = (error: Error) => {
+            client.onerror = (error: Error) => {
                 logger.error({ serverName, error: error.message }, 'Backend server connection error');
                 const currentState = this.clients.get(serverName);
                 if(currentState) {
@@ -131,7 +177,7 @@ export class ClientManager {
         } catch (error) {
             logger.error(
                 { serverName, error: _.isError(error) ? error.message : String(error) },
-                'Failed to connect to backend server'
+                'Failed to connect to backend server after all retries'
             );
             throw new Error(`Failed to connect to backend server ${serverName}: ${_.isError(error) ? error.message : String(error)}`);
         }
@@ -139,18 +185,25 @@ export class ClientManager {
 
     /**
      * Connect to all available backend servers
+     * Returns connection results indicating success/failure for each server
      */
-    async connectAll(): Promise<void> {
+    async connectAll(): Promise<{ successful: string[], failed: { serverName: string, error: string }[] }> {
         const serverNames = Array.from(this.serverConfigs.keys());
 
         logger.info({ serverCount: serverNames.length }, 'Connecting to all backend servers');
 
+        const successful: string[] = [];
+        const failed: { serverName: string, error: string }[] = [];
+
         const connectPromises = _.map(serverNames, async (serverName) => {
             try {
                 await this.connect(serverName);
+                successful.push(serverName);
             } catch (error) {
+                const errorMessage = _.isError(error) ? error.message : String(error);
+                failed.push({ serverName, error: errorMessage });
                 logger.error(
-                    { serverName, error: _.isError(error) ? error.message : String(error) },
+                    { serverName, error: errorMessage },
                     'Failed to connect to backend server during connectAll'
                 );
                 // Continue with other servers even if one fails
@@ -160,7 +213,23 @@ export class ClientManager {
         await Promise.all(connectPromises);
 
         const connectedCount = _.filter(Array.from(this.clients.values()), 'connected').length;
-        logger.info({ connectedCount, totalServers: serverNames.length }, 'Finished connecting to backend servers');
+
+        if(failed.length > 0) {
+            logger.warn(
+                {
+                    connectedCount,
+                    totalServers: serverNames.length,
+                    successful,
+                    failedCount:  failed.length,
+                    failures:     failed,
+                },
+                'Finished connecting to backend servers with some failures'
+            );
+        } else {
+            logger.info({ connectedCount, totalServers: serverNames.length }, 'Finished connecting to backend servers');
+        }
+
+        return { successful, failed };
     }
 
     /**

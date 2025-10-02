@@ -81,14 +81,18 @@ export class DiscoveryService {
         logger.info({ serverCount: serverNames.length }, 'Discovering tools from all backend servers');
 
         const results = new Map<string, Tool[]>();
+        const errors: { serverName: string, error: string }[] = [];
 
         const discoveryPromises = _.map(serverNames, async (serverName) => {
             try {
                 const tools = await this.discoverTools(serverName);
                 results.set(serverName, tools);
+                logger.debug({ serverName, toolCount: tools.length }, 'Successfully discovered tools from server');
             } catch (error) {
+                const errorMessage = _.isError(error) ? error.message : String(error);
+                errors.push({ serverName, error: errorMessage });
                 logger.error(
-                    { serverName, error: _.isError(error) ? error.message : String(error) },
+                    { serverName, error: errorMessage },
                     'Failed to discover tools during discoverAllTools'
                 );
                 // Still continue with other servers
@@ -99,7 +103,22 @@ export class DiscoveryService {
         await Promise.all(discoveryPromises);
 
         const totalTools = _.reduce(Array.from(results.values()), (sum, tools) => sum + tools.length, 0);
-        logger.info({ serverCount: results.size, totalTools }, 'Finished discovering tools from all servers');
+        const successCount = results.size - errors.length;
+
+        if(errors.length > 0) {
+            logger.warn(
+                {
+                    serverCount:  results.size,
+                    successCount,
+                    failureCount: errors.length,
+                    totalTools,
+                    failures:     errors,
+                },
+                'Finished discovering tools with some failures'
+            );
+        } else {
+            logger.info({ serverCount: results.size, totalTools }, 'Finished discovering tools from all servers');
+        }
 
         return results;
     }
@@ -149,14 +168,18 @@ export class DiscoveryService {
         logger.info({ serverCount: serverNames.length }, 'Discovering resources from all backend servers');
 
         const results = new Map<string, Resource[]>();
+        const errors: { serverName: string, error: string }[] = [];
 
         const discoveryPromises = _.map(serverNames, async (serverName) => {
             try {
                 const resources = await this.discoverResources(serverName);
                 results.set(serverName, resources);
+                logger.debug({ serverName, resourceCount: resources.length }, 'Successfully discovered resources from server');
             } catch (error) {
+                const errorMessage = _.isError(error) ? error.message : String(error);
+                errors.push({ serverName, error: errorMessage });
                 logger.error(
-                    { serverName, error: _.isError(error) ? error.message : String(error) },
+                    { serverName, error: errorMessage },
                     'Failed to discover resources during discoverAllResources'
                 );
                 // Still continue with other servers
@@ -167,7 +190,22 @@ export class DiscoveryService {
         await Promise.all(discoveryPromises);
 
         const totalResources = _.reduce(Array.from(results.values()), (sum, resources) => sum + resources.length, 0);
-        logger.info({ serverCount: results.size, totalResources }, 'Finished discovering resources from all servers');
+        const successCount = results.size - errors.length;
+
+        if(errors.length > 0) {
+            logger.warn(
+                {
+                    serverCount:  results.size,
+                    successCount,
+                    failureCount: errors.length,
+                    totalResources,
+                    failures:     errors,
+                },
+                'Finished discovering resources with some failures'
+            );
+        } else {
+            logger.info({ serverCount: results.size, totalResources }, 'Finished discovering resources from all servers');
+        }
 
         return results;
     }

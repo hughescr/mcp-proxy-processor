@@ -146,11 +146,18 @@ export function GroupEditor({ groupName, group, onSave, onDelete, onCancel }: Gr
 
     // Tool editor for editing existing tool
     if(mode === 'edit-tool' && editingToolIndex !== null) {
+        const handleRemoveCurrentTool = () => {
+            handleRemoveTool(editingToolIndex);
+            setEditingToolIndex(null);
+            setMode('menu');
+        };
+
         return (
             <EnhancedToolEditor
               tool={currentGroup.tools[editingToolIndex]}
               groupName={currentGroup.name}
               onSave={tool => handleEditTool(editingToolIndex, tool)}
+              onRemove={handleRemoveCurrentTool}
               onCancel={() => setMode('menu')}
             />
         );
