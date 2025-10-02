@@ -99,6 +99,100 @@ the object to send to the backend server.
 `;
 
 /**
+ * Handle keyboard input for navigation
+ */
+const useEditorKeyboardNav = (
+    mode: EditorMode,
+    setMode: (mode: EditorMode) => void,
+    onCancel: () => void
+) => {
+    useInput((_input, key) => {
+        if(mode === 'menu' && (key.escape || key.leftArrow)) {
+            onCancel();
+        } else if(mode === 'test-preview' && key.escape) {
+            setMode('menu');
+        }
+    });
+};
+
+/**
+ * Get parameter mapping description for menu display
+ */
+const getParamMappingDescription = (paramMapping: ParameterMapping): string => {
+    switch(paramMapping.type) {
+        case 'passthrough':
+            return `← ${paramMapping.source}`;
+        case 'constant':
+            return `= ${JSON.stringify(paramMapping.value)}`;
+        case 'default':
+            return `${paramMapping.source} || ${JSON.stringify(paramMapping.default)}`;
+        case 'rename':
+            return `← ${paramMapping.source} (renamed)`;
+        case 'omit':
+            return '(omitted from agent)';
+    }
+};
+
+/**
+ * Check if parameter mapping type has name/description overrides
+ */
+const hasNameDescriptionOverrides = (type: ParameterMapping['type']): boolean => {
+    return type !== 'constant' && type !== 'omit';
+};
+
+/**
+ * Build menu items for parameter mapping editor
+ */
+const buildMappingEditorMenuItems = (paramMapping: ParameterMapping): { label: string, value: string, disabled?: boolean }[] => {
+    const menuItems: { label: string, value: string, disabled?: boolean }[] = [];
+
+    menuItems.push({
+        label: `Type: ${paramMapping.type}`,
+        value: 'change-type',
+    });
+
+    if(paramMapping.type === 'passthrough' || paramMapping.type === 'rename' || paramMapping.type === 'default') {
+        menuItems.push({
+            label: `Source Parameter: ${paramMapping.source || '(not set)'}`,
+            value: 'select-source',
+        });
+    }
+
+    if(paramMapping.type === 'constant') {
+        menuItems.push({
+            label: `Constant Value: ${JSON.stringify(paramMapping.value)}`,
+            value: 'edit-constant',
+        });
+    }
+
+    if(paramMapping.type === 'default') {
+        menuItems.push({
+            label: `Default Value: ${JSON.stringify(paramMapping.default)}`,
+            value: 'edit-default',
+        });
+    }
+
+    // Add name/description editors for non-constant/non-omit types
+    if(hasNameDescriptionOverrides(paramMapping.type) && (paramMapping.type === 'passthrough' || paramMapping.type === 'default' || paramMapping.type === 'rename')) {
+        menuItems.push({
+            label: `Agent Parameter Name: ${paramMapping.name ?? '(use backend name)'}`,
+            value: 'edit-name',
+        }, {
+            label: `Agent Parameter Description: ${paramMapping.description ?? '(use backend description)'}`,
+            value: 'edit-description',
+        });
+    }
+
+    menuItems.push(
+        { label: repeat('─', 40), value: 'sep', disabled: true } as { label: string, value: string, disabled?: boolean },
+        { label: '💾 Save Parameter', value: 'save-param' },
+        { label: '← Back', value: 'back' }
+    );
+
+    return menuItems;
+};
+
+/**
  * Editor for argument mappings with type-specific controls
  */
 export function ParameterMappingEditor({
@@ -118,21 +212,7 @@ export function ParameterMappingEditor({
     const transformer = new ArgumentTransformer();
 
     // Handle Esc for navigation
-    // Note: Don't handle ESC for modes using TextInput (edit-value, edit-name, edit-description)
-    // as TextInput doesn't have onCancel - user must press Enter or navigate away
-    useInput((_input, key) => {
-        if(mode === 'menu') {
-            if(key.escape || key.leftArrow) {
-                onCancel();
-            }
-        } else if(mode === 'test-preview') {
-            if(key.escape) {
-                setMode('menu');
-            }
-        }
-        // edit-jsonata-expression is handled by MultiLineTextEditor component
-        // edit-value, edit-name, edit-description use TextInput which doesn't handle ESC
-    });
+    useEditorKeyboardNav(mode, setMode, onCancel);
     const getClientParams = (): string[] => {
         if(!clientSchema?.properties) {
             return [];
@@ -666,61 +746,34 @@ Examples: "text", 123, true,
         }
 
         const { paramMapping } = editState;
+        const menuItems = buildMappingEditorMenuItems(paramMapping);
 
-        const menuItems: { label: string, value: string, disabled?: boolean }[] = [];
+        const handleSaveParam = () => {
+            const templateMapping: TemplateMapping = currentMapping?.type === 'template'
+                ? currentMapping
+                : { type: 'template', mappings: {} };
 
-        menuItems.push({
-            label: `Type: ${paramMapping.type}`,
-            value: 'change-type',
-        });
+            templateMapping.mappings[editState.paramName] = editState.paramMapping;
+            setCurrentMapping(templateMapping);
+            setEditState(null);
+            setMode('menu');
+        };
 
-        if(paramMapping.type === 'passthrough' || paramMapping.type === 'rename' || paramMapping.type === 'default') {
-            menuItems.push({
-                label: `Source Parameter: ${paramMapping.source || '(not set)'}`,
-                value: 'select-source',
-            });
-        }
-
-        if(paramMapping.type === 'constant') {
-            const valueStr = JSON.stringify(paramMapping.value);
-            menuItems.push({
-                label: `Constant Value: ${valueStr}`,
-                value: 'edit-constant',
-            });
-        }
-
-        if(paramMapping.type === 'default') {
-            const defaultStr = JSON.stringify(paramMapping.default);
-            menuItems.push({
-                label: `Default Value: ${defaultStr}`,
-                value: 'edit-default',
-            });
-        }
-
-        // Add name/description editors for non-constant/non-omit types
-        if(paramMapping.type !== 'constant' && paramMapping.type !== 'omit') {
+        const handleEditName = () => {
             const currentName = paramMapping.type === 'passthrough' || paramMapping.type === 'default' || paramMapping.type === 'rename'
-                ? paramMapping.name
-                : undefined;
+                ? paramMapping.name ?? ''
+                : '';
+            setInputValue(currentName);
+            setMode('edit-name');
+        };
+
+        const handleEditDescription = () => {
             const currentDescription = paramMapping.type === 'passthrough' || paramMapping.type === 'default' || paramMapping.type === 'rename'
-                ? paramMapping.description
-                : undefined;
-
-            menuItems.push({
-                label: `Agent Parameter Name: ${currentName ?? '(use backend name)'}`,
-                value: 'edit-name',
-            });
-            menuItems.push({
-                label: `Agent Parameter Description: ${currentDescription ?? '(use backend description)'}`,
-                value: 'edit-description',
-            });
-        }
-
-        menuItems.push(
-            { label: repeat('─', 40), value: 'sep', disabled: true } as { label: string, value: string, disabled?: boolean },
-            { label: '💾 Save Parameter', value: 'save-param' },
-            { label: '← Back', value: 'back' }
-        );
+                ? paramMapping.description ?? ''
+                : '';
+            setInputValue(currentDescription);
+            setMode('edit-description');
+        };
 
         const handleEditMenuSelect = (item: { value: string }) => {
             switch(item.value) {
@@ -739,34 +792,13 @@ Examples: "text", 123, true,
                     setMode('edit-value');
                     break;
                 case 'edit-name':
-                    {
-                        const currentName = paramMapping.type === 'passthrough' || paramMapping.type === 'default' || paramMapping.type === 'rename'
-                            ? paramMapping.name ?? ''
-                            : '';
-                        setInputValue(currentName);
-                        setMode('edit-name');
-                    }
+                    handleEditName();
                     break;
                 case 'edit-description':
-                    {
-                        const currentDescription = paramMapping.type === 'passthrough' || paramMapping.type === 'default' || paramMapping.type === 'rename'
-                            ? paramMapping.description ?? ''
-                            : '';
-                        setInputValue(currentDescription);
-                        setMode('edit-description');
-                    }
+                    handleEditDescription();
                     break;
                 case 'save-param':
-                    {
-                        const templateMapping: TemplateMapping = currentMapping?.type === 'template'
-                            ? currentMapping
-                            : { type: 'template', mappings: {} };
-
-                        templateMapping.mappings[editState.paramName] = editState.paramMapping;
-                        setCurrentMapping(templateMapping);
-                        setEditState(null);
-                        setMode('menu');
-                    }
+                    handleSaveParam();
                     break;
                 case 'back':
                     setEditState(null);
@@ -854,44 +886,6 @@ Examples: "text", 123, true,
         );
     };
 
-    // Mode-based rendering
-    if(mode === 'edit-jsonata-expression') {
-        return renderJsonataEditor();
-    }
-
-    if(mode === 'test-preview') {
-        return renderTestPreview();
-    }
-
-    if(mode === 'edit-value' && editState) {
-        return renderValueEditor();
-    }
-
-    if(mode === 'select-type' && editState) {
-        return renderTypeSelector();
-    }
-
-    if(mode === 'edit-mapping' && editState) {
-        return renderMappingEditor();
-    }
-
-    if(mode === 'select-param') {
-        return renderParamSelector();
-    }
-
-    if(mode === 'select-source') {
-        return renderSourceSelector();
-    }
-
-    if(mode === 'edit-name' && editState) {
-        return renderNameEditor();
-    }
-
-    if(mode === 'edit-description' && editState) {
-        return renderDescriptionEditor();
-    }
-
-    // Main menu
     const buildMenuItems = () => {
         const menuItems: { label: string, value: string, disabled?: boolean }[] = [];
 
@@ -910,24 +904,7 @@ Examples: "text", 123, true,
                 menuItems.push({ label: '  (no parameters mapped)', value: 'empty', disabled: true });
             } else {
                 for(const [paramName, paramMapping] of mappingEntries) {
-                    let description = '';
-                    switch(paramMapping.type) {
-                        case 'passthrough':
-                            description = `← ${paramMapping.source}`;
-                            break;
-                        case 'constant':
-                            description = `= ${JSON.stringify(paramMapping.value)}`;
-                            break;
-                        case 'default':
-                            description = `${paramMapping.source} || ${JSON.stringify(paramMapping.default)}`;
-                            break;
-                        case 'rename':
-                            description = `← ${paramMapping.source} (renamed)`;
-                            break;
-                        case 'omit':
-                            description = '(omitted from agent)';
-                            break;
-                    }
+                    const description = getParamMappingDescription(paramMapping);
                     menuItems.push({
                         label: `  ${paramName}: ${description}`,
                         value: `edit-${paramName}`,
@@ -969,31 +946,69 @@ Examples: "text", 123, true,
         return menuItems;
     };
 
-    const menuItems = buildMenuItems();
+    const renderMainMenu = () => {
+        const menuItems = buildMenuItems();
 
-    return (
-        <Box flexDirection="column" padding={1}>
-            <Box marginBottom={1}>
-                <Text bold color="cyan">
-                    Edit Argument Mapping
-                </Text>
-            </Box>
-
-            <Box marginBottom={1} borderStyle="single" paddingX={1}>
-                <Text color="yellow">{GUIDANCE_TEXT}</Text>
-            </Box>
-
-            {backendSchema && (
+        return (
+            <Box flexDirection="column" padding={1}>
                 <Box marginBottom={1}>
-                    <Text dimColor>
-                        Backend Parameters:
-{' '}
-{getBackendParams().join(', ') || '(none)'}
+                    <Text bold color="cyan">
+                        Edit Argument Mapping
                     </Text>
                 </Box>
-            )}
 
-            <EnhancedSelectInput items={menuItems} onSelect={handleMenuSelect} />
-        </Box>
-    );
+                <Box marginBottom={1} borderStyle="single" paddingX={1}>
+                    <Text color="yellow">{GUIDANCE_TEXT}</Text>
+                </Box>
+
+                {backendSchema && (
+                    <Box marginBottom={1}>
+                        <Text dimColor>
+                            Backend Parameters:
+{' '}
+{getBackendParams().join(', ') || '(none)'}
+                        </Text>
+                    </Box>
+                )}
+
+                <EnhancedSelectInput items={menuItems} onSelect={handleMenuSelect} />
+            </Box>
+        );
+    };
+
+    // Mode-based rendering
+    if(mode === 'edit-jsonata-expression') {
+        return renderJsonataEditor();
+    }
+    if(mode === 'test-preview') {
+        return renderTestPreview();
+    }
+    if(mode === 'select-param') {
+        return renderParamSelector();
+    }
+    if(mode === 'select-source') {
+        return renderSourceSelector();
+    }
+
+    // Edit state required modes
+    if(editState) {
+        if(mode === 'edit-value') {
+            return renderValueEditor();
+        }
+        if(mode === 'select-type') {
+            return renderTypeSelector();
+        }
+        if(mode === 'edit-mapping') {
+            return renderMappingEditor();
+        }
+        if(mode === 'edit-name') {
+            return renderNameEditor();
+        }
+        if(mode === 'edit-description') {
+            return renderDescriptionEditor();
+        }
+    }
+
+    // Default to main menu
+    return renderMainMenu();
 }

@@ -169,29 +169,6 @@ export class SchemaGenerator {
     }
 
     /**
-     * Build a reverse mapping from backend parameter to client parameter name
-     */
-    private buildParameterMap(
-        argumentMapping: TemplateMapping,
-        _backendProperties: Record<string, JsonSchemaProperty>
-    ): Map<string, string> {
-        const map = new Map<string, string>();
-
-        for(const [backendParam, mapping] of Object.entries(argumentMapping.mappings)) {
-            if(mapping.type === 'constant' || mapping.type === 'omit') {
-                // These don't expose a client parameter
-                continue;
-            }
-
-            // Get the client parameter name (use override if specified, otherwise source)
-            const clientName = mapping.name ?? mapping.source;
-            map.set(backendParam, clientName);
-        }
-
-        return map;
-    }
-
-    /**
      * Get client parameter information (name and property definition)
      * Returns null if parameter should be hidden
      */
@@ -237,29 +214,25 @@ export class SchemaGenerator {
 
     /**
      * Determine if a parameter should be required in the client schema
+     * Note: This is only called for parameters that are visible in the client schema
+     * (constant and omit are filtered out before this method is called)
      */
     private isParameterRequired(
         backendParam: string,
         mapping: ParameterMapping,
         backendRequired: string[]
     ): boolean {
-        switch(mapping.type) {
-            case 'constant':
-            case 'omit':
-                // These are hidden, so never required
-                return false;
-
-            case 'default':
-                // Has a default value, so not required
-                return false;
-
-            case 'passthrough':
-            case 'rename':
-                // Preserve required status from backend
-                return backendRequired.includes(backendParam);
-
-            default:
-                return false;
+        // Parameters with defaults are optional
+        if(mapping.type === 'default') {
+            return false;
         }
+
+        // Passthrough and rename preserve required status from backend
+        if(mapping.type === 'passthrough' || mapping.type === 'rename') {
+            return backendRequired.includes(backendParam);
+        }
+
+        // All other types are optional by default
+        return false;
     }
 }

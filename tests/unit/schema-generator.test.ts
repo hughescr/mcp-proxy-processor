@@ -4,7 +4,7 @@
 
 import { describe, test, expect } from 'bun:test';
 import { SchemaGenerator } from '../../src/middleware/schema-generator.js';
-import type { TemplateMapping } from '../../src/types/config.js';
+import type { TemplateMapping, ParameterMapping } from '../../src/types/config.js';
 
 describe('SchemaGenerator', () => {
     const generator = new SchemaGenerator();
@@ -59,7 +59,7 @@ describe('SchemaGenerator', () => {
                     debug: { type: 'boolean', description: 'Debug mode' },
                     query: { type: 'string', description: 'Search query' },
                 },
-                required: ['query'],
+                required: ['debug', 'query'],
             };
 
             const mapping: TemplateMapping = {
@@ -72,9 +72,11 @@ describe('SchemaGenerator', () => {
 
             const result = generator.generateClientSchema(backendSchema, mapping);
 
-            // debug should be hidden
+            // debug should be hidden (even though it was required in backend)
             expect(result.properties).not.toHaveProperty('debug');
+            expect(result.required).not.toContain('debug');
             expect(result.properties).toHaveProperty('query');
+            expect(result.required).toContain('query');
         });
 
         test('should make default parameters optional in client schema', () => {
@@ -297,6 +299,55 @@ describe('SchemaGenerator', () => {
 
             expect(result).toHaveProperty('additionalProperties', false);
             expect(result).toHaveProperty('title', 'SearchRequest');
+        });
+
+        test('should warn when parameter mapping references non-existent backend parameter', () => {
+            const backendSchema = {
+                type:       'object',
+                properties: {
+                    existing_param: { type: 'string', description: 'Exists' },
+                },
+                required: [],
+            };
+
+            const mapping: TemplateMapping = {
+                type:     'template',
+                mappings: {
+                    non_existent_param: { type: 'passthrough', source: 'non_existent_param' },
+                    existing_param:     { type: 'passthrough', source: 'existing_param' },
+                },
+            };
+
+            const result = generator.generateClientSchema(backendSchema, mapping);
+
+            // Should only include the existing parameter
+            expect(result.properties).toHaveProperty('existing_param');
+            expect(result.properties).not.toHaveProperty('non_existent_param');
+        });
+
+        test('should handle unknown parameter mapping type gracefully', () => {
+            const backendSchema = {
+                type:       'object',
+                properties: {
+                    test_param: { type: 'string', description: 'Test parameter' },
+                },
+                required: [],
+            };
+
+            // Create a mapping with an unknown type (using type assertion to bypass TypeScript)
+            const unknownMapping = { type: 'unknown-type' };
+            const mapping: TemplateMapping = {
+                type:     'template',
+                mappings: {
+
+                    test_param: unknownMapping as unknown as ParameterMapping,
+                },
+            };
+
+            const result = generator.generateClientSchema(backendSchema, mapping);
+
+            // Should not include the parameter with unknown type
+            expect(result.properties).not.toHaveProperty('test_param');
         });
     });
 });
