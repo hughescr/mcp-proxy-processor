@@ -20,7 +20,8 @@
     "postversion": "git commit -m \"Bump package version to $npm_package_version\" package.json; git flow release start $npm_package_version; git flow release finish -m $npm_package_version $npm_package_version; git checkout develop; git merge master"
   },
   "resolutions": {
-    "ink-enhanced-select-input/react": "^19.1.1"
+    "react": "^19.1.1",
+    "ink": "^6.3.1"
   },
   "dependencies": {
     "@hughescr/logger": "^2.6.0",
