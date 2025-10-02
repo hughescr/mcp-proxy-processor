@@ -20,11 +20,11 @@
     "postversion": "git commit -m \"Bump package version to $npm_package_version\" package.json; git flow release start $npm_package_version; git flow release finish -m $npm_package_version $npm_package_version; git checkout develop; git merge master"
   },
   "resolutions": {
-    "react": "^19.1.1",
+    "react": "^19.2.0",
     "ink": "^6.3.1"
   },
   "dependencies": {
-    "@hughescr/logger": "^2.6.0",
+    "@hughescr/logger": "^2.7.2",
     "@modelcontextprotocol/sdk": "^1.18.2",
     "commander": "^14.0.1",
     "ink": "^6.3.1",
@@ -32,15 +32,15 @@
     "ink-text-input": "^6.0.0",
     "jsonata": "^2.1.0",
     "lodash": "^4.17.21",
-    "react": "^19.1.1",
+    "react": "^19.2.0",
     "zod": "^4.1.11"
   },
   "devDependencies": {
     "@hughescr/eslint-config-default": "^4.0.1",
     "@types/bun": "^1.2.23",
     "@types/lodash": "^4.17.20",
-    "@types/node": "^24.6.1",
-    "@types/react": "^19.1.16",
+    "@types/node": "^24.6.2",
+    "@types/react": "^19.2.0",
     "eslint": "^9.36.0",
     "eslint-formatter-unix": "^8.40.0",
     "eslint-plugin-package-json": "^0.56.3",
