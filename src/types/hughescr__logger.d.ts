@@ -17,5 +17,6 @@ declare module '@hughescr/logger' {
         log(level: string, message: string, ...meta: unknown[]): Logger
     }
 
-    export const logger: Logger;
+    const logger: Logger;
+    export { logger };
 }

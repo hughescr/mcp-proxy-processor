@@ -238,7 +238,7 @@ export function EnhancedToolEditor({ tool, groupName, onSave, onCancel }: Enhanc
                                         Input Schema:
                                     </Text>
                                 </Box>
-                                <Box maxHeight={10} flexDirection="column">
+                                <Box height={10} flexDirection="column">
                                     <Text color="green">
                                         {JSON.stringify(backendTool.inputSchema, null, 2)}
                                     </Text>

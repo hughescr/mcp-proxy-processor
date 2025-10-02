@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access -- Logger type from ternary expression not properly inferred by TypeScript */
 /**
  * MCP Client Manager
  *
@@ -10,14 +11,14 @@
  */
 
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
-import type { StdioServerParameters } from '@modelcontextprotocol/sdk/client/stdio.js';
+import { StdioClientTransport, type StdioServerParameters } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { logger as realLogger } from '@hughescr/logger';
 import { logger as silentLogger } from '../utils/silent-logger.js';
 import _ from 'lodash';
 import type { BackendServerConfig } from '../types/config.js';
 
 // Use silent logger in admin mode
+
 const logger = process.env.LOG_LEVEL === 'silent' ? silentLogger : realLogger;
 
 interface ClientState {

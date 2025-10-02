@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access -- Logger type from ternary expression not properly inferred by TypeScript */
 /**
  * Backend Server Discovery Service
  *
