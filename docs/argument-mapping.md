@@ -124,42 +124,31 @@ Use client value if provided, otherwise use a default value.
 
 **Important:** You must also update `inputSchema` to make the parameter optional (remove it from `required` array). The default mapping ensures the backend always receives a value even when the agent omits it.
 
-#### Rename
+#### Renaming Parameters
 
-Rename a parameter from client to backend. Agent uses a different parameter name than the backend expects.
+Use the `name` field on passthrough or default mappings to show a different parameter name to the agent.
 
 **Use case:** Backend has poor/confusing parameter names. Show clear names to agent.
 
 **Problem → Solution:**
-- **Problem:** Backend uses cryptic `loc` parameter name
-- **Solution:** Agent sees clear `location` parameter, proxy renames to `loc` for backend
+- **Problem:** Backend uses cryptic `q` parameter name
+- **Solution:** Agent sees clear `query` parameter, value passes through to backend's `q`
 
 ```json
 {
   "type": "template",
   "mappings": {
-    "loc": { "type": "rename", "source": "location" }
-  }
-}
-```
-
-Backend parameter `loc` ← Agent parameter `location`
-
-**With parameter overrides** for better agent-facing description:
-
-```json
-{
-  "type": "template",
-  "mappings": {
-    "loc": {
-      "type": "rename",
-      "source": "location",
-      "name": "location",
-      "description": "City name or ZIP code (not the cryptic backend description)"
+    "q": {
+      "type": "passthrough",
+      "source": "q",
+      "name": "query",
+      "description": "Your search query"
     }
   }
 }
 ```
+
+Agent sees parameter named `query`, backend receives it as `q`.
 
 #### Omit
 
@@ -190,21 +179,92 @@ Agents see only `location` and `units`. The backend never receives the omitted p
 
 ### JSONata Expressions
 
-For complex transformations, use JSONata expressions:
+For complex transformations that can't be expressed with template mappings, use JSONata expressions. The expression receives the entire client arguments object as input and must return the complete backend arguments object.
+
+**When to use JSONata:**
+- Conditional logic based on parameter values
+- Restructuring nested objects
+- Array transformations
+- String manipulation
+- Complex multi-parameter dependencies
+
+#### Example 1: Restructuring Nested Objects
 
 ```json
 {
   "type": "jsonata",
-  "expression": "{ \"search\": { \"q\": query, \"limit\": limit ? limit : 10 }, \"tz\": timezone ? timezone : \"UTC\" }"
+  "expression": "{ \"q\": query, \"type\": filters.type, \"language\": filters.lang }"
 }
 ```
 
-JSONata provides:
-- Conditional logic (`? :`)
-- Object restructuring
-- String manipulation
-- Array operations
-- And more
+**Client sends:**
+```json
+{ "query": "test", "filters": { "type": "news", "lang": "en" } }
+```
+
+**Backend receives:**
+```json
+{ "q": "test", "type": "news", "language": "en" }
+```
+
+#### Example 2: Conditional Logic
+
+```json
+{
+  "type": "jsonata",
+  "expression": "{ \"query\": query, \"limit\": premium ? 100 : 10, \"apiKey\": premium ? \"premium-key\" : \"free-key\" }"
+}
+```
+
+**Client sends:**
+```json
+{ "query": "test", "premium": true }
+```
+
+**Backend receives:**
+```json
+{ "query": "test", "limit": 100, "apiKey": "premium-key" }
+```
+
+#### Example 3: Array Transformations
+
+```json
+{
+  "type": "jsonata",
+  "expression": "{ \"products\": $map(items, function($item) { { \"name\": $item } }) }"
+}
+```
+
+**Client sends:**
+```json
+{ "items": ["apple", "banana"] }
+```
+
+**Backend receives:**
+```json
+{ "products": [{ "name": "apple" }, { "name": "banana" }] }
+```
+
+#### Example 4: String Manipulation
+
+```json
+{
+  "type": "jsonata",
+  "expression": "{ \"username\": $lowercase(username), \"timestamp\": $now() }"
+}
+```
+
+**Client sends:**
+```json
+{ "username": "JohnDoe" }
+```
+
+**Backend receives:**
+```json
+{ "username": "johndoe", "timestamp": "2024-01-15T10:30:00.000Z" }
+```
+
+See the [JSONata documentation](https://jsonata.org/) for the complete expression language reference.
 
 ## Complete Example
 
@@ -308,15 +368,35 @@ To maximize context savings:
 - Savings: ~12 parameters × 25 tokens + 180 words × 1.3 tokens = ~534 tokens per tool
 - Across 10 tools: ~5,340 tokens saved in context window
 
+## When to Use Template vs JSONata
+
+### Use Template Mappings When:
+- Transformations are straightforward (copy, rename, default, constant, omit)
+- Each parameter maps independently
+- No conditional logic needed
+- Easy to understand and maintain
+
+**Advantages:** Declarative, easy to configure, type-safe, fast
+
+### Use JSONata When:
+- Need conditional logic based on parameter values
+- Must restructure nested objects
+- Array transformations required
+- Multiple parameters depend on each other
+- String manipulation needed
+
+**Advantages:** Maximum flexibility, full expression language
+
+**Rule of thumb:** Start with template mappings. Only use JSONata when templates can't express what you need.
+
 ## Best Practices
 
-1. **Use template mappings** for simple transformations (90% of cases)
-2. **Use JSONata** only for complex transformations requiring logic
+1. **Prefer template mappings** - simpler, easier to maintain
+2. **Use JSONata sparingly** - only for complex cases that require it
 3. **Keep transformations simple** - complex logic is hard to debug
 4. **Optimize for context window** - fewer parameters = better agent performance
-5. **Document your mappings** - add comments explaining the "why" behind each transformation
-6. **Test your mappings** - use the admin interface to preview transformations
-7. **Update inputSchema** - when using defaults/omit, modify the agent-facing schema to match
+5. **Test your mappings** - use the admin interface to preview transformations
+6. **Update inputSchema** - when using defaults/omit, modify the agent-facing schema to match
 
 ## Future Enhancements
 

@@ -9,7 +9,8 @@ The argument mapping feature has been fully implemented and tested, allowing adm
 ### 1. Core Infrastructure
 
 **Config Schema** (`src/types/config.ts`):
-- Parameter mapping types: `passthrough`, `constant`, `default`, `rename`
+- Parameter mapping types: `passthrough`, `constant`, `default`, `omit`
+- Parameter renaming via `name` field on passthrough/default mappings
 - Two transformation modes: `template` (simple) and `jsonata` (complex)
 - New `argumentMapping` field in `ToolOverride`
 

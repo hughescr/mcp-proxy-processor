@@ -313,14 +313,19 @@ This is perfect for making required backend parameters optional for the AI agent
 
 #### Rename
 
-Rename a parameter from client to backend:
+Rename a parameter for the agent using the `name` field:
 
 ```json
 {
   "argumentMapping": {
     "type": "template",
     "mappings": {
-      "search_query": { "type": "rename", "source": "query" }
+      "search_query": {
+        "type": "passthrough",
+        "source": "search_query",
+        "name": "query",
+        "description": "Your search query"
+      }
     }
   }
 }

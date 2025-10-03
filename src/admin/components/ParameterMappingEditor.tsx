@@ -47,7 +47,6 @@ const MAPPING_TYPE_OPTIONS = [
     { label: 'Passthrough - Copy parameter unchanged', value: 'passthrough' },
     { label: 'Constant - Always use a fixed value', value: 'constant' },
     { label: 'Default - Use client value or default', value: 'default' },
-    { label: 'Rename - Copy from different parameter', value: 'rename' },
     { label: 'Omit - Hide parameter from agent', value: 'omit' },
 ];
 
@@ -56,9 +55,10 @@ const GUIDANCE_TEXT = `
 
 Template Mappings:
 • Passthrough: Copy parameter from client to backend unchanged
+  - Use 'name' field to rename the parameter for the agent
 • Constant: Always use a fixed value, ignore client input
 • Default: Use client's value if provided, otherwise use default
-• Rename: Copy from a different client parameter name
+  - Use 'name' field to rename the parameter for the agent
 • Omit: Hide parameter from agent (not included in schema)
 
 JSONata Expressions:
@@ -67,7 +67,6 @@ JSONata Expressions:
 • String manipulation and array operations
 • Full JSONata expression language support
 
-You can override parameter names and descriptions for agent.
 Each backend parameter can have one mapping.
 Missing parameters won't be sent to backend.
 `;
@@ -324,11 +323,6 @@ export function ParameterMappingEditor({
         'default': '',
     });
 
-    const createRenameMapping = (): ParameterMapping => ({
-        type:   'rename',
-        source: '',
-    });
-
     const createOmitMapping = (): ParameterMapping => ({
         type: 'omit',
     });
@@ -349,9 +343,6 @@ export function ParameterMappingEditor({
                 break;
             case 'default':
                 newParamMapping = createDefaultMapping(editState.paramName);
-                break;
-            case 'rename':
-                newParamMapping = createRenameMapping();
                 break;
             case 'omit':
                 newParamMapping = createOmitMapping();
