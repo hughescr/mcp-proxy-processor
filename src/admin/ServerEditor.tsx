@@ -4,7 +4,7 @@
 
 import React, { useState } from 'react';
 import { Box, Text, useInput } from 'ink';
-import { EnhancedSelectInput } from 'ink-enhanced-select-input';
+import { SelectInput } from './components/SelectInput.js';
 import _ from 'lodash';
 import { CancellableTextInput } from './components/CancellableTextInput.js';
 import type { BackendServerConfig, StdioServerConfig, StreamableHttpServerConfig, SseServerConfig } from '../types/config.js';
@@ -357,7 +357,7 @@ export function ServerEditor({ serverName, server, onSave, onDelete, onCancel }:
             <Box flexDirection="column" padding={1}>
                 <Text bold>Select Transport Type</Text>
                 <Box marginTop={1}>
-                    <EnhancedSelectInput items={transportItems} onSelect={handleTransportSelect} />
+                    <SelectInput items={transportItems} onSelect={handleTransportSelect} />
                 </Box>
             </Box>
         );
@@ -591,7 +591,7 @@ export function ServerEditor({ serverName, server, onSave, onDelete, onCancel }:
                     </Text>
                 </Box>
             )}
-            <EnhancedSelectInput items={menuItems} onSelect={handleMenuSelect} />
+            <SelectInput items={menuItems} onSelect={handleMenuSelect} />
         </Box>
     );
 }

@@ -4,7 +4,7 @@
 
 import React, { useState } from 'react';
 import { Box, Text, useInput } from 'ink';
-import { EnhancedSelectInput } from 'ink-enhanced-select-input';
+import { SelectInput } from './components/SelectInput.js';
 import _ from 'lodash';
 import { CancellableTextInput } from './components/CancellableTextInput.js';
 
@@ -202,7 +202,7 @@ export function EnvVarEditor({ env, onSave, onCancel }: EnvVarEditorProps) {
                     </Text>
                 </Box>
                 <Box marginTop={1}>
-                    <EnhancedSelectInput
+                    <SelectInput
                       items={[
                           { label: 'Yes, delete it', value: 'yes' },
                           { label: 'No, keep it', value: 'no' },
@@ -230,7 +230,7 @@ export function EnvVarEditor({ env, onSave, onCancel }: EnvVarEditorProps) {
                 <Box marginBottom={1}>
                     <Text bold color="cyan">Edit Environment Variable</Text>
                 </Box>
-                <EnhancedSelectInput items={varMenuItems} onSelect={handleVarMenuSelect} />
+                <SelectInput items={varMenuItems} onSelect={handleVarMenuSelect} />
             </Box>
         );
     }
@@ -259,7 +259,7 @@ export function EnvVarEditor({ env, onSave, onCancel }: EnvVarEditorProps) {
                     <Text dimColor>No variables defined yet</Text>
                 </Box>
             )}
-            <EnhancedSelectInput items={listItems} onSelect={handleListSelect} />
+            <SelectInput items={listItems} onSelect={handleListSelect} />
         </Box>
     );
 }

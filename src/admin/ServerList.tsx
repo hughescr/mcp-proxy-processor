@@ -4,7 +4,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Box, Text, useInput } from 'ink';
-import { EnhancedSelectInput } from 'ink-enhanced-select-input';
+import { SelectInput } from './components/SelectInput.js';
 import { isError, keys, chain } from 'lodash';
 import type { BackendServerConfig } from '../types/config.js';
 import { loadBackendServersConfig, saveBackendServersConfig } from './config-utils.js';
@@ -194,7 +194,7 @@ export function ServerList({ onBack }: ServerListProps) {
                         : 'Select a server to edit, or create a new one:'}
                 </Text>
             </Box>
-            <EnhancedSelectInput items={menuItems} onSelect={handleServerSelect} />
+            <SelectInput items={menuItems} onSelect={handleServerSelect} />
         </Box>
     );
 }

@@ -4,7 +4,7 @@
 
 import React, { useState } from 'react';
 import { Box, Text, useInput } from 'ink';
-import { EnhancedSelectInput } from 'ink-enhanced-select-input';
+import { SelectInput } from './components/SelectInput.js';
 import _ from 'lodash';
 import { CancellableTextInput } from './components/CancellableTextInput.js';
 import type { GroupConfig, ToolOverride } from '../types/config.js';
@@ -257,7 +257,7 @@ export function GroupEditor({ groupName, group, onSave, onDelete, onCancel }: Gr
                     </Text>
                 </Box>
             )}
-            <EnhancedSelectInput items={menuItems} onSelect={handleMenuSelect} />
+            <SelectInput items={menuItems} onSelect={handleMenuSelect} />
         </Box>
     );
 }

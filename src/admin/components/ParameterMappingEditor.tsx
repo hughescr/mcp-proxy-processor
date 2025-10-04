@@ -4,7 +4,7 @@
 
 import React, { useState } from 'react';
 import { Box, Text, useInput } from 'ink';
-import { EnhancedSelectInput } from 'ink-enhanced-select-input';
+import { SelectInput } from './SelectInput.js';
 import TextInput from 'ink-text-input';
 import { MultiLineTextEditor } from './MultiLineTextEditor.js';
 import { repeat, map, keys, startsWith, replace, isArray as _isArray } from 'lodash';
@@ -693,7 +693,7 @@ Examples: "text", 123, true,
 {editState.paramName}
                 </Text>
                 <Box marginTop={1}>
-                    <EnhancedSelectInput
+                    <SelectInput
                       items={MAPPING_TYPE_OPTIONS}
                       onSelect={handleMappingTypeSelect}
                     />
@@ -722,7 +722,7 @@ Examples: "text", 123, true,
 {editState.paramName}
                 </Text>
                 <Box marginTop={1}>
-                    <EnhancedSelectInput
+                    <SelectInput
                       items={sourceItems}
                       onSelect={handleSourceSelect}
                     />
@@ -806,7 +806,7 @@ Examples: "text", 123, true,
 {editState.paramName}
                 </Text>
                 <Box marginTop={1}>
-                    <EnhancedSelectInput items={menuItems} onSelect={handleEditMenuSelect} />
+                    <SelectInput items={menuItems} onSelect={handleEditMenuSelect} />
                 </Box>
             </Box>
         );
@@ -826,7 +826,7 @@ Examples: "text", 123, true,
                     Select Backend Parameter to Map
                 </Text>
                 <Box marginTop={1}>
-                    <EnhancedSelectInput items={paramItems} onSelect={handleParamSelect} />
+                    <SelectInput items={paramItems} onSelect={handleParamSelect} />
                 </Box>
             </Box>
         );
@@ -962,7 +962,7 @@ Examples: "text", 123, true,
                     </Box>
                 )}
 
-                <EnhancedSelectInput items={menuItems} onSelect={handleMenuSelect} />
+                <SelectInput items={menuItems} onSelect={handleMenuSelect} />
             </Box>
         );
     };

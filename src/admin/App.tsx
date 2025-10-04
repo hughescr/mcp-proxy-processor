@@ -4,7 +4,7 @@
 
 import React, { useState } from 'react';
 import { Box, Text, useInput } from 'ink';
-import { EnhancedSelectInput } from 'ink-enhanced-select-input';
+import { SelectInput } from './components/SelectInput.js';
 import { GroupList } from './GroupList.js';
 import { ToolBrowser } from './ToolBrowser.js';
 import { ServerList } from './ServerList.js';
@@ -67,7 +67,7 @@ export function App() {
             <Box marginBottom={1}>
                 <Text dimColor>Select an option:</Text>
             </Box>
-            <EnhancedSelectInput items={mainMenuItems} onSelect={handleMainMenuSelect} />
+            <SelectInput items={mainMenuItems} onSelect={handleMainMenuSelect} />
         </Box>
     );
 }

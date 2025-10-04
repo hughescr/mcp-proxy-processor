@@ -4,7 +4,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Box, Text, useStdout, useInput } from 'ink';
-import { EnhancedSelectInput } from 'ink-enhanced-select-input';
+import { SelectInput } from './components/SelectInput.js';
 import { isError, map, repeat, replace, trim } from 'lodash';
 import type { Tool } from '@modelcontextprotocol/sdk/types';
 import type { ToolOverride } from '../types/config.js';
@@ -219,7 +219,7 @@ export function ToolBrowser({ onBack, onSelect }: ToolBrowserProps) {
                         : `Found ${tools.length} tools. Select a tool to add to the group:`}
                 </Text>
             </Box>
-            <EnhancedSelectInput items={menuItems} onSelect={handleToolSelect} itemComponent={ToolItemComponent} limit={15} />
+            <SelectInput items={menuItems} onSelect={handleToolSelect} itemComponent={ToolItemComponent} limit={15} />
         </Box>
     );
 }

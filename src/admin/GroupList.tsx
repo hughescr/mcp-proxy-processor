@@ -4,7 +4,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Box, Text, useInput } from 'ink';
-import { EnhancedSelectInput } from 'ink-enhanced-select-input';
+import { SelectInput } from './components/SelectInput.js';
 import { isError, keys, chain, repeat } from 'lodash';
 import type { GroupConfig } from '../types/config.js';
 import { loadGroupsConfig, saveGroupsConfig } from './config-utils.js';
@@ -186,7 +186,7 @@ export function GroupList({ onBack }: GroupListProps) {
                         : 'Select a group to edit, or create a new one:'}
                 </Text>
             </Box>
-            <EnhancedSelectInput items={menuItems} onSelect={handleGroupSelect} />
+            <SelectInput items={menuItems} onSelect={handleGroupSelect} />
         </Box>
     );
 }

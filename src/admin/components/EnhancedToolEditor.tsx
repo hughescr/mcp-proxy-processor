@@ -4,7 +4,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Box, Text, useInput } from 'ink';
-import { EnhancedSelectInput } from 'ink-enhanced-select-input';
+import { SelectInput } from './SelectInput.js';
 import { trim, repeat, isError, find, keys, map } from 'lodash';
 import { CancellableTextInput } from './CancellableTextInput.js';
 import type { Tool } from '@modelcontextprotocol/sdk/types';
@@ -452,7 +452,7 @@ export function EnhancedToolEditor({ tool, groupName, onSave, onRemove, onCancel
                 </Text>
             </Box>
             {infoSection}
-            <EnhancedSelectInput items={menuItems} onSelect={handleMenuSelect} />
+            <SelectInput items={menuItems} onSelect={handleMenuSelect} />
         </Box>
     );
 }
