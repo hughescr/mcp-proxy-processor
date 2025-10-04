@@ -33,11 +33,15 @@ export function GroupList({ onBack }: GroupListProps) {
         }
     });
 
+    const [loadingStatus, setLoadingStatus] = useState<string>('Loading groups configuration...');
+
     // Load groups on mount
     useEffect(() => {
         void (async () => {
             try {
+                setLoadingStatus('Reading groups configuration...');
                 const config = await loadGroupsConfig();
+                setLoadingStatus('Processing groups...');
                 setGroups(config.groups);
                 setLoading(false);
             } catch (err) {
@@ -124,7 +128,7 @@ export function GroupList({ onBack }: GroupListProps) {
     if(loading) {
         return (
             <Box padding={1}>
-                <Text>Loading groups...</Text>
+                <Text>{loadingStatus}</Text>
             </Box>
         );
     }
@@ -133,11 +137,23 @@ export function GroupList({ onBack }: GroupListProps) {
     if(error) {
         return (
             <Box flexDirection="column" padding={1}>
-                <Text color="red">
-                    Error:
-                    {error}
+                <Text bold color="red">
+                    Error Loading Groups
                 </Text>
-                <Text dimColor>Press Esc to go back</Text>
+                <Box marginTop={1}>
+                    <Text color="red">
+                        {error}
+                    </Text>
+                </Box>
+                <Box marginTop={1} flexDirection="column">
+                    <Text bold>Troubleshooting:</Text>
+                    <Text>• Check that config/groups.json exists and is readable</Text>
+                    <Text>• Verify the file contains valid JSON</Text>
+                    <Text>• Ensure you have permission to read the file</Text>
+                </Box>
+                <Box marginTop={1}>
+                    <Text dimColor>Press Esc to return to main menu</Text>
+                </Box>
             </Box>
         );
     }

@@ -5,8 +5,8 @@
 import React, { useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { EnhancedSelectInput } from 'ink-enhanced-select-input';
-import TextInput from 'ink-text-input';
 import _ from 'lodash';
+import { CancellableTextInput } from './components/CancellableTextInput.js';
 
 interface EnvVarEditorProps {
     env:      Record<string, string>
@@ -157,10 +157,11 @@ export function EnvVarEditor({ env, onSave, onCancel }: EnvVarEditorProps) {
                 <Text bold>Edit Variable Name</Text>
                 <Box marginTop={1}>
                     <Text>Variable Name: </Text>
-                    <TextInput
+                    <CancellableTextInput
                       value={inputValue}
                       onChange={setInputValue}
                       onSubmit={handleKeySubmit}
+                      onCancel={() => setMode('var-menu')}
                     />
                 </Box>
                 <Text dimColor>Press Enter to save, Esc to cancel</Text>
@@ -175,10 +176,11 @@ export function EnvVarEditor({ env, onSave, onCancel }: EnvVarEditorProps) {
                 <Text bold>Edit Variable Value</Text>
                 <Box marginTop={1}>
                     <Text>Value: </Text>
-                    <TextInput
+                    <CancellableTextInput
                       value={inputValue}
                       onChange={setInputValue}
                       onSubmit={handleValueSubmit}
+                      onCancel={() => setMode('var-menu')}
                     />
                 </Box>
                 <Text dimColor>Press Enter to save, Esc to cancel</Text>

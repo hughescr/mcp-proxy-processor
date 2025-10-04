@@ -5,8 +5,8 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { EnhancedSelectInput } from 'ink-enhanced-select-input';
-import TextInput from 'ink-text-input';
 import { trim, repeat, isError, find, keys, map } from 'lodash';
+import { CancellableTextInput } from './CancellableTextInput.js';
 import type { Tool } from '@modelcontextprotocol/sdk/types';
 import type { ToolOverride, ArgumentMapping } from '../../types/config.js';
 import { loadBackendServersConfig } from '../config-utils.js';
@@ -23,7 +23,7 @@ interface EnhancedToolEditorProps {
     onCancel:  () => void
 }
 
-type EditMode = 'loading' | 'menu' | 'edit-name' | 'edit-description' | 'edit-argument-mapping';
+type EditMode = 'loading' | 'menu' | 'edit-name' | 'edit-description' | 'edit-argument-mapping' | 'view-schema';
 
 const DESCRIPTION_GUIDANCE = `
 ✨ Writing Effective Tool Descriptions
@@ -56,17 +56,17 @@ export function EnhancedToolEditor({ tool, groupName, onSave, onRemove, onCancel
     const [inputValue, setInputValue] = useState('');
     const [error, setError] = useState<string | null>(null);
 
-    // Handle Esc for navigation - only works in menu and loading modes
-    // Note: edit-name uses TextInput which doesn't handle ESC - user must press Enter
-    // edit-description is handled by the MultiLineTextEditor component which has onCancel
+    // Handle Esc for navigation
     useInput((input, key) => {
-        if(mode === 'menu') {
+        if(mode === 'menu' || mode === 'view-schema') {
             if(key.escape || key.leftArrow) {
-                onCancel();
+                if(mode === 'view-schema') {
+                    setMode('menu');
+                } else {
+                    onCancel();
+                }
             }
         }
-        // Don't handle ESC for edit-name mode - TextInput doesn't have onCancel
-        // edit-description is handled by MultiLineTextEditor component
     });
 
     // Load backend tool information on mount
@@ -111,6 +111,7 @@ export function EnhancedToolEditor({ tool, groupName, onSave, onRemove, onCancel
         })();
     }, [tool.serverName, tool.originalName]);
 
+    // eslint-disable-next-line complexity -- Menu handler with multiple edit modes
     const handleMenuSelect = (item: { value: string }) => {
         switch(item.value) {
             case 'save':
@@ -134,6 +135,9 @@ export function EnhancedToolEditor({ tool, groupName, onSave, onRemove, onCancel
                 break;
             case 'edit-argument-mapping':
                 setMode('edit-argument-mapping');
+                break;
+            case 'view-schema':
+                setMode('view-schema');
                 break;
             case 'clear-name':
                 setCurrentTool({ ...currentTool, name: undefined });
@@ -186,13 +190,14 @@ export function EnhancedToolEditor({ tool, groupName, onSave, onRemove, onCancel
             </Box>
             <Box marginTop={1}>
                 <Text>Override: </Text>
-                <TextInput
+                <CancellableTextInput
                   value={inputValue}
                   onChange={setInputValue}
                   onSubmit={handleNameSubmit}
+                  onCancel={() => setMode('menu')}
                 />
             </Box>
-            <Text dimColor>Press Enter to save</Text>
+            <Text dimColor>Press Enter to save, Esc to cancel</Text>
         </Box>
     );
 
@@ -292,6 +297,48 @@ export function EnhancedToolEditor({ tool, groupName, onSave, onRemove, onCancel
         );
     }
 
+    // Schema viewer
+    if(mode === 'view-schema') {
+        return (
+            <Box flexDirection="column" padding={1}>
+                <Box marginBottom={1}>
+                    <Text bold color="cyan">
+                        Input Schema for
+                        {' '}
+                        {currentTool.name ?? currentTool.originalName}
+                    </Text>
+                </Box>
+                <Box marginBottom={1}>
+                    <Text>
+                        📦 Group:
+                        {' '}
+                        <Text bold color="cyan">{groupName}</Text>
+                    </Text>
+                    <Text>
+                        🔧 Backend Server:
+                        {' '}
+                        <Text bold color="yellow">{currentTool.serverName}</Text>
+                    </Text>
+                </Box>
+                {backendTool?.inputSchema
+                    ? (
+                        <Box borderStyle="single" paddingX={1} flexDirection="column">
+                            <Text color="green">
+                                {JSON.stringify(backendTool.inputSchema, null, 2)}
+                            </Text>
+                        </Box>
+                    )
+                    : (
+                        <Text dimColor>No input schema available</Text>
+                    )}
+                <Box marginTop={1}>
+                    <Text dimColor>Press Esc or Left Arrow to return</Text>
+                </Box>
+            </Box>
+        );
+    }
+
+    // eslint-disable-next-line complexity -- Menu builder with conditional items
     const buildMenuItems = () => {
         const effectiveName = currentTool.name ?? currentTool.originalName;
         const effectiveDescription = currentTool.description ?? backendTool?.description ?? '(no description)';
@@ -344,6 +391,11 @@ export function EnhancedToolEditor({ tool, groupName, onSave, onRemove, onCancel
             menuItems.push({ label: '  ✕ Clear Argument Mapping', value: 'clear-argument-mapping' });
         }
 
+        // Add schema viewer option
+        if(backendTool?.inputSchema) {
+            menuItems.push({ label: '📋 View Input Schema Details', value: 'view-schema' });
+        }
+
         menuItems.push(
             { label: repeat('─', 60), value: 'sep2', disabled: true },
             { label: '💾 Save Tool', value: 'save' }
@@ -379,18 +431,6 @@ export function EnhancedToolEditor({ tool, groupName, onSave, onRemove, onCancel
                 {' '}
                 <Text bold color="green">{currentTool.originalName}</Text>
             </Text>
-            {backendTool?.inputSchema && (
-                <Box flexDirection="column" marginTop={1}>
-                    <Text bold>
-                        📋 Input Schema:
-                    </Text>
-                    <Box marginLeft={2}>
-                        <Text dimColor>
-                            {JSON.stringify(backendTool.inputSchema, null, 2)}
-                        </Text>
-                    </Box>
-                </Box>
-            )}
             {error && (
                 <Text color="red">
                     ⚠️  Error loading backend tool:

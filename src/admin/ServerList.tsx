@@ -43,11 +43,15 @@ export function ServerList({ onBack }: ServerListProps) {
         }
     });
 
+    const [loadingStatus, setLoadingStatus] = useState<string>('Loading backend servers configuration...');
+
     // Load servers on mount
     useEffect(() => {
         void (async () => {
             try {
+                setLoadingStatus('Reading backend servers configuration...');
                 const config = await loadBackendServersConfig();
+                setLoadingStatus('Processing servers...');
                 setServers(config.mcpServers);
                 setLoading(false);
             } catch (err) {
@@ -129,7 +133,7 @@ export function ServerList({ onBack }: ServerListProps) {
     if(loading) {
         return (
             <Box padding={1}>
-                <Text>Loading backend servers...</Text>
+                <Text>{loadingStatus}</Text>
             </Box>
         );
     }
@@ -138,11 +142,24 @@ export function ServerList({ onBack }: ServerListProps) {
     if(error) {
         return (
             <Box flexDirection="column" padding={1}>
-                <Text color="red">
-                    Error:
-                    {error}
+                <Text bold color="red">
+                    Error Loading Backend Servers
                 </Text>
-                <Text dimColor>Press Esc to go back</Text>
+                <Box marginTop={1}>
+                    <Text color="red">
+                        {error}
+                    </Text>
+                </Box>
+                <Box marginTop={1} flexDirection="column">
+                    <Text bold>Troubleshooting:</Text>
+                    <Text>• Check that config/backend-servers.json exists and is readable</Text>
+                    <Text>• Verify the file contains valid JSON</Text>
+                    <Text>• Ensure server configurations follow the correct schema</Text>
+                    <Text>• Confirm you have permission to read the file</Text>
+                </Box>
+                <Box marginTop={1}>
+                    <Text dimColor>Press Esc to return to main menu</Text>
+                </Box>
             </Box>
         );
     }

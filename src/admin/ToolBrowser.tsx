@@ -28,6 +28,7 @@ interface ToolItem {
 export function ToolBrowser({ onBack, onSelect }: ToolBrowserProps) {
     const [tools, setTools] = useState<ToolItem[]>([]);
     const [loading, setLoading] = useState(true);
+    const [loadingStatus, setLoadingStatus] = useState<string>('');
     const [error, setError] = useState<string | null>(null);
     const { stdout } = useStdout();
     const terminalWidth = stdout?.columns ?? 80;
@@ -38,25 +39,31 @@ export function ToolBrowser({ onBack, onSelect }: ToolBrowserProps) {
             onBack();
         }
     });
+
     // Load and discover tools on mount
     useEffect(() => {
         void (async () => {
             try {
                 // Load backend server config
+                setLoadingStatus('Loading backend server configuration...');
                 const backendConfig = await loadBackendServersConfig();
 
                 // Create client manager
                 const serverConfigs = new Map(Object.entries(backendConfig.mcpServers));
+                const serverCount = serverConfigs.size;
                 const clientManager = new ClientManager(serverConfigs);
 
                 // Connect to all servers
+                setLoadingStatus(`Connecting to ${serverCount} backend server(s)...`);
                 await clientManager.connectAll();
 
                 // Discover tools
+                setLoadingStatus('Discovering tools from backend servers...');
                 const discoveryService = new DiscoveryService(clientManager);
                 const toolsMap = await discoveryService.discoverAllTools();
 
                 // Flatten into array of ToolItems
+                setLoadingStatus('Processing tool list...');
                 const allTools: ToolItem[] = [];
                 for(const [serverName, serverTools] of toolsMap.entries()) {
                     for(const tool of serverTools) {
@@ -103,7 +110,7 @@ export function ToolBrowser({ onBack, onSelect }: ToolBrowserProps) {
                     Browse Backend Tools
                 </Text>
                 <Box marginTop={1}>
-                    <Text>Connecting to backend servers and discovering tools...</Text>
+                    <Text>{loadingStatus || 'Initializing...'}</Text>
                 </Box>
             </Box>
         );
@@ -113,17 +120,24 @@ export function ToolBrowser({ onBack, onSelect }: ToolBrowserProps) {
     if(error) {
         return (
             <Box flexDirection="column" padding={1}>
-                <Text bold color="cyan">
-                    Browse Backend Tools
+                <Text bold color="red">
+                    Error Discovering Tools
                 </Text>
                 <Box marginTop={1}>
                     <Text color="red">
-                        Error:
                         {error}
                     </Text>
                 </Box>
+                <Box marginTop={1} flexDirection="column">
+                    <Text bold>Troubleshooting:</Text>
+                    <Text>• Check that backend servers are properly configured</Text>
+                    <Text>• Verify backend server commands are valid and accessible</Text>
+                    <Text>• Ensure backend servers support the MCP protocol</Text>
+                    <Text>• Check network connectivity (for HTTP/SSE servers)</Text>
+                    <Text>• Review error message above for specific details</Text>
+                </Box>
                 <Box marginTop={1}>
-                    <Text dimColor>Press Esc to go back</Text>
+                    <Text dimColor>Press Esc to return</Text>
                 </Box>
             </Box>
         );
