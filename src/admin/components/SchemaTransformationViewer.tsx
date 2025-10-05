@@ -245,9 +245,11 @@ export function SchemaTransformationViewer({
                 setMode('overview');
             }
         } else if(key.upArrow && mode === 'detail') {
-            setSelectedParamIndex(Math.max(0, selectedParamIndex - 1));
+            // IMPORTANT: Use functional setState for rapid input support
+            setSelectedParamIndex(prevIndex => Math.max(0, prevIndex - 1));
         } else if(key.downArrow && mode === 'detail') {
-            setSelectedParamIndex(Math.min(parameters.length - 1, selectedParamIndex + 1));
+            // IMPORTANT: Use functional setState for rapid input support
+            setSelectedParamIndex(prevIndex => Math.min(parameters.length - 1, prevIndex + 1));
         }
     });
 

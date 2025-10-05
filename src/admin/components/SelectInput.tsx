@@ -33,32 +33,41 @@ export function SelectInput<T extends SelectInputItem = SelectInputItem>({
         items[initialIndex]?.disabled ? firstEnabledIndex : initialIndex
     );
 
-    // eslint-disable-next-line complexity -- Navigation handler with skip logic for disabled items
+    // IMPORTANT: Use functional setState for rapid input support
+    // When multiple keypresses arrive quickly (enabled by Ink's splitRapidInput option),
+    // each must operate on the previous update's result, not stale closure state.
+
     useInput((input, key) => {
         if(key.upArrow) {
             // Move up to previous non-disabled item
-            let newIndex = selectedIndex - 1;
-            while(newIndex >= 0 && items[newIndex]?.disabled) {
-                newIndex--;
-            }
-            if(newIndex >= 0) {
-                setSelectedIndex(newIndex);
-                if(onHighlight) {
-                    onHighlight(items[newIndex]);
+            setSelectedIndex((prevIndex) => {
+                let newIndex = prevIndex - 1;
+                while(newIndex >= 0 && items[newIndex]?.disabled) {
+                    newIndex--;
                 }
-            }
+                if(newIndex >= 0) {
+                    if(onHighlight) {
+                        onHighlight(items[newIndex]);
+                    }
+                    return newIndex;
+                }
+                return prevIndex;
+            });
         } else if(key.downArrow) {
             // Move down to next non-disabled item
-            let newIndex = selectedIndex + 1;
-            while(newIndex < items.length && items[newIndex]?.disabled) {
-                newIndex++;
-            }
-            if(newIndex < items.length) {
-                setSelectedIndex(newIndex);
-                if(onHighlight) {
-                    onHighlight(items[newIndex]);
+            setSelectedIndex((prevIndex) => {
+                let newIndex = prevIndex + 1;
+                while(newIndex < items.length && items[newIndex]?.disabled) {
+                    newIndex++;
                 }
-            }
+                if(newIndex < items.length) {
+                    if(onHighlight) {
+                        onHighlight(items[newIndex]);
+                    }
+                    return newIndex;
+                }
+                return prevIndex;
+            });
         } else if(key.return) {
             const selectedItem = items[selectedIndex];
             if(selectedItem && !selectedItem.disabled) {

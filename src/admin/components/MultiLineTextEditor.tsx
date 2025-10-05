@@ -40,43 +40,68 @@ export function MultiLineTextEditor({
     const [lines, setLines] = useState<string[]>(value ? _.split(value, '\n') : ['']);
     const [cursorRow, setCursorRow] = useState(0);
     const [cursorCol, setCursorCol] = useState(value ? (_.split(value, '\n').pop()?.length ?? 0) : 0);
+    // IMPORTANT: Use functional setState for rapid input support
+    // When multiple keypresses arrive quickly (enabled by Ink's splitRapidInput option),
+    // each must operate on the previous update's result, not stale closure state.
     const handleNavigation = (_input: string, key: { upArrow?: boolean, downArrow?: boolean, leftArrow?: boolean, rightArrow?: boolean }) => {
         if(key.upArrow) {
-            if(cursorRow > 0) {
-                const newRow = cursorRow - 1;
-                setCursorRow(newRow);
-                setCursorCol(Math.min(cursorCol, lines[newRow].length));
-            }
+            setCursorRow((prevRow) => {
+                if(prevRow > 0) {
+                    const newRow = prevRow - 1;
+                    setCursorCol(prevCol => Math.min(prevCol, lines[newRow].length));
+                    return newRow;
+                }
+                return prevRow;
+            });
             return;
         }
 
         if(key.downArrow) {
-            if(cursorRow < lines.length - 1) {
-                const newRow = cursorRow + 1;
-                setCursorRow(newRow);
-                setCursorCol(Math.min(cursorCol, lines[newRow].length));
-            }
+            setCursorRow((prevRow) => {
+                if(prevRow < lines.length - 1) {
+                    const newRow = prevRow + 1;
+                    setCursorCol(prevCol => Math.min(prevCol, lines[newRow].length));
+                    return newRow;
+                }
+                return prevRow;
+            });
             return;
         }
 
         if(key.leftArrow) {
-            if(cursorCol > 0) {
-                setCursorCol(cursorCol - 1);
-            } else if(cursorRow > 0) {
-                const newRow = cursorRow - 1;
-                setCursorRow(newRow);
-                setCursorCol(lines[newRow].length);
-            }
+            setCursorCol((prevCol) => {
+                if(prevCol > 0) {
+                    return prevCol - 1;
+                }
+                // Move to end of previous line
+                setCursorRow((prevRow) => {
+                    if(prevRow > 0) {
+                        const newRow = prevRow - 1;
+                        setCursorCol(lines[newRow].length);
+                        return newRow;
+                    }
+                    return prevRow;
+                });
+                return prevCol;
+            });
             return;
         }
 
         if(key.rightArrow) {
-            if(cursorCol < lines[cursorRow].length) {
-                setCursorCol(cursorCol + 1);
-            } else if(cursorRow < lines.length - 1) {
-                setCursorRow(cursorRow + 1);
-                setCursorCol(0);
-            }
+            setCursorRow((prevRow) => {
+                setCursorCol((prevCol) => {
+                    if(prevCol < lines[prevRow].length) {
+                        return prevCol + 1;
+                    }
+                    // Move to start of next line
+                    if(prevRow < lines.length - 1) {
+                        setCursorRow(prevRow + 1);
+                        return 0;
+                    }
+                    return prevCol;
+                });
+                return prevRow;
+            });
         }
     };
 

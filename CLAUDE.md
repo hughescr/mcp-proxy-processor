@@ -193,6 +193,46 @@ bun run package-check
 - Use absolute imports for cross-module dependencies
 - Admin TUI uses Ink components with React-based component architecture
 
+### Ink/React Best Practices for Admin UI
+
+**CRITICAL: Always use functional setState in `useInput` handlers**
+
+When using Ink's `useInput` hook to handle keyboard navigation (arrow keys, etc.), you MUST use the functional form of `setState` to avoid race conditions with rapid input.
+
+❌ **WRONG - Will fail with rapid keypresses:**
+```typescript
+useInput((input, key) => {
+  if(key.downArrow) {
+    setIndex(index + 1);  // Reads stale state!
+  }
+});
+```
+
+✅ **CORRECT - Works with rapid input:**
+```typescript
+useInput((input, key) => {
+  if(key.downArrow) {
+    setIndex(prevIndex => prevIndex + 1);  // Uses previous update's result
+  }
+});
+```
+
+**Why this matters:**
+- The admin UI runs with Ink's `splitRapidInput: true` option enabled
+- This splits rapid keypresses (e.g., from automation/testing) into separate events
+- React state updates are asynchronous - multiple events in quick succession will all see the same stale state value
+- Using functional `setState(prev => ...)` ensures each update builds on the previous one
+
+**When to use functional setState:**
+- ANY navigation logic in `useInput` handlers (arrow keys, page up/down, etc.)
+- ANY state update that depends on the current value of that state
+- Especially for: cursor position, selection index, scroll position, or any navigation state
+
+**Examples in codebase:**
+- `src/admin/components/SelectInput.tsx` - List navigation
+- `src/admin/components/MultiLineTextEditor.tsx` - Cursor movement
+- `src/admin/components/SchemaTransformationViewer.tsx` - Parameter navigation
+
 ## Future Enhancements (Not Yet Implemented)
 
 - Pre/post-processing of tool calls (e.g., jq-style transformations)
