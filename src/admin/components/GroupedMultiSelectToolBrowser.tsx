@@ -448,7 +448,7 @@ export function GroupedMultiSelectToolBrowser({
 
                                     return (
                                         <Box key={`server-${item.serverName}`}>
-                                            <Text color={isHighlighted ? 'cyan' : undefined} bold>
+                                            <Text color={isHighlighted ? 'cyan' : undefined}>
                                                 {indicator}
                                                 {' '}
                                                 {expandSymbol}

@@ -196,7 +196,7 @@ export function EnvVarEditor({ env, onSave, onCancel }: EnvVarEditorProps) {
         const varToDelete = variables[selectedIndex];
         return (
             <Box flexDirection="column" padding={1}>
-                <Text bold color="red">Confirm Delete</Text>
+                <ScreenHeader title="Confirm Delete" />
                 <Box marginTop={1}>
                     <Text>
                         Delete variable "
