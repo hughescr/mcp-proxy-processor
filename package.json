@@ -12,7 +12,7 @@
   "scripts": {
     "claude": "tmux -CC new -A -n Claude -s apartment-manager bunx --bun @anthropic-ai/claude-code@latest --mcp-config ~/.claude/mcp.json",
     "codex": "tmux -CC new -A -n Codex -s apartment-manager bunx --bun @openai/codex@latest --search",
-    "dev": "bun run src/cli.ts",
+    "dev": "bun --preserve-symlinks run src/cli.ts",
     "full-test": "eslint --fix && tsc && bun test",
     "lint": "eslint --fix",
     "package-check": "bunx npm-check@latest -i bun:test",
@@ -20,19 +20,19 @@
     "postversion": "git commit -m \"Bump package version to $npm_package_version\" package.json; git flow release start $npm_package_version; git flow release finish -m $npm_package_version $npm_package_version; git checkout develop; git merge main"
   },
   "resolutions": {
-    "react": "^19.2.0",
-    "ink": "^6.3.1"
+    "react": "^19.2.0"
   },
   "dependencies": {
     "@hughescr/logger": "^2.7.2",
     "@modelcontextprotocol/sdk": "^1.18.2",
     "commander": "^14.0.1",
-    "ink": "^6.3.1",
+    "ink": "link:ink",
     "ink-select-input": "^6.2.0",
     "ink-text-input": "^6.0.0",
     "jsonata": "^2.1.0",
     "lodash": "^4.17.21",
     "react": "^19.2.0",
+    "react-reconciler": "^0.32.0",
     "zod": "^4.1.11"
   },
   "devDependencies": {

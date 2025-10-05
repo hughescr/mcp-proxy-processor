@@ -35,5 +35,14 @@ export default defineConfig(
             // Can't exclude 'bun:test' from n/no-missing-import as it is needed in test files
             'n/no-missing-import': 'off',
         },
+    },
+
+    {
+        name:  'package-json-overrides',
+        files: ['**/package.json'],
+        rules: {
+            // Allow link: protocol for local package linking
+            'package-json/valid-dependencies': 'off',
+        },
     }
 );
