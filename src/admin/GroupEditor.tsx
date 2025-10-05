@@ -8,7 +8,7 @@ import { SelectInput } from './components/SelectInput.js';
 import _ from 'lodash';
 import { CancellableTextInput } from './components/CancellableTextInput.js';
 import type { GroupConfig, ToolOverride } from '../types/config.js';
-import { ToolBrowser } from './ToolBrowser.js';
+import { GroupedMultiSelectToolBrowser } from './components/GroupedMultiSelectToolBrowser.js';
 import { EnhancedToolEditor } from './components/EnhancedToolEditor.js';
 
 interface GroupEditorProps {
@@ -110,10 +110,10 @@ export function GroupEditor({ groupName, group, onSave, onDelete, onCancel }: Gr
         }
     };
 
-    const handleAddTool = (tool: ToolOverride) => {
+    const handleAddTools = (tools: ToolOverride[]) => {
         setCurrentGroup({
             ...currentGroup,
-            tools: [...currentGroup.tools, tool],
+            tools: [...currentGroup.tools, ...tools],
         });
         setMode('menu');
     };
@@ -138,9 +138,10 @@ export function GroupEditor({ groupName, group, onSave, onDelete, onCancel }: Gr
     // Tool browser for adding tools
     if(mode === 'add-tool') {
         return (
-            <ToolBrowser
+            <GroupedMultiSelectToolBrowser
               onBack={() => setMode('menu')}
-              onSelect={handleAddTool}
+              onSubmit={handleAddTools}
+              existingTools={currentGroup.tools}
             />
         );
     }

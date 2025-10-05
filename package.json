@@ -26,6 +26,7 @@
     "@hughescr/logger": "^2.7.2",
     "@modelcontextprotocol/sdk": "^1.18.2",
     "commander": "^14.0.1",
+    "fuse.js": "^7.1.0",
     "ink": "link:ink",
     "ink-select-input": "^6.2.0",
     "ink-text-input": "^6.0.0",
