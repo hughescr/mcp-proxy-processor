@@ -6,11 +6,38 @@ import { describe, test, expect } from 'bun:test';
 import { find } from 'lodash';
 import { ArgumentTransformer } from '../../src/middleware/argument-transformer.js';
 import { GroupManager } from '../../src/middleware/index.js';
+import { createTempConfigFile } from '../fixtures/mock-configs.js';
 import type { ArgumentMapping } from '../../src/types/config.js';
 
 describe('Argument Mapping Integration', () => {
     test('should load group configuration with argument mapping', async () => {
-        const groupManager = new GroupManager('config/groups.json');
+        // Create test fixture with argument mapping
+        const groupConfig = {
+            groups: {
+                research_tools: {
+                    name:  'research_tools',
+                    tools: [
+                        {
+                            originalName:    'get_current_time',
+                            serverName:      'time-server',
+                            argumentMapping: {
+                                type:     'template' as const,
+                                mappings: {
+                                    timezone: {
+                                        type:      'default' as const,
+                                        source:    'timezone',
+                                        'default': 'America/Los_Angeles',
+                                    },
+                                },
+                            },
+                        },
+                    ],
+                },
+            },
+        };
+
+        const configPath = await createTempConfigFile(groupConfig);
+        const groupManager = new GroupManager(configPath);
         await groupManager.load();
 
         const group = groupManager.getGroup('research_tools');
@@ -47,7 +74,33 @@ describe('Argument Mapping Integration', () => {
     });
 
     test('should validate the configured argument mapping', async () => {
-        const groupManager = new GroupManager('config/groups.json');
+        // Create test fixture with argument mapping
+        const groupConfig = {
+            groups: {
+                research_tools: {
+                    name:  'research_tools',
+                    tools: [
+                        {
+                            originalName:    'get_current_time',
+                            serverName:      'time-server',
+                            argumentMapping: {
+                                type:     'template' as const,
+                                mappings: {
+                                    timezone: {
+                                        type:      'default' as const,
+                                        source:    'timezone',
+                                        'default': 'America/Los_Angeles',
+                                    },
+                                },
+                            },
+                        },
+                    ],
+                },
+            },
+        };
+
+        const configPath = await createTempConfigFile(groupConfig);
+        const groupManager = new GroupManager(configPath);
         await groupManager.load();
 
         const group = groupManager.getGroup('research_tools');
@@ -63,8 +116,33 @@ describe('Argument Mapping Integration', () => {
     });
 
     test('end-to-end: group config → transformer → backend args', async () => {
-        // Load the group config
-        const groupManager = new GroupManager('config/groups.json');
+        // Create test fixture with argument mapping
+        const groupConfig = {
+            groups: {
+                research_tools: {
+                    name:  'research_tools',
+                    tools: [
+                        {
+                            originalName:    'get_current_time',
+                            serverName:      'time-server',
+                            argumentMapping: {
+                                type:     'template' as const,
+                                mappings: {
+                                    timezone: {
+                                        type:      'default' as const,
+                                        source:    'timezone',
+                                        'default': 'America/Los_Angeles',
+                                    },
+                                },
+                            },
+                        },
+                    ],
+                },
+            },
+        };
+
+        const configPath = await createTempConfigFile(groupConfig);
+        const groupManager = new GroupManager(configPath);
         await groupManager.load();
 
         const group = groupManager.getGroup('research_tools');
