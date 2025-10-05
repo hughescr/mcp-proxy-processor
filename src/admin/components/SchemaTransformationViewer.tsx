@@ -311,7 +311,7 @@ export function SchemaTransformationViewer({
 
         const handleSelect = (item: { value: string }) => {
             if(item.value === 'back') {
-                onClose();
+                onClose?.();
             } else {
                 const index = parseInt(item.value, 10);
                 setSelectedParamIndex(index);

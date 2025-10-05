@@ -143,33 +143,6 @@ export function ToolBrowser({ onBack, onSelect }: ToolBrowserProps) {
         );
     }
 
-    // Custom item component for colored rendering
-    // Parse label format: "toolName (serverName) - description"
-    const ToolItemComponent = ({ isSelected: _isSelected, label }: { isSelected?: boolean, label: string }) => {
-        // Parse the structured label
-        const match = /^(.+?) \((.+?)\) - (.+)$/.exec(label);
-        if(match) {
-            const [, toolName, serverName, description] = match;
-            return (
-                <Text>
-                    <Text bold color="cyan">{toolName}</Text>
-                    <Text dimColor color="yellow">
-{' '}
-(
-{serverName}
-)
-                    </Text>
-                    <Text>
-{' '}
--
-{description}
-                    </Text>
-                </Text>
-            );
-        }
-        // Fallback for special items like separator and back
-        return <Text>{label}</Text>;
-    };
     // Build menu items with enhanced formatting and dynamic truncation
     // Build menu items with enhanced formatting and dynamic truncation
     const menuItems: { label: string, value: string, disabled?: boolean }[] = map(tools, (toolItem, index) => {
@@ -219,7 +192,7 @@ export function ToolBrowser({ onBack, onSelect }: ToolBrowserProps) {
                         : `Found ${tools.length} tools. Select a tool to add to the group:`}
                 </Text>
             </Box>
-            <SelectInput items={menuItems} onSelect={handleToolSelect} itemComponent={ToolItemComponent} limit={15} />
+            <SelectInput items={menuItems} onSelect={handleToolSelect} />
         </Box>
     );
 }
