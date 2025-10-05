@@ -10,9 +10,7 @@ import { isError, sortBy, groupBy, keys, map, split, trim, replace, chain } from
 import Fuse from 'fuse.js';
 import type { Tool } from '@modelcontextprotocol/sdk/types';
 import type { ToolOverride } from '../../types/config.js';
-import { loadBackendServersConfig } from '../config-utils.js';
-import { ClientManager } from '../../backend/client-manager.js';
-import { DiscoveryService } from '../../backend/discovery.js';
+import { useBackend } from '../BackendContext.js';
 import { ScreenHeader } from './ui/ScreenHeader.js';
 import { LoadingScreen } from './ui/LoadingScreen.js';
 import { ErrorScreen } from './ui/ErrorScreen.js';
@@ -45,8 +43,8 @@ export function GroupedMultiSelectToolBrowser({
 }: GroupedMultiSelectToolBrowserProps) {
     const [tools, setTools] = useState<ToolItem[]>([]);
     const [loading, setLoading] = useState(true);
-    const [loadingStatus, setLoadingStatus] = useState<string>('');
     const [error, setError] = useState<string | null>(null);
+    const { discoverAllTools } = useBackend();
     const { stdout } = useStdout();
     const terminalWidth = stdout?.columns ?? 80;
     const terminalHeight = stdout?.rows ?? 24;
@@ -72,21 +70,10 @@ export function GroupedMultiSelectToolBrowser({
     useEffect(() => {
         void (async () => {
             try {
-                setLoadingStatus('Loading backend server configuration...');
-                const backendConfig = await loadBackendServersConfig();
+                // Discover tools using shared backend connection
+                const toolsMap = await discoverAllTools();
 
-                const serverConfigs = new Map(Object.entries(backendConfig.mcpServers));
-                const serverCount = serverConfigs.size;
-                const clientManager = new ClientManager(serverConfigs);
-
-                setLoadingStatus(`Connecting to ${serverCount} backend server(s)...`);
-                await clientManager.connectAll();
-
-                setLoadingStatus('Discovering tools from backend servers...');
-                const discoveryService = new DiscoveryService(clientManager);
-                const toolsMap = await discoveryService.discoverAllTools();
-
-                setLoadingStatus('Processing tool list...');
+                // Flatten into array of ToolItems
                 const allTools: ToolItem[] = [];
                 for(const [serverName, serverTools] of toolsMap.entries()) {
                     for(const tool of serverTools) {
@@ -99,14 +86,12 @@ export function GroupedMultiSelectToolBrowser({
 
                 // Auto-expand all servers initially
                 setExpandedServers(new Set(toolsMap.keys()));
-
-                await clientManager.disconnectAll();
             } catch (err) {
                 setError(isError(err) ? err.message : String(err));
                 setLoading(false);
             }
         })();
-    }, []);
+    }, [discoverAllTools]);
 
     // Fuzzy search
     const fuse = useMemo(() => new Fuse(tools, {
@@ -380,7 +365,7 @@ export function GroupedMultiSelectToolBrowser({
 
     // Show loading state
     if(loading) {
-        return <LoadingScreen title="Browse Backend Tools" message={loadingStatus || 'Initializing...'} />;
+        return <LoadingScreen title="Browse Backend Tools" message="Discovering tools from backend servers..." />;
     }
 
     // Show error state

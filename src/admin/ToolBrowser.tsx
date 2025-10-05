@@ -7,9 +7,7 @@ import { Box, useInput } from 'ink';
 import { isError, map, replace, trim } from 'lodash';
 import type { Tool } from '@modelcontextprotocol/sdk/types';
 import type { ToolOverride } from '../types/config.js';
-import { loadBackendServersConfig } from './config-utils.js';
-import { ClientManager } from '../backend/client-manager.js';
-import { DiscoveryService } from '../backend/discovery.js';
+import { useBackend } from './BackendContext.js';
 import { ScreenHeader } from './components/ui/ScreenHeader.js';
 import { LoadingScreen } from './components/ui/LoadingScreen.js';
 import { ErrorScreen } from './components/ui/ErrorScreen.js';
@@ -32,8 +30,8 @@ interface ToolItem {
 export function ToolBrowser({ onBack, onSelect }: ToolBrowserProps) {
     const [tools, setTools] = useState<ToolItem[]>([]);
     const [loading, setLoading] = useState(true);
-    const [loadingStatus, setLoadingStatus] = useState<string>('');
     const [error, setError] = useState<string | null>(null);
+    const { discoverAllTools } = useBackend();
 
     // Handle Esc and Left Arrow for navigation
     useInput((input, key) => {
@@ -46,26 +44,10 @@ export function ToolBrowser({ onBack, onSelect }: ToolBrowserProps) {
     useEffect(() => {
         void (async () => {
             try {
-                // Load backend server config
-                setLoadingStatus('Loading backend server configuration...');
-                const backendConfig = await loadBackendServersConfig();
-
-                // Create client manager
-                const serverConfigs = new Map(Object.entries(backendConfig.mcpServers));
-                const serverCount = serverConfigs.size;
-                const clientManager = new ClientManager(serverConfigs);
-
-                // Connect to all servers
-                setLoadingStatus(`Connecting to ${serverCount} backend server(s)...`);
-                await clientManager.connectAll();
-
-                // Discover tools
-                setLoadingStatus('Discovering tools from backend servers...');
-                const discoveryService = new DiscoveryService(clientManager);
-                const toolsMap = await discoveryService.discoverAllTools();
+                // Discover tools using shared backend connection
+                const toolsMap = await discoverAllTools();
 
                 // Flatten into array of ToolItems
-                setLoadingStatus('Processing tool list...');
                 const allTools: ToolItem[] = [];
                 for(const [serverName, serverTools] of toolsMap.entries()) {
                     for(const tool of serverTools) {
@@ -75,15 +57,12 @@ export function ToolBrowser({ onBack, onSelect }: ToolBrowserProps) {
 
                 setTools(allTools);
                 setLoading(false);
-
-                // Cleanup: disconnect from servers
-                await clientManager.disconnectAll();
             } catch (err) {
                 setError(isError(err) ? err.message : String(err));
                 setLoading(false);
             }
         })();
-    }, []);
+    }, [discoverAllTools]);
 
     const handleToolSelect = (item: { value: string }) => {
         if(item.value === 'back') {
@@ -106,7 +85,7 @@ export function ToolBrowser({ onBack, onSelect }: ToolBrowserProps) {
 
     // Show loading state
     if(loading) {
-        return <LoadingScreen title="Browse Backend Tools" message={loadingStatus || 'Initializing...'} />;
+        return <LoadingScreen title="Browse Backend Tools" message="Discovering tools from backend servers..." />;
     }
 
     // Show error state

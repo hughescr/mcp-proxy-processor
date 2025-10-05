@@ -8,9 +8,7 @@ import { trim, repeat, isError, find, map, padEnd, filter as _filter, startsWith
 import { CancellableTextInput } from './CancellableTextInput.js';
 import type { Tool } from '@modelcontextprotocol/sdk/types';
 import type { ToolOverride, ArgumentMapping } from '../../types/config.js';
-import { loadBackendServersConfig } from '../config-utils.js';
-import { ClientManager } from '../../backend/client-manager.js';
-import { DiscoveryService } from '../../backend/discovery.js';
+import { useBackend } from '../BackendContext.js';
 import { MultiLineTextEditor } from './MultiLineTextEditor.js';
 import { ParameterMappingEditor } from './ParameterMappingEditor.js';
 import { SchemaGenerator } from '../../middleware/schema-generator.js';
@@ -61,6 +59,7 @@ export function EnhancedToolEditor({ tool, groupName, onSave, onRemove, onCancel
     const [inputValue, setInputValue] = useState('');
     const [error, setError] = useState<string | null>(null);
     const [initialParamToEdit, setInitialParamToEdit] = useState<string | undefined>(undefined);
+    const { discoverAllTools } = useBackend();
 
     const schemaGenerator = useMemo(() => new SchemaGenerator(), []);
 
@@ -93,14 +92,8 @@ export function EnhancedToolEditor({ tool, groupName, onSave, onRemove, onCancel
     useEffect(() => {
         void (async () => {
             try {
-                const backendConfig = await loadBackendServersConfig();
-                const serverConfigs = new Map(Object.entries(backendConfig.mcpServers));
-                const clientManager = new ClientManager(serverConfigs);
-
-                await clientManager.connectAll();
-
-                const discoveryService = new DiscoveryService(clientManager);
-                const toolsMap = await discoveryService.discoverAllTools();
+                // Discover tools using shared backend connection
+                const toolsMap = await discoverAllTools();
 
                 const serverTools = toolsMap.get(tool.serverName);
                 const foundTool = find(serverTools, { name: tool.originalName });
@@ -122,14 +115,13 @@ export function EnhancedToolEditor({ tool, groupName, onSave, onRemove, onCancel
                     console.error(`[DEBUG] Tool ${tool.originalName} not found in server ${tool.serverName}. Available tools:`, map(serverTools, 'name'));
                 }
 
-                await clientManager.disconnectAll();
                 setMode('menu');
             } catch (err) {
                 setError(isError(err) ? err.message : String(err));
                 setMode('menu');
             }
         })();
-    }, [tool.serverName, tool.originalName]);
+    }, [tool.serverName, tool.originalName, discoverAllTools]);
 
     // eslint-disable-next-line complexity -- Menu handler with multiple edit modes
     const handleMenuSelect = (item: { value: string }) => {

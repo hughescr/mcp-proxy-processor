@@ -7,6 +7,7 @@ import { Box, useInput } from 'ink';
 import { isError, keys, chain } from 'lodash';
 import type { BackendServerConfig } from '../types/config.js';
 import { loadBackendServersConfig, saveBackendServersConfig } from './config-utils.js';
+import { useBackend } from './BackendContext.js';
 import { ServerEditor } from './ServerEditor.js';
 import { ScreenHeader } from './components/ui/ScreenHeader.js';
 import { LoadingScreen } from './components/ui/LoadingScreen.js';
@@ -39,6 +40,7 @@ export function ServerList({ onBack }: ServerListProps) {
     const [selectedServerName, setSelectedServerName] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const { reloadBackendConfig } = useBackend();
 
     // Handle Esc and Left Arrow for navigation
     useInput((input, key) => {
@@ -82,6 +84,10 @@ export function ServerList({ onBack }: ServerListProps) {
             const newServers = { ...servers, [serverName]: server };
             await saveBackendServersConfig({ mcpServers: newServers });
             setServers(newServers);
+
+            // Reload backend connections with new configuration
+            await reloadBackendConfig();
+
             setView('list');
             setError(null);
         } catch (err) {
@@ -95,6 +101,10 @@ export function ServerList({ onBack }: ServerListProps) {
             delete newServers[serverName];
             await saveBackendServersConfig({ mcpServers: newServers });
             setServers(newServers);
+
+            // Reload backend connections with new configuration
+            await reloadBackendConfig();
+
             setView('list');
             setError(null);
         } catch (err) {
