@@ -67,9 +67,18 @@ export function GroupList({ onBack }: GroupListProps) {
         }
     };
 
-    const handleSaveGroup = async (groupName: string, group: GroupConfig) => {
+    const handleSaveGroup = async (originalGroupName: string, newGroupName: string, group: GroupConfig) => {
         try {
-            const newGroups = { ...groups, [groupName]: group };
+            const newGroups = { ...groups };
+
+            // If renaming, remove the old group entry
+            if(originalGroupName && originalGroupName !== newGroupName) {
+                delete newGroups[originalGroupName];
+            }
+
+            // Add/update the group with the new name
+            newGroups[newGroupName] = group;
+
             await saveGroupsConfig({ groups: newGroups });
             setGroups(newGroups);
             setView('list');

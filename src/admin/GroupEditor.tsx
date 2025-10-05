@@ -17,7 +17,7 @@ import { menuSeparator } from './design-system.js';
 interface GroupEditorProps {
     groupName: string
     group:     GroupConfig
-    onSave:    (groupName: string, group: GroupConfig) => Promise<void>
+    onSave:    (originalGroupName: string, newGroupName: string, group: GroupConfig) => Promise<void>
     onDelete:  (groupName: string) => Promise<void>
     onCancel:  () => void
 }
@@ -58,7 +58,7 @@ export function GroupEditor({ groupName, group, onSave, onDelete, onCancel }: Gr
         try {
             // Ensure name matches the group config
             const groupToSave = { ...currentGroup, name: currentGroup.name };
-            await onSave(currentGroup.name, groupToSave);
+            await onSave(groupName, currentGroup.name, groupToSave);
             // Show success message
             setMode('success');
             setSaving(false);
