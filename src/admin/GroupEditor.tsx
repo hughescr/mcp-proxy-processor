@@ -116,7 +116,7 @@ export function GroupEditor({ groupName, group, onSave, onDelete, onCancel }: Gr
     const handleAddTools = (tools: ToolOverride[]) => {
         setCurrentGroup({
             ...currentGroup,
-            tools: [...currentGroup.tools, ...tools],
+            tools,
         });
         setMode('menu');
     };
@@ -232,7 +232,7 @@ export function GroupEditor({ groupName, group, onSave, onDelete, onCancel }: Gr
             label: `  ${tool.name ?? tool.originalName} (${tool.serverName})`,
             value: `edit-tool-${index}`,
         })),
-        { label: '+ Add Tool', value: 'add-tool' },
+        { label: '⚙️  Activate/Deactivate Tools', value: 'add-tool' },
         menuSeparator(),
         { label: '💾 Save Group', value: 'save' },
     ];
