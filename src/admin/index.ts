@@ -26,7 +26,6 @@ export async function runAdmin(): Promise<void> {
 
     // Render the Ink app with splitRapidInput enabled for automation testing
     const { waitUntilExit } = render(React.createElement(App), {
-        // @ts-expect-error - splitRapidInput not yet in @types/ink, from upstream PR vadimdemedes/ink#782
         splitRapidInput: true,  // Enable per-keypress processing for rapid input from automation
     });
 

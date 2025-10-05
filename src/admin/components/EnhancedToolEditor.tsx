@@ -2,10 +2,10 @@
  * Enhanced Tool Editor Component - Edit tool overrides with full context
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { SelectInput } from './SelectInput.js';
-import { trim, repeat, isError, find, keys, map } from 'lodash';
+import { trim, repeat, isError, find, map, padEnd, filter as _filter, startsWith, truncate as _truncate } from 'lodash';
 import { CancellableTextInput } from './CancellableTextInput.js';
 import type { Tool } from '@modelcontextprotocol/sdk/types';
 import type { ToolOverride, ArgumentMapping } from '../../types/config.js';
@@ -14,6 +14,8 @@ import { ClientManager } from '../../backend/client-manager.js';
 import { DiscoveryService } from '../../backend/discovery.js';
 import { MultiLineTextEditor } from './MultiLineTextEditor.js';
 import { ParameterMappingEditor } from './ParameterMappingEditor.js';
+import { SchemaGenerator } from '../../middleware/schema-generator.js';
+import { analyzeParameters } from '../utils/parameter-analysis.js';
 
 interface EnhancedToolEditorProps {
     tool:      ToolOverride
@@ -23,7 +25,7 @@ interface EnhancedToolEditorProps {
     onCancel:  () => void
 }
 
-type EditMode = 'loading' | 'menu' | 'edit-name' | 'edit-description' | 'edit-argument-mapping' | 'view-schema';
+type EditMode = 'loading' | 'menu' | 'edit-name' | 'edit-description' | 'edit-argument-mapping';
 
 const DESCRIPTION_GUIDANCE = `
 ✨ Writing Effective Tool Descriptions
@@ -56,15 +58,29 @@ export function EnhancedToolEditor({ tool, groupName, onSave, onRemove, onCancel
     const [inputValue, setInputValue] = useState('');
     const [error, setError] = useState<string | null>(null);
 
+    const schemaGenerator = useMemo(() => new SchemaGenerator(), []);
+
+    // Generate client schema from backend schema + mapping
+    const clientSchema = useMemo(() => {
+        if(!currentTool.argumentMapping) {
+            return backendTool?.inputSchema ?? {};
+        }
+        if(currentTool.argumentMapping.type === 'jsonata') {
+            return backendTool?.inputSchema ?? {};
+        }
+        return schemaGenerator.generateClientSchema(backendTool?.inputSchema, currentTool.argumentMapping);
+    }, [backendTool?.inputSchema, currentTool.argumentMapping, schemaGenerator]);
+
+    // Analyze parameters for table display
+    const parameters = useMemo(() => {
+        return analyzeParameters(backendTool?.inputSchema, clientSchema, currentTool.argumentMapping);
+    }, [backendTool?.inputSchema, clientSchema, currentTool.argumentMapping]);
+
     // Handle Esc for navigation
     useInput((input, key) => {
-        if(mode === 'menu' || mode === 'view-schema') {
+        if(mode === 'menu') {
             if(key.escape || key.leftArrow) {
-                if(mode === 'view-schema') {
-                    setMode('menu');
-                } else {
-                    onCancel();
-                }
+                onCancel();
             }
         }
     });
@@ -113,6 +129,12 @@ export function EnhancedToolEditor({ tool, groupName, onSave, onRemove, onCancel
 
     // eslint-disable-next-line complexity -- Menu handler with multiple edit modes
     const handleMenuSelect = (item: { value: string }) => {
+        // Handle parameter row selection - opens full mapping editor
+        if(startsWith(item.value, 'param-')) {
+            setMode('edit-argument-mapping');
+            return;
+        }
+
         switch(item.value) {
             case 'save':
                 onSave(currentTool);
@@ -136,17 +158,14 @@ export function EnhancedToolEditor({ tool, groupName, onSave, onRemove, onCancel
             case 'edit-argument-mapping':
                 setMode('edit-argument-mapping');
                 break;
-            case 'view-schema':
-                setMode('view-schema');
+            case 'reset-mapping':
+                setCurrentTool({ ...currentTool, argumentMapping: undefined });
                 break;
             case 'clear-name':
                 setCurrentTool({ ...currentTool, name: undefined });
                 break;
             case 'clear-description':
                 setCurrentTool({ ...currentTool, description: undefined });
-                break;
-            case 'clear-argument-mapping':
-                setCurrentTool({ ...currentTool, argumentMapping: undefined });
                 break;
             default:
                 break;
@@ -297,61 +316,43 @@ export function EnhancedToolEditor({ tool, groupName, onSave, onRemove, onCancel
         );
     }
 
-    // Schema viewer
-    if(mode === 'view-schema') {
-        return (
-            <Box flexDirection="column" padding={1}>
-                <Box marginBottom={1}>
-                    <Text bold color="cyan">
-                        Input Schema for
-                        {' '}
-                        {currentTool.name ?? currentTool.originalName}
-                    </Text>
-                </Box>
-                <Box marginBottom={1}>
-                    <Text>
-                        📦 Group:
-                        {' '}
-                        <Text bold color="cyan">{groupName}</Text>
-                    </Text>
-                    <Text>
-                        🔧 Backend Server:
-                        {' '}
-                        <Text bold color="yellow">{currentTool.serverName}</Text>
-                    </Text>
-                </Box>
-                {backendTool?.inputSchema
-                    ? (
-                        <Box borderStyle="single" paddingX={1} flexDirection="column">
-                            <Text color="green">
-                                {JSON.stringify(backendTool.inputSchema, null, 2)}
-                            </Text>
-                        </Box>
-                    )
-                    : (
-                        <Text dimColor>No input schema available</Text>
-                    )}
-                <Box marginTop={1}>
-                    <Text dimColor>Press Esc or Left Arrow to return</Text>
-                </Box>
-            </Box>
-        );
-    }
-
-    // eslint-disable-next-line complexity -- Menu builder with conditional items
+    // eslint-disable-next-line complexity -- Menu builder with parameter table integration
     const buildMenuItems = () => {
         const effectiveName = currentTool.name ?? currentTool.originalName;
         const effectiveDescription = currentTool.description ?? backendTool?.description ?? '(no description)';
 
         const menuItems: { label: string, value: string, disabled?: boolean }[] = [];
 
-        // Add info items as regular text (not disabled menu items)
-        // These will be rendered but the first selectable item will get focus
-
         const descPreview = effectiveDescription.length > 80
             ? effectiveDescription.slice(0, 80) + '...'
             : effectiveDescription;
 
+        // Calculate optimal column widths for parameter table
+        const calculateColumnWidths = () => {
+            if(parameters.length === 0) {
+                return { backend: 16, client: 17, type: 13, details: 30 };
+            }
+
+            const backendLengths = map(parameters, 'backendName.length') as number[];
+            const clientLengths = map(parameters, param => (param.clientName ?? '(hidden)').length);
+            const typeLengths = map(parameters, 'mappingType.length') as number[];
+
+            const maxBackendLen = Math.max(...backendLengths, 7);
+            const maxClientLen = Math.max(...(clientLengths), 6);
+            const maxTypeLen = Math.max(...typeLengths, 4);
+
+            // Add padding within cells
+            const backendWidth = Math.max(maxBackendLen + 2, 'Backend'.length + 2);
+            const clientWidth = Math.max(maxClientLen + 2, 'Client'.length + 2);
+            const typeWidth = Math.max(maxTypeLen + 2, 'Type'.length + 2);
+            const detailsWidth = 30; // Flexible
+
+            return { backend: backendWidth, client: clientWidth, type: typeWidth, details: detailsWidth };
+        };
+
+        const colWidths = calculateColumnWidths();
+
+        // Tool Name
         menuItems.push(
             {
                 label: `Tool Name: ${effectiveName}${currentTool.name ? ' (overridden)' : ''}`,
@@ -363,6 +364,7 @@ export function EnhancedToolEditor({ tool, groupName, onSave, onRemove, onCancel
             menuItems.push({ label: '  ✕ Clear Name Override', value: 'clear-name' });
         }
 
+        // Description
         menuItems.push({
             label: `Description: ${descPreview}${currentTool.description ? ' (overridden)' : ''}`,
             value: 'edit-description',
@@ -372,30 +374,71 @@ export function EnhancedToolEditor({ tool, groupName, onSave, onRemove, onCancel
             menuItems.push({ label: '  ✕ Clear Description Override', value: 'clear-description' });
         }
 
-        // Argument mapping status
-        let mappingStatus = '(none)';
-        if(currentTool.argumentMapping) {
-            if(currentTool.argumentMapping.type === 'template') {
-                const paramCount = keys(currentTool.argumentMapping.mappings).length;
-                mappingStatus = `Template (${paramCount} params)`;
-            } else {
-                mappingStatus = 'JSONata';
-            }
-        }
-        menuItems.push({
-            label: `Argument Mapping: ${mappingStatus}`,
-            value: 'edit-argument-mapping',
-        });
+        // Parameter table integration
+        if(currentTool.argumentMapping && parameters.length > 0) {
+            const totalBackend = parameters.length;
+            const totalClient = _filter(parameters, p => !p.isHidden).length;
+            const totalHidden = totalBackend - totalClient;
 
-        if(currentTool.argumentMapping) {
-            menuItems.push({ label: '  ✕ Clear Argument Mapping', value: 'clear-argument-mapping' });
+            // Summary line
+            menuItems.push({
+                label:    `Argument Mapping: ${totalBackend} backend → ${totalClient} client${totalHidden > 0 ? ` (${totalHidden} hidden)` : ''}`,
+                value:    'mapping-header',
+                disabled: true,
+            });
+
+            // Top border
+            menuItems.push({
+                label:    `┌─${repeat('─', colWidths.backend)}─┬─${repeat('─', colWidths.client)}─┬─${repeat('─', colWidths.type)}─┬─${repeat('─', colWidths.details)}─┐`,
+                value:    'table-top-border',
+                disabled: true,
+            });
+
+            // Table header
+            menuItems.push({
+                label:    `│ ${padEnd('Backend', colWidths.backend)} │ ${padEnd('Client', colWidths.client)} │ ${padEnd('Type', colWidths.type)} │ ${padEnd('Details', colWidths.details)} │`,
+                value:    'table-header',
+                disabled: true,
+            });
+
+            // Header separator
+            menuItems.push({
+                label:    `├─${repeat('─', colWidths.backend)}─┼─${repeat('─', colWidths.client)}─┼─${repeat('─', colWidths.type)}─┼─${repeat('─', colWidths.details)}─┤`,
+                value:    'table-header-sep',
+                disabled: true,
+            });
+
+            // Parameter rows (navigable)
+            const paramRows = map(parameters, (param, index) => {
+                const detailsText = _truncate(param.mappingDetails, { length: colWidths.details });
+                return {
+                    label: `│ ${padEnd(param.backendName, colWidths.backend)} │ ${padEnd(param.clientName ?? '(hidden)', colWidths.client)} │ ${padEnd(param.mappingType, colWidths.type)} │ ${padEnd(detailsText, colWidths.details)} │`,
+                    value: `param-${index}`,
+                };
+            });
+            menuItems.push(...paramRows);
+
+            // Bottom border
+            menuItems.push({
+                label:    `└─${repeat('─', colWidths.backend)}─┴─${repeat('─', colWidths.client)}─┴─${repeat('─', colWidths.type)}─┴─${repeat('─', colWidths.details)}─┘`,
+                value:    'table-bottom',
+                disabled: true,
+            });
+
+            // Reset option
+            menuItems.push({
+                label: '🔄 Reset all to passthrough',
+                value: 'reset-mapping',
+            });
+        } else if(backendTool?.inputSchema?.properties) {
+            // No mapping yet, offer to create one
+            menuItems.push({
+                label: '➕ Add Argument Mapping',
+                value: 'edit-argument-mapping',
+            });
         }
 
-        // Add schema viewer option
-        if(backendTool?.inputSchema) {
-            menuItems.push({ label: '📋 View Input Schema Details', value: 'view-schema' });
-        }
-
+        // Actions separator
         menuItems.push(
             { label: repeat('─', 60), value: 'sep2', disabled: true },
             { label: '💾 Save Tool', value: 'save' }
