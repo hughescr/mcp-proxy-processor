@@ -6,8 +6,10 @@ import React, { useState, useEffect } from 'react';
 import { Box, Text } from 'ink';
 import { SelectInput } from './SelectInput.js';
 import TextInput from 'ink-text-input';
-import { repeat, map, keys, isArray as _isArray } from 'lodash';
+import { map, keys, isArray as _isArray } from 'lodash';
 import type { ArgumentMapping, TemplateMapping, ParameterMapping } from '../../types/config.js';
+import { ScreenHeader } from './ui/ScreenHeader.js';
+import { menuSeparator } from '../design-system.js';
 
 interface ParameterMappingEditorProps {
     /** Current argument mapping (may be undefined if none exists) */
@@ -90,7 +92,7 @@ const buildMappingEditorMenuItems = (paramMapping: ParameterMapping): { label: s
     }
 
     menuItems.push(
-        { label: repeat('─', 40), value: 'sep', disabled: true } as { label: string, value: string, disabled?: boolean },
+        menuSeparator(),
         { label: '💾 Save Parameter', value: 'save-param' },
         { label: '← Back', value: 'back' }
     );
@@ -305,17 +307,10 @@ export function ParameterMappingEditor({
         const isConstant = editState.paramMapping.type === 'constant';
         const label = isConstant ? 'Constant Value' : 'Default Value';
 
+        const title = `Edit ${label} for: ${editState.paramName}`;
         return (
             <Box flexDirection="column" padding={1}>
-                <Text bold color="cyan">
-                    Edit
-{' '}
-{label}
-{' '}
-for:
-{' '}
-{editState.paramName}
-                </Text>
+                <ScreenHeader title={title} />
                 <Box marginTop={1}>
                     <Text>Value (use JSON for non-strings): </Text>
                     <TextInput
@@ -325,12 +320,12 @@ for:
                     />
                 </Box>
                 <Box marginTop={1}>
-                    <Text dimColor>
+                    <Text>
 Examples: "text", 123, true,
 {'{"{"key":"value"}"}'}
                     </Text>
                 </Box>
-                <Text dimColor>Press Enter to save</Text>
+                <Text>Press Enter to save</Text>
             </Box>
         );
     };
@@ -370,17 +365,14 @@ Examples: "text", 123, true,
             ? paramMapping.name
             : undefined;
 
+        const title = `Edit Agent Parameter Name for: ${editState.paramName}`;
         return (
             <Box flexDirection="column" padding={1}>
-                <Text bold color="cyan">
-                    Edit Agent Parameter Name for:
-{' '}
-{editState.paramName}
-                </Text>
+                <ScreenHeader title={title} />
 
                 <Box marginTop={1} borderStyle="single" paddingX={1}>
                     <Box flexDirection="column">
-                        <Text bold color="yellow">Backend Parameter Info:</Text>
+                        <Text color="yellow">Backend Parameter Info:</Text>
                         <Text>{getBackendParamInfo(editState.paramName)}</Text>
                     </Box>
                 </Box>
@@ -397,7 +389,7 @@ Examples: "text", 123, true,
 
                 {currentName && (
                     <Box marginTop={1}>
-                        <Text dimColor>
+                        <Text>
                             Current:
 {' '}
 {currentName}
@@ -406,7 +398,7 @@ Examples: "text", 123, true,
                 )}
 
                 <Box marginTop={1}>
-                    <Text dimColor>Leave empty to use backend name. Press Enter to save</Text>
+                    <Text>Leave empty to use backend name. Press Enter to save</Text>
                 </Box>
             </Box>
         );
@@ -422,17 +414,14 @@ Examples: "text", 123, true,
             ? paramMapping.description
             : undefined;
 
+        const title = `Edit Agent Parameter Description for: ${editState.paramName}`;
         return (
             <Box flexDirection="column" padding={1}>
-                <Text bold color="cyan">
-                    Edit Agent Parameter Description for:
-{' '}
-{editState.paramName}
-                </Text>
+                <ScreenHeader title={title} />
 
                 <Box marginTop={1} borderStyle="single" paddingX={1}>
                     <Box flexDirection="column">
-                        <Text bold color="yellow">Backend Parameter Info:</Text>
+                        <Text color="yellow">Backend Parameter Info:</Text>
                         <Text>{getBackendParamInfo(editState.paramName)}</Text>
                     </Box>
                 </Box>
@@ -449,7 +438,7 @@ Examples: "text", 123, true,
 
                 {currentDescription && (
                     <Box marginTop={1}>
-                        <Text dimColor>
+                        <Text>
                             Current:
 {' '}
 {currentDescription}
@@ -458,7 +447,7 @@ Examples: "text", 123, true,
                 )}
 
                 <Box marginTop={1}>
-                    <Text dimColor>Press Enter to save</Text>
+                    <Text>Press Enter to save</Text>
                 </Box>
             </Box>
         );
@@ -469,19 +458,14 @@ Examples: "text", 123, true,
             return null;
         }
 
+        const title = `Select Mapping Type for: ${editState.paramName}`;
         return (
             <Box flexDirection="column" padding={1}>
-                <Text bold color="cyan">
-                    Select Mapping Type for:
-{' '}
-{editState.paramName}
-                </Text>
-                <Box marginTop={1}>
-                    <SelectInput
-                      items={MAPPING_TYPE_OPTIONS}
-                      onSelect={handleMappingTypeSelect}
-                    />
-                </Box>
+                <ScreenHeader title={title} />
+                <SelectInput
+                  items={MAPPING_TYPE_OPTIONS}
+                  onSelect={handleMappingTypeSelect}
+                />
             </Box>
         );
     };
@@ -498,19 +482,14 @@ Examples: "text", 123, true,
         }));
         sourceItems.push({ label: '← Cancel', value: 'cancel' });
 
+        const title = `Select Source Parameter for: ${editState.paramName}`;
         return (
             <Box flexDirection="column" padding={1}>
-                <Text bold color="cyan">
-                    Select Source Parameter for:
-{' '}
-{editState.paramName}
-                </Text>
-                <Box marginTop={1}>
-                    <SelectInput
-                      items={sourceItems}
-                      onSelect={handleSourceSelect}
-                    />
-                </Box>
+                <ScreenHeader title={title} />
+                <SelectInput
+                  items={sourceItems}
+                  onSelect={handleSourceSelect}
+                />
             </Box>
         );
     };
@@ -581,16 +560,11 @@ Examples: "text", 123, true,
             }
         };
 
+        const title = `Edit Mapping for: ${editState.paramName}`;
         return (
             <Box flexDirection="column" padding={1}>
-                <Text bold color="cyan">
-                    Edit Mapping for:
-{' '}
-{editState.paramName}
-                </Text>
-                <Box marginTop={1}>
-                    <SelectInput items={menuItems} onSelect={handleEditMenuSelect} />
-                </Box>
+                <ScreenHeader title={title} />
+                <SelectInput items={menuItems} onSelect={handleEditMenuSelect} />
             </Box>
         );
     };

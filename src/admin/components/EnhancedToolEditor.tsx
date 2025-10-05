@@ -4,7 +4,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Box, Text, useInput } from 'ink';
-import { SelectInput } from './SelectInput.js';
 import { trim, repeat, isError, find, map, padEnd, filter as _filter, startsWith, truncate as _truncate } from 'lodash';
 import { CancellableTextInput } from './CancellableTextInput.js';
 import type { Tool } from '@modelcontextprotocol/sdk/types';
@@ -16,6 +15,10 @@ import { MultiLineTextEditor } from './MultiLineTextEditor.js';
 import { ParameterMappingEditor } from './ParameterMappingEditor.js';
 import { SchemaGenerator } from '../../middleware/schema-generator.js';
 import { analyzeParameters } from '../utils/parameter-analysis.js';
+import { ScreenHeader } from './ui/ScreenHeader.js';
+import { LoadingScreen } from './ui/LoadingScreen.js';
+import { VirtualScrollList } from './ui/VirtualScrollList.js';
+import { textSeparator, menuSeparator } from '../design-system.js';
 
 interface EnhancedToolEditorProps {
     tool:      ToolOverride
@@ -186,65 +189,44 @@ export function EnhancedToolEditor({ tool, groupName, onSave, onRemove, onCancel
         setMode('menu');
     };
 
-    const renderLoadingState = () => (
-        <Box flexDirection="column" padding={1}>
-            <Text bold color="cyan">
-                Loading Tool Information...
-            </Text>
-        </Box>
-    );
-
     // Loading state
     if(mode === 'loading') {
-        return renderLoadingState();
+        return <LoadingScreen title="Loading Tool Information..." />;
     }
-
-    const renderNameEditor = () => (
-        <Box flexDirection="column" padding={1}>
-            <Text bold color="cyan">
-                Edit Tool Name
-            </Text>
-            <Box marginTop={1}>
-                <Text dimColor>
-                    Original:
-                    {' '}
-                    {currentTool.originalName}
-                </Text>
-            </Box>
-            <Box marginTop={1}>
-                <Text>Override: </Text>
-                <CancellableTextInput
-                  value={inputValue}
-                  onChange={setInputValue}
-                  onSubmit={handleNameSubmit}
-                  onCancel={() => setMode('menu')}
-                />
-            </Box>
-            <Text dimColor>Press Enter to save, Esc to cancel</Text>
-        </Box>
-    );
 
     // Name input
     if(mode === 'edit-name') {
-        return renderNameEditor();
+        return (
+            <Box flexDirection="column" padding={1}>
+                <ScreenHeader title="Edit Tool Name" />
+                <Box marginTop={1}>
+                    <Text>
+                        Original:
+                        {' '}
+                        <Text bold>{currentTool.originalName}</Text>
+                    </Text>
+                </Box>
+                <Box marginTop={1}>
+                    <Text>Override: </Text>
+                    <CancellableTextInput
+                      value={inputValue}
+                      onChange={setInputValue}
+                      onSubmit={handleNameSubmit}
+                      onCancel={() => setMode('menu')}
+                    />
+                </Box>
+                <Text>Press Enter to save, Esc to cancel</Text>
+            </Box>
+        );
     }
 
     const renderDescriptionEditor = () => {
         const originalDesc = backendTool?.description ?? '(no description)';
+        const title = `Edit Tool Description - Group: ${groupName} | Tool: ${currentTool.name ?? currentTool.originalName}`;
 
         return (
             <Box flexDirection="column" padding={1}>
-                <Box marginBottom={1}>
-                    <Text bold color="cyan">
-                        Edit Tool Description - Group:
-                        {' '}
-                        {groupName}
-                        {' '}
-                        | Tool:
-                        {' '}
-                        {currentTool.name ?? currentTool.originalName}
-                    </Text>
-                </Box>
+                <ScreenHeader title={title} />
 
                 <Box flexDirection="row" gap={2}>
                     {/* Left side - Editor */}
@@ -444,7 +426,7 @@ export function EnhancedToolEditor({ tool, groupName, onSave, onRemove, onCancel
 
         // Actions separator
         menuItems.push(
-            { label: repeat('─', 60), value: 'sep2', disabled: true },
+            menuSeparator(60),
             { label: '💾 Save Tool', value: 'save' }
         );
 
@@ -466,17 +448,17 @@ export function EnhancedToolEditor({ tool, groupName, onSave, onRemove, onCancel
             <Text>
                 📦 Group:
                 {' '}
-                <Text bold color="cyan">{groupName}</Text>
+                <Text bold>{groupName}</Text>
             </Text>
             <Text>
                 🔧 Backend Server:
                 {' '}
-                <Text bold color="yellow">{currentTool.serverName}</Text>
+                <Text color="yellow">{currentTool.serverName}</Text>
             </Text>
             <Text>
                 📝 Original Tool Name:
                 {' '}
-                <Text bold color="green">{currentTool.originalName}</Text>
+                <Text bold>{currentTool.originalName}</Text>
             </Text>
             {error && (
                 <Text color="red">
@@ -485,21 +467,22 @@ export function EnhancedToolEditor({ tool, groupName, onSave, onRemove, onCancel
                     {error}
                 </Text>
             )}
-            <Text dimColor>{repeat('─', 60)}</Text>
+            <Text dimColor>{textSeparator()}</Text>
         </Box>
     );
 
+    const title = `Edit Tool: ${effectiveName}`;
+
+    // Calculate fixed UI height for virtual scrolling
+    // 1 (padding) + 2 (ScreenHeader) + info section lines + 1 (padding)
+    const infoSectionHeight = error ? 6 : 5; // Info section has 5-6 lines depending on error
+    const fixedUIHeight = 1 + 2 + infoSectionHeight + 1;
+
     return (
         <Box flexDirection="column" padding={1}>
-            <Box marginBottom={1}>
-                <Text bold color="cyan">
-                    Edit Tool:
-                    {' '}
-                    {effectiveName}
-                </Text>
-            </Box>
+            <ScreenHeader title={title} />
             {infoSection}
-            <SelectInput items={menuItems} onSelect={handleMenuSelect} />
+            <VirtualScrollList items={menuItems} onSelect={handleMenuSelect} fixedUIHeight={fixedUIHeight} />
         </Box>
     );
 }

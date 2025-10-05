@@ -210,7 +210,7 @@ export function MultiLineTextEditor({
                 })
             )}
             <Box marginTop={1}>
-                <Text dimColor>Ctrl+S to save • Esc to cancel • Arrow keys to navigate</Text>
+                <Text>Ctrl+S to save • Esc to cancel • Arrow keys to navigate</Text>
             </Box>
         </Box>
     );

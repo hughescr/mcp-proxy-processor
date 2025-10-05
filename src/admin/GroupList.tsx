@@ -3,12 +3,16 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Box, Text, useInput } from 'ink';
-import { SelectInput } from './components/SelectInput.js';
-import { isError, keys, chain, repeat } from 'lodash';
+import { Box, useInput } from 'ink';
+import { isError, keys, chain } from 'lodash';
 import type { GroupConfig } from '../types/config.js';
 import { loadGroupsConfig, saveGroupsConfig } from './config-utils.js';
 import { GroupEditor } from './GroupEditor.js';
+import { ScreenHeader } from './components/ui/ScreenHeader.js';
+import { LoadingScreen } from './components/ui/LoadingScreen.js';
+import { ErrorScreen } from './components/ui/ErrorScreen.js';
+import { VirtualScrollList } from './components/ui/VirtualScrollList.js';
+import { menuSeparator } from './design-system.js';
 
 interface GroupListProps {
     onBack: () => void
@@ -126,35 +130,22 @@ export function GroupList({ onBack }: GroupListProps) {
 
     // Show loading state
     if(loading) {
-        return (
-            <Box padding={1}>
-                <Text>{loadingStatus}</Text>
-            </Box>
-        );
+        return <LoadingScreen message={loadingStatus} />;
     }
 
     // Show error state
     if(error) {
         return (
-            <Box flexDirection="column" padding={1}>
-                <Text bold color="red">
-                    Error Loading Groups
-                </Text>
-                <Box marginTop={1}>
-                    <Text color="red">
-                        {error}
-                    </Text>
-                </Box>
-                <Box marginTop={1} flexDirection="column">
-                    <Text bold>Troubleshooting:</Text>
-                    <Text>• Check that config/groups.json exists and is readable</Text>
-                    <Text>• Verify the file contains valid JSON</Text>
-                    <Text>• Ensure you have permission to read the file</Text>
-                </Box>
-                <Box marginTop={1}>
-                    <Text dimColor>Press Esc to return to main menu</Text>
-                </Box>
-            </Box>
+            <ErrorScreen
+              title="Error Loading Groups"
+              message={error}
+              troubleshooting={[
+                  '• Check that config/groups.json exists and is readable',
+                  '• Verify the file contains valid JSON',
+                  '• Ensure you have permission to read the file',
+              ]}
+              helpText="Press Esc to return to main menu"
+            />
         );
     }
 
@@ -167,26 +158,27 @@ export function GroupList({ onBack }: GroupListProps) {
                 value: name,
             }))
             .value(),
-        { label: repeat('─', 40), value: 'sep1', disabled: true },
+        menuSeparator(),
         { label: '+ Create New Group', value: 'create' },
         { label: '← Back', value: 'back' },
     ];
 
+    // Fixed UI height: padding(1) + header(1) + margin(1) + subtitle(1) + margin(1) + padding(1) = 6
+    const fixedUIHeight = 6;
+
     return (
         <Box flexDirection="column" padding={1}>
-            <Box marginBottom={1}>
-                <Text bold color="cyan">
-                    Group Management
-                </Text>
-            </Box>
-            <Box marginBottom={1}>
-                <Text dimColor>
-                    {keys(groups).length === 0
-                        ? 'No groups configured. Create a new group to get started.'
-                        : 'Select a group to edit, or create a new one:'}
-                </Text>
-            </Box>
-            <SelectInput items={menuItems} onSelect={handleGroupSelect} />
+            <ScreenHeader
+              title="Group Management"
+              subtitle={keys(groups).length === 0
+                  ? 'No groups configured. Create a new group to get started.'
+                  : 'Select a group to edit, or create a new one:'}
+            />
+            <VirtualScrollList
+              items={menuItems}
+              onSelect={handleGroupSelect}
+              fixedUIHeight={fixedUIHeight}
+            />
         </Box>
     );
 }

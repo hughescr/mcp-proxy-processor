@@ -4,12 +4,15 @@
 
 import React, { useState } from 'react';
 import { Box, Text, useInput } from 'ink';
-import { SelectInput } from './components/SelectInput.js';
 import _ from 'lodash';
 import { CancellableTextInput } from './components/CancellableTextInput.js';
 import type { GroupConfig, ToolOverride } from '../types/config.js';
 import { GroupedMultiSelectToolBrowser } from './components/GroupedMultiSelectToolBrowser.js';
 import { EnhancedToolEditor } from './components/EnhancedToolEditor.js';
+import { ScreenHeader } from './components/ui/ScreenHeader.js';
+import { LoadingScreen } from './components/ui/LoadingScreen.js';
+import { VirtualScrollList } from './components/ui/VirtualScrollList.js';
+import { menuSeparator } from './design-system.js';
 
 interface GroupEditorProps {
     groupName: string
@@ -169,7 +172,7 @@ export function GroupEditor({ groupName, group, onSave, onDelete, onCancel }: Gr
     if(mode === 'edit-name') {
         return (
             <Box flexDirection="column" padding={1}>
-                <Text bold>Edit Group Name</Text>
+                <ScreenHeader title="Edit Group Name" />
                 <Box marginTop={1}>
                     <Text>Name: </Text>
                     <CancellableTextInput
@@ -179,7 +182,7 @@ export function GroupEditor({ groupName, group, onSave, onDelete, onCancel }: Gr
                       onCancel={() => setMode('menu')}
                     />
                 </Box>
-                <Text dimColor>Press Enter to save, Esc to cancel</Text>
+                <Text>Press Enter to save, Esc to cancel</Text>
             </Box>
         );
     }
@@ -188,7 +191,7 @@ export function GroupEditor({ groupName, group, onSave, onDelete, onCancel }: Gr
     if(mode === 'edit-description') {
         return (
             <Box flexDirection="column" padding={1}>
-                <Text bold>Edit Group Description</Text>
+                <ScreenHeader title="Edit Group Description" />
                 <Box marginTop={1}>
                     <Text>Description: </Text>
                     <CancellableTextInput
@@ -198,18 +201,14 @@ export function GroupEditor({ groupName, group, onSave, onDelete, onCancel }: Gr
                       onCancel={() => setMode('menu')}
                     />
                 </Box>
-                <Text dimColor>Press Enter to save, Esc to cancel</Text>
+                <Text>Press Enter to save, Esc to cancel</Text>
             </Box>
         );
     }
 
     // Show saving state
     if(saving) {
-        return (
-            <Box padding={1}>
-                <Text>Saving...</Text>
-            </Box>
-        );
+        return <LoadingScreen message="Saving..." />;
     }
 
     // Show success state
@@ -227,14 +226,14 @@ export function GroupEditor({ groupName, group, onSave, onDelete, onCancel }: Gr
     const menuItems: { label: string, value: string, disabled?: boolean }[] = [
         { label: `Name: ${currentGroup.name ?? '(not set)'}`, value: 'edit-name' },
         { label: `Description: ${currentGroup.description ?? '(none)'}`, value: 'edit-description' },
-        { label: _.repeat('─', 40), value: 'sep1', disabled: true },
+        menuSeparator(),
         { label: `Tools (${currentGroup.tools.length}):`, value: 'tools-header', disabled: true },
         ..._.map(currentGroup.tools, (tool, index) => ({
             label: `  ${tool.name ?? tool.originalName} (${tool.serverName})`,
             value: `edit-tool-${index}`,
         })),
         { label: '+ Add Tool', value: 'add-tool' },
-        { label: _.repeat('─', 40), value: 'sep2', disabled: true },
+        menuSeparator(),
         { label: '💾 Save Group', value: 'save' },
     ];
 
@@ -243,22 +242,26 @@ export function GroupEditor({ groupName, group, onSave, onDelete, onCancel }: Gr
     }
 
     menuItems.push({ label: '← Cancel', value: 'cancel' });
+
+    const title = isNewGroup ? 'Create New Group' : `Edit Group: ${groupName}`;
+
+    // Calculate fixed UI height for virtual scrolling
+    // 1 (padding) + 2 (ScreenHeader) + optional error (2 lines) + 1 (padding)
+    const fixedUIHeight = error ? 6 : 4;
+
     return (
         <Box flexDirection="column" padding={1}>
-            <Box marginBottom={1}>
-                <Text bold color="cyan">
-                    {isNewGroup ? 'Create New Group' : `Edit Group: ${groupName}`}
-                </Text>
-            </Box>
+            <ScreenHeader title={title} />
             {error && (
                 <Box marginBottom={1}>
                     <Text color="red">
                         Error:
+                        {' '}
                         {error}
                     </Text>
                 </Box>
             )}
-            <SelectInput items={menuItems} onSelect={handleMenuSelect} />
+            <VirtualScrollList items={menuItems} onSelect={handleMenuSelect} fixedUIHeight={fixedUIHeight} />
         </Box>
     );
 }

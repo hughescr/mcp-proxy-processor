@@ -13,6 +13,9 @@ import type { ToolOverride } from '../../types/config.js';
 import { loadBackendServersConfig } from '../config-utils.js';
 import { ClientManager } from '../../backend/client-manager.js';
 import { DiscoveryService } from '../../backend/discovery.js';
+import { ScreenHeader } from './ui/ScreenHeader.js';
+import { LoadingScreen } from './ui/LoadingScreen.js';
+import { ErrorScreen } from './ui/ErrorScreen.js';
 
 interface GroupedMultiSelectToolBrowserProps {
     onBack:         () => void
@@ -377,74 +380,47 @@ export function GroupedMultiSelectToolBrowser({
 
     // Show loading state
     if(loading) {
-        return (
-            <Box flexDirection="column" padding={1}>
-                <Text bold color="cyan">
-                    Browse Backend Tools
-                </Text>
-                <Box marginTop={1}>
-                    <Text>{loadingStatus || 'Initializing...'}</Text>
-                </Box>
-            </Box>
-        );
+        return <LoadingScreen title="Browse Backend Tools" message={loadingStatus || 'Initializing...'} />;
     }
 
     // Show error state
     if(error) {
         return (
-            <Box flexDirection="column" padding={1}>
-                <Text bold color="red">
-                    Error Discovering Tools
-                </Text>
-                <Box marginTop={1}>
-                    <Text color="red">
-                        {error}
-                    </Text>
-                </Box>
-                <Box marginTop={1} flexDirection="column">
-                    <Text bold>Troubleshooting:</Text>
-                    <Text>• Check that backend servers are properly configured</Text>
-                    <Text>• Verify backend server commands are valid and accessible</Text>
-                    <Text>• Ensure backend servers support the MCP protocol</Text>
-                    <Text>• Check network connectivity (for HTTP/SSE servers)</Text>
-                    <Text>• Review error message above for specific details</Text>
-                </Box>
-                <Box marginTop={1}>
-                    <Text dimColor>Press Esc to return</Text>
-                </Box>
-            </Box>
+            <ErrorScreen
+              title="Error Discovering Tools"
+              message={error}
+              troubleshooting={[
+                  '• Check that backend servers are properly configured',
+                  '• Verify backend server commands are valid and accessible',
+                  '• Ensure backend servers support the MCP protocol',
+                  '• Check network connectivity (for HTTP/SSE servers)',
+                  '• Review error message above for specific details',
+              ]}
+              helpText="Press Esc to return"
+            />
         );
     }
 
     // Render main UI
+    const title = `Browse Backend Tools (${totalTools} total tools, ${totalSelected} selected)`;
+
     return (
         <Box flexDirection="column" padding={1}>
             {/* Header with totals */}
-            <Box marginBottom={1}>
-                <Text bold color="cyan">
-                    Browse Backend Tools (
-                    {totalTools}
-                    {' '}
-                    total tools,
-                    {' '}
-                    {totalSelected}
-                    {' '}
-                    selected)
-                </Text>
-            </Box>
+            <ScreenHeader title={title} />
 
             {/* Search field */}
             <Box marginBottom={1}>
                 <Text>Search: </Text>
-                <Text color="yellow">{searchQuery}</Text>
-                <Text dimColor>_</Text>
+                <Text bold>{searchQuery}</Text>
+                <Text>_</Text>
             </Box>
 
             {/* Tool list with virtual scrolling */}
             <Box flexDirection="column" marginBottom={1}>
                 {navigationList.length === 0
                     ? (
-                        <Text dimColor>
+                        <Text>
                             No tools found matching &quot;
                             {searchQuery}
                             &quot;
@@ -537,7 +513,7 @@ export function GroupedMultiSelectToolBrowser({
 
             {/* Footer with totals */}
             <Box marginBottom={1}>
-                <Text dimColor>
+                <Text>
                     {totalTools}
                     {' '}
                     total tools,
@@ -549,10 +525,10 @@ export function GroupedMultiSelectToolBrowser({
 
             {/* Controls help */}
             <Box flexDirection="column">
-                <Text dimColor>
+                <Text>
                     Controls: ↑/↓ Navigate | Enter Select/Deselect | ←/→ Collapse/Expand | Type to Search
                 </Text>
-                <Text dimColor>
+                <Text>
                     Ctrl+A Select All | Ctrl+D Deselect All | Tab Submit | Esc Cancel
                 </Text>
             </Box>

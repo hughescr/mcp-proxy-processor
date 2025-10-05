@@ -5,9 +5,11 @@
 import React, { useState, useMemo } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { SelectInput } from './SelectInput.js';
-import { repeat, isArray as _isArray, truncate, isString, filter as _filter, map as _map, padEnd } from 'lodash';
+import { isArray as _isArray, truncate, isString, filter as _filter, map as _map, padEnd } from 'lodash';
 import type { ArgumentMapping, TemplateMapping } from '../../types/config.js';
 import { SchemaGenerator } from '../../middleware/schema-generator.js';
+import { ScreenHeader } from './ui/ScreenHeader.js';
+import { textSeparator, menuSeparator, SEPARATOR_LENGTHS } from '../design-system.js';
 
 interface SchemaTransformationViewerProps {
     /** Backend input schema */
@@ -256,18 +258,14 @@ export function SchemaTransformationViewer({
     const renderJsonataOverview = () => {
         return (
             <Box flexDirection="column" padding={1}>
-                <Text bold color="cyan">
-                    Schema Transformation -
-                    {' '}
-                    {toolName}
-                </Text>
+                <ScreenHeader title={`Schema Transformation - ${toolName}`} />
                 <Box marginTop={1} marginBottom={1}>
-                    <Text bold color="yellow">
+                    <Text color="yellow">
                         JSONata Expression Mapping
                     </Text>
                 </Box>
                 <Box marginBottom={1} borderStyle="single" paddingX={1} flexDirection="column">
-                    <Text bold>Expression:</Text>
+                    <Text>Expression:</Text>
                     <Text color="green">
                         {argumentMapping?.type === 'jsonata' ? argumentMapping.expression : ''}
                     </Text>
@@ -280,7 +278,7 @@ export function SchemaTransformationViewer({
                     </Text>
                 </Box>
                 <Box marginTop={1}>
-                    <Text dimColor>
+                    <Text>
                         Press V to view full schemas | Esc to close
                     </Text>
                 </Box>
@@ -305,7 +303,7 @@ export function SchemaTransformationViewer({
         });
 
         menuItems.push(
-            { label: repeat('─', 80), value: 'sep', disabled: true } as { label: string, value: string, disabled?: boolean },
+            menuSeparator(SEPARATOR_LENGTHS.WIDE),
             { label: '← Back', value: 'back' }
         );
 
@@ -321,11 +319,7 @@ export function SchemaTransformationViewer({
 
         return (
             <Box flexDirection="column" padding={1}>
-                <Text bold color="cyan">
-                    Schema Transformation -
-                    {' '}
-                    {toolName}
-                </Text>
+                <ScreenHeader title={`Schema Transformation - ${toolName}`} />
                 <Box marginTop={1} marginBottom={1}>
                     <Text>
                         Backend:
@@ -361,12 +355,12 @@ hidden
                                 Details
                             </Text>
                         </Box>
-                        <Text>{repeat('─', 80)}</Text>
+                        <Text>{textSeparator(SEPARATOR_LENGTHS.WIDE)}</Text>
                     </Box>
                 </Box>
                 <SelectInput items={menuItems} onSelect={handleSelect} />
                 <Box marginTop={1}>
-                    <Text dimColor>
+                    <Text>
                         Enter: View Details | V: Full JSON | Esc: Close
                     </Text>
                 </Box>
@@ -385,21 +379,15 @@ hidden
             ? (clientSchema.properties as Record<string, Record<string, unknown>> | undefined)?.[param.clientName]
             : undefined;
 
+        const title = `Parameter Detail: ${param.backendName} → ${param.clientName ?? '(hidden)'}`;
+
         return (
             <Box flexDirection="column" padding={1}>
-                <Text bold color="cyan">
-                    Parameter Detail:
-                    {' '}
-                    {param.backendName}
-                    {' '}
-                    →
-                    {' '}
-                    {param.clientName ?? '(hidden)'}
-                </Text>
+                <ScreenHeader title={title} />
                 <Box marginTop={1} flexDirection="row" gap={2}>
                     {/* Backend Schema */}
                     <Box flexDirection="column" flexGrow={1} borderStyle="single" paddingX={1}>
-                        <Text bold underline color="yellow">
+                        <Text underline color="yellow">
                             BACKEND SCHEMA
                         </Text>
                         <Box marginTop={1} flexDirection="column">
@@ -420,7 +408,7 @@ hidden
                             </Text>
                             {param.backendDesc && (
                                 <Box marginTop={1} flexDirection="column">
-                                    <Text bold>Description:</Text>
+                                    <Text>Description:</Text>
                                     <Text wrap="wrap">{param.backendDesc}</Text>
                                 </Box>
                             )}
@@ -429,13 +417,13 @@ hidden
 
                     {/* Client Schema */}
                     <Box flexDirection="column" flexGrow={1} borderStyle="single" paddingX={1}>
-                        <Text bold underline color="green">
+                        <Text underline color="green">
                             CLIENT SCHEMA
                         </Text>
                         {param.isHidden
                             ? (
                                 <Box marginTop={1} flexDirection="column">
-                                    <Text color="red" bold>
+                                    <Text color="red">
                                         (not visible to agent)
                                     </Text>
                                     <Box marginTop={1}>
@@ -465,7 +453,7 @@ hidden
                                     </Text>
                                     {param.clientDesc && (
                                         <Box marginTop={1} flexDirection="column">
-                                            <Text bold>Description:</Text>
+                                            <Text>Description:</Text>
                                             <Text wrap="wrap">{param.clientDesc}</Text>
                                         </Box>
                                     )}
@@ -476,7 +464,7 @@ hidden
 
                 {/* Mapping Details */}
                 <Box marginTop={1} borderStyle="single" paddingX={1} flexDirection="column">
-                    <Text bold color="cyan">
+                    <Text underline>
                         🔀 Mapping Details
                     </Text>
                     <Box marginTop={1}>
@@ -498,7 +486,7 @@ hidden
                 {/* Full JSON schemas */}
                 <Box marginTop={1} flexDirection="row" gap={2}>
                     <Box flexDirection="column" flexGrow={1}>
-                        <Text bold dimColor>
+                        <Text>
                             Backend JSON Schema:
                         </Text>
                         <Box borderStyle="single" paddingX={1}>
@@ -509,7 +497,7 @@ hidden
                     </Box>
                     {!param.isHidden && (
                         <Box flexDirection="column" flexGrow={1}>
-                            <Text bold dimColor>
+                            <Text>
                                 Client JSON Schema:
                             </Text>
                             <Box borderStyle="single" paddingX={1}>
@@ -522,7 +510,7 @@ hidden
                 </Box>
 
                 <Box marginTop={1}>
-                    <Text dimColor>
+                    <Text>
                         ↑/↓: Other params (
                         {selectedParamIndex + 1}
                         /
@@ -537,14 +525,10 @@ hidden
     const renderFullJson = () => {
         return (
             <Box flexDirection="column" padding={1}>
-                <Text bold color="cyan">
-                    Full Schema View -
-                    {' '}
-                    {toolName}
-                </Text>
+                <ScreenHeader title={`Full Schema View - ${toolName}`} />
                 <Box marginTop={1} flexDirection="row" gap={2}>
                     <Box flexDirection="column" flexGrow={1}>
-                        <Text bold underline color="yellow">
+                        <Text underline color="yellow">
                             BACKEND SCHEMA (Full JSON)
                         </Text>
                         <Box marginTop={1} borderStyle="single" paddingX={1}>
@@ -554,7 +538,7 @@ hidden
                         </Box>
                     </Box>
                     <Box flexDirection="column" flexGrow={1}>
-                        <Text bold underline color="green">
+                        <Text underline color="green">
                             CLIENT SCHEMA (Full JSON)
                         </Text>
                         <Box marginTop={1} borderStyle="single" paddingX={1}>
@@ -566,7 +550,7 @@ hidden
                 </Box>
                 {argumentMapping?.type === 'jsonata' && (
                     <Box marginTop={1} borderStyle="single" paddingX={1} flexDirection="column">
-                        <Text bold color="cyan">
+                        <Text underline>
                             JSONata Expression
                         </Text>
                         <Text color="green">
@@ -575,7 +559,7 @@ hidden
                     </Box>
                 )}
                 <Box marginTop={1}>
-                    <Text dimColor>
+                    <Text>
                         Press V to return to overview | Esc to close
                     </Text>
                 </Box>
@@ -592,7 +576,7 @@ hidden
         if(argumentMapping.type === 'jsonata') {
             return (
                 <Box flexDirection="column" marginTop={1}>
-                    <Text bold color="yellow">JSONata Expression:</Text>
+                    <Text color="yellow">JSONata Expression:</Text>
                     <Box borderStyle="single" paddingX={1} marginTop={1}>
                         <Text color="green">{argumentMapping.expression}</Text>
                     </Box>
@@ -639,7 +623,7 @@ hidden
                                 Details
                             </Text>
                         </Box>
-                        <Text>{repeat('─', 80)}</Text>
+                        <Text>{textSeparator(SEPARATOR_LENGTHS.WIDE)}</Text>
                         {_map(parameters, param => (
                             <Box key={param.backendName}>
                                 <Text>

@@ -10,6 +10,9 @@ import { CancellableTextInput } from './components/CancellableTextInput.js';
 import type { BackendServerConfig, StdioServerConfig, StreamableHttpServerConfig, SseServerConfig } from '../types/config.js';
 import { BackendServerConfigSchema } from '../types/config.js';
 import { EnvVarEditor } from './EnvVarEditor.js';
+import { ScreenHeader } from './components/ui/ScreenHeader.js';
+import { LoadingScreen } from './components/ui/LoadingScreen.js';
+import { menuSeparator } from './design-system.js';
 
 interface ServerEditorProps {
     serverName: string
@@ -355,10 +358,8 @@ export function ServerEditor({ serverName, server, onSave, onDelete, onCancel }:
 
         return (
             <Box flexDirection="column" padding={1}>
-                <Text bold>Select Transport Type</Text>
-                <Box marginTop={1}>
-                    <SelectInput items={transportItems} onSelect={handleTransportSelect} />
-                </Box>
+                <ScreenHeader title="Select Transport Type" />
+                <SelectInput items={transportItems} onSelect={handleTransportSelect} />
             </Box>
         );
     }
@@ -367,7 +368,7 @@ export function ServerEditor({ serverName, server, onSave, onDelete, onCancel }:
     if(mode === 'edit-name') {
         return (
             <Box flexDirection="column" padding={1}>
-                <Text bold>Edit Server Name</Text>
+                <ScreenHeader title="Edit Server Name" />
                 <Box marginTop={1}>
                     <Text>Name: </Text>
                     <CancellableTextInput
@@ -377,7 +378,7 @@ export function ServerEditor({ serverName, server, onSave, onDelete, onCancel }:
                       onCancel={() => setMode('menu')}
                     />
                 </Box>
-                <Text dimColor>Press Enter to save, Esc to cancel</Text>
+                <Text>Press Enter to save, Esc to cancel</Text>
             </Box>
         );
     }
@@ -386,7 +387,7 @@ export function ServerEditor({ serverName, server, onSave, onDelete, onCancel }:
     if(mode === 'edit-command-line') {
         return (
             <Box flexDirection="column" padding={1}>
-                <Text bold>Edit Command Line</Text>
+                <ScreenHeader title="Edit Command Line" />
                 <Box marginTop={1}>
                     <Text>Command line: </Text>
                     <CancellableTextInput
@@ -396,11 +397,11 @@ export function ServerEditor({ serverName, server, onSave, onDelete, onCancel }:
                       onCancel={() => setMode('menu')}
                     />
                 </Box>
-                <Text dimColor>
+                <Text>
                     Enter full command with arguments. Use quotes for args with spaces.
                 </Text>
-                <Text dimColor>Example: uvx mcp-server-time --local-timezone "America/Los Angeles"</Text>
-                <Text dimColor>Press Enter to save, Esc to cancel</Text>
+                <Text>Example: uvx mcp-server-time --local-timezone "America/Los Angeles"</Text>
+                <Text>Press Enter to save, Esc to cancel</Text>
             </Box>
         );
     }
@@ -421,7 +422,7 @@ export function ServerEditor({ serverName, server, onSave, onDelete, onCancel }:
     if(mode === 'edit-cwd') {
         return (
             <Box flexDirection="column" padding={1}>
-                <Text bold>Edit Working Directory</Text>
+                <ScreenHeader title="Edit Working Directory" />
                 <Box marginTop={1}>
                     <Text>Working Directory: </Text>
                     <CancellableTextInput
@@ -431,7 +432,7 @@ export function ServerEditor({ serverName, server, onSave, onDelete, onCancel }:
                       onCancel={() => setMode('menu')}
                     />
                 </Box>
-                <Text dimColor>Press Enter to save, Esc to cancel</Text>
+                <Text>Press Enter to save, Esc to cancel</Text>
             </Box>
         );
     }
@@ -440,7 +441,7 @@ export function ServerEditor({ serverName, server, onSave, onDelete, onCancel }:
     if(mode === 'edit-url') {
         return (
             <Box flexDirection="column" padding={1}>
-                <Text bold>Edit URL</Text>
+                <ScreenHeader title="Edit URL" />
                 <Box marginTop={1}>
                     <Text>URL: </Text>
                     <CancellableTextInput
@@ -450,7 +451,7 @@ export function ServerEditor({ serverName, server, onSave, onDelete, onCancel }:
                       onCancel={() => setMode('menu')}
                     />
                 </Box>
-                <Text dimColor>Press Enter to save, Esc to cancel</Text>
+                <Text>Press Enter to save, Esc to cancel</Text>
             </Box>
         );
     }
@@ -459,7 +460,7 @@ export function ServerEditor({ serverName, server, onSave, onDelete, onCancel }:
     if(mode === 'edit-headers') {
         return (
             <Box flexDirection="column" padding={1}>
-                <Text bold>Edit Headers</Text>
+                <ScreenHeader title="Edit Headers" />
                 <Box marginTop={1}>
                     <Text>Headers (Header: Value, one per line): </Text>
                     <CancellableTextInput
@@ -469,7 +470,7 @@ export function ServerEditor({ serverName, server, onSave, onDelete, onCancel }:
                       onCancel={() => setMode('menu')}
                     />
                 </Box>
-                <Text dimColor>Press Enter to save, Esc to cancel</Text>
+                <Text>Press Enter to save, Esc to cancel</Text>
             </Box>
         );
     }
@@ -478,7 +479,7 @@ export function ServerEditor({ serverName, server, onSave, onDelete, onCancel }:
     if(mode === 'edit-json') {
         return (
             <Box flexDirection="column" padding={1}>
-                <Text bold>Edit as JSON</Text>
+                <ScreenHeader title="Edit as JSON" />
                 <Box marginTop={1}>
                     <Text>Paste mcp.json snippet: </Text>
                     <CancellableTextInput
@@ -495,18 +496,14 @@ export function ServerEditor({ serverName, server, onSave, onDelete, onCancel }:
                         </Text>
                     </Box>
                 )}
-                <Text dimColor>Press Enter to parse, Esc to cancel</Text>
+                <Text>Press Enter to parse, Esc to cancel</Text>
             </Box>
         );
     }
 
     // Show saving state
     if(saving) {
-        return (
-            <Box padding={1}>
-                <Text>Saving...</Text>
-            </Box>
-        );
+        return <LoadingScreen message="Saving..." />;
     }
 
     // Show success state
@@ -565,7 +562,7 @@ export function ServerEditor({ serverName, server, onSave, onDelete, onCancel }:
     }
 
     menuItems.push(
-        { label: '───────────────────', value: 'sep1', disabled: true },
+        menuSeparator(),
         { label: '📋 Edit as JSON', value: 'edit-json' },
         { label: '💾 Save Server', value: 'save' }
     );
@@ -576,17 +573,16 @@ export function ServerEditor({ serverName, server, onSave, onDelete, onCancel }:
 
     menuItems.push({ label: '← Cancel', value: 'cancel' });
 
+    const title = isNewServer ? 'Create New Backend Server' : `Edit Server: ${serverName}`;
+
     return (
         <Box flexDirection="column" padding={1}>
-            <Box marginBottom={1}>
-                <Text bold color="cyan">
-                    {isNewServer ? 'Create New Backend Server' : `Edit Server: ${serverName}`}
-                </Text>
-            </Box>
+            <ScreenHeader title={title} />
             {error && (
                 <Box marginBottom={1}>
                     <Text color="red">
                         Error:
+                        {' '}
                         {error}
                     </Text>
                 </Box>

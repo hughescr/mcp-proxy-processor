@@ -9,6 +9,80 @@
 - **Lint enforcement:** the Claude settings run ESLint automatically after each edit—review output and fix issues immediately.
 - **CRITICAL: Zero tolerance for lint issues:** ALL ESLint output must be fixed, including warnings. "Style preferences" are NOT optional. The goal is always 0 errors, 0 warnings. Never dismiss warnings as "just style preferences."
 
+## Admin UI Design System
+
+The admin TUI follows a consistent design system with semantic styling.
+
+### Semantic Bold Principle
+
+**Bold (default color) is used EXCLUSIVELY for data values and primary content.**
+
+This creates a visual language where bold always means "this is the data" - never for labels, headers, or decorative text.
+
+### Typography & Color Hierarchy
+
+1. **Screen Title (H1)**: `<Text bold color="cyan">` - Top-level screen headers
+2. **Data Values**: `<Text bold>` - ALL editable data, primary content (the only use of default-color bold)
+3. **Metadata/Context**: `<Text color="yellow">` - Server names, counts, types (non-editable contextual info)
+4. **Labels**: `<Text>` - Field labels like "Name:", "Server:", etc.
+5. **Selected Items**: `color="cyan"` - Applied automatically by SelectInput component
+6. **Body/Instructions**: `<Text>` - User guidance, help text (never dimColor)
+7. **Success Messages**: `<Text color="green">` - Confirmations, success states
+8. **Error Messages**: `<Text color="red">` - Errors, warnings
+9. **Decorative Only**: `<Text dimColor>` - Separator lines ONLY (never for actual text content)
+
+### Examples
+
+```tsx
+// Screen header
+<ScreenHeader title="Group Management" subtitle="Select a group to edit:" />
+
+// Data display (bold = data, yellow = metadata, default = labels)
+<Text>Group: <Text bold>my-group</Text></Text>
+<Text>Server: <Text color="yellow">mcp-browser</Text></Text>
+<Text>Tools: <Text color="yellow">(5)</Text></Text>
+
+// Menu separator (only place for dimColor in text)
+menuSeparator()  // or { label: repeat('─', 40), value: 'sep', disabled: true }
+
+// Help text (default color, NOT dimColor)
+<Text>Press Enter to save, Esc to cancel</Text>
+```
+
+### Spacing & Layout
+
+- **Screen padding**: `padding={1}` standard
+- **Section margins**: `marginBottom={1}` between major sections
+- **Separator length**: 40 chars for menus via `menuSeparator()`
+
+### Reusable Components
+
+Located in `src/admin/components/ui/`:
+
+- **ScreenHeader** - Standardized cyan bold headers with optional subtitle
+- **ScreenFooter** - Help text/controls (not currently used but available)
+- **LoadingScreen** - Consistent loading states
+- **ErrorScreen** - Error display with troubleshooting tips
+- **EmptyState** - "No items" messages
+- **VirtualScrollList** - Virtual scrolling for long lists
+
+### Virtual Scrolling
+
+Apply to any list that could exceed terminal height:
+
+```tsx
+<VirtualScrollList
+  items={menuItems}
+  onSelect={handleSelect}
+  fixedUIHeight={6}  // padding + header + margins
+/>
+```
+
+The component automatically:
+- Calculates viewport bounds
+- Shows "N more above/below" indicators
+- Handles keyboard navigation within viewport
+
 ## Sub-Agent Orchestration
 
 - Treat Claude Code as a conductor. Delegate implementation work to the appropriate sub-agent (see `~/.claude/agents/*.md`).

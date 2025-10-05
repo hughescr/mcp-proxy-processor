@@ -6,6 +6,7 @@
 import React from 'react';
 import { Box, Text } from 'ink';
 import { map } from 'lodash';
+import { ScreenHeader } from './ui/ScreenHeader.js';
 
 interface WorkflowStep {
     /** Step label */
@@ -31,10 +32,8 @@ interface WorkflowBreadcrumbProps {
 export function WorkflowBreadcrumb({ title, steps }: WorkflowBreadcrumbProps) {
     return (
         <Box flexDirection="column" marginBottom={1}>
-            <Text bold color="cyan">
-                {title}
-            </Text>
-            <Box flexDirection="row" gap={1}>
+            <ScreenHeader title={title} marginBottom={0} />
+            <Box flexDirection="row" gap={1} marginTop={1}>
                 {map(steps, (step, index) => {
                     const isLast = index === steps.length - 1;
 

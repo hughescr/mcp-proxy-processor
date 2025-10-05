@@ -3,12 +3,16 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Box, Text, useInput } from 'ink';
-import { SelectInput } from './components/SelectInput.js';
+import { Box, useInput } from 'ink';
 import { isError, keys, chain } from 'lodash';
 import type { BackendServerConfig } from '../types/config.js';
 import { loadBackendServersConfig, saveBackendServersConfig } from './config-utils.js';
 import { ServerEditor } from './ServerEditor.js';
+import { ScreenHeader } from './components/ui/ScreenHeader.js';
+import { LoadingScreen } from './components/ui/LoadingScreen.js';
+import { ErrorScreen } from './components/ui/ErrorScreen.js';
+import { VirtualScrollList } from './components/ui/VirtualScrollList.js';
+import { menuSeparator } from './design-system.js';
 
 interface ServerListProps {
     onBack: () => void
@@ -131,36 +135,23 @@ export function ServerList({ onBack }: ServerListProps) {
 
     // Show loading state
     if(loading) {
-        return (
-            <Box padding={1}>
-                <Text>{loadingStatus}</Text>
-            </Box>
-        );
+        return <LoadingScreen message={loadingStatus} />;
     }
 
     // Show error state
     if(error) {
         return (
-            <Box flexDirection="column" padding={1}>
-                <Text bold color="red">
-                    Error Loading Backend Servers
-                </Text>
-                <Box marginTop={1}>
-                    <Text color="red">
-                        {error}
-                    </Text>
-                </Box>
-                <Box marginTop={1} flexDirection="column">
-                    <Text bold>Troubleshooting:</Text>
-                    <Text>• Check that config/backend-servers.json exists and is readable</Text>
-                    <Text>• Verify the file contains valid JSON</Text>
-                    <Text>• Ensure server configurations follow the correct schema</Text>
-                    <Text>• Confirm you have permission to read the file</Text>
-                </Box>
-                <Box marginTop={1}>
-                    <Text dimColor>Press Esc to return to main menu</Text>
-                </Box>
-            </Box>
+            <ErrorScreen
+              title="Error Loading Backend Servers"
+              message={error}
+              troubleshooting={[
+                  '• Check that config/backend-servers.json exists and is readable',
+                  '• Verify the file contains valid JSON',
+                  '• Ensure server configurations follow the correct schema',
+                  '• Confirm you have permission to read the file',
+              ]}
+              helpText="Press Esc to return to main menu"
+            />
         );
     }
 
@@ -175,26 +166,27 @@ export function ServerList({ onBack }: ServerListProps) {
 
     const menuItems = [
         ...serverItems,
-        ...(serverItems.length > 0 ? [{ label: '───────────────────', value: 'sep1', disabled: true }] : []),
+        ...(serverItems.length > 0 ? [menuSeparator()] : []),
         { label: '+ Create New Server', value: 'create' },
         { label: '← Back', value: 'back' },
     ];
 
+    // Fixed UI height: padding(1) + header(1) + margin(1) + subtitle(1) + margin(1) + padding(1) = 6
+    const fixedUIHeight = 6;
+
     return (
         <Box flexDirection="column" padding={1}>
-            <Box marginBottom={1}>
-                <Text bold color="cyan">
-                    Backend Server Management
-                </Text>
-            </Box>
-            <Box marginBottom={1}>
-                <Text dimColor>
-                    {keys(servers).length === 0
-                        ? 'No backend servers configured. Create a new server to get started.'
-                        : 'Select a server to edit, or create a new one:'}
-                </Text>
-            </Box>
-            <SelectInput items={menuItems} onSelect={handleServerSelect} />
+            <ScreenHeader
+              title="Backend Server Management"
+              subtitle={keys(servers).length === 0
+                  ? 'No backend servers configured. Create a new server to get started.'
+                  : 'Select a server to edit, or create a new one:'}
+            />
+            <VirtualScrollList
+              items={menuItems}
+              onSelect={handleServerSelect}
+              fixedUIHeight={fixedUIHeight}
+            />
         </Box>
     );
 }

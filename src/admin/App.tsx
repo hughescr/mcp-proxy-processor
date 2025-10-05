@@ -3,11 +3,13 @@
  */
 
 import React, { useState } from 'react';
-import { Box, Text, useInput } from 'ink';
-import { SelectInput } from './components/SelectInput.js';
+import { Box, useInput } from 'ink';
 import { GroupList } from './GroupList.js';
 import { ToolBrowser } from './ToolBrowser.js';
 import { ServerList } from './ServerList.js';
+import { ScreenHeader } from './components/ui/ScreenHeader.js';
+import { VirtualScrollList } from './components/ui/VirtualScrollList.js';
+import { menuSeparator } from './design-system.js';
 
 type Screen = 'main' | 'groups' | 'servers' | 'tools';
 
@@ -30,7 +32,7 @@ export function App() {
         { label: 'Manage Groups', value: 'groups' },
         { label: 'Manage Backend Servers', value: 'servers' },
         { label: 'Browse Backend Tools', value: 'tools' },
-        { label: '───────────────────', value: 'sep1', disabled: true },
+        menuSeparator(),
         { label: 'Exit', value: 'exit' },
     ];
 
@@ -56,18 +58,17 @@ export function App() {
         return <ToolBrowser onBack={() => setScreen('main')} />;
     }
 
-    // Main menu
+    // Main menu - Fixed UI height: padding(1) + header(1) + margin(1) + subtitle(1) + margin(1) + padding(1) = 6
+    const fixedUIHeight = 6;
+
     return (
         <Box flexDirection="column" padding={1}>
-            <Box marginBottom={1}>
-                <Text bold color="cyan">
-                    MCP Proxy Processor - Admin Interface
-                </Text>
-            </Box>
-            <Box marginBottom={1}>
-                <Text dimColor>Select an option:</Text>
-            </Box>
-            <SelectInput items={mainMenuItems} onSelect={handleMainMenuSelect} />
+            <ScreenHeader title="MCP Proxy Processor - Admin Interface" subtitle="Select an option:" />
+            <VirtualScrollList
+              items={mainMenuItems}
+              onSelect={handleMainMenuSelect}
+              fixedUIHeight={fixedUIHeight}
+            />
         </Box>
     );
 }
