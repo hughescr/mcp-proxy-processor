@@ -2,39 +2,35 @@
  * Parameter Mapping Editor Component - Edit argument mappings for tools
  */
 
-import React, { useState } from 'react';
-import { Box, Text, useInput } from 'ink';
+import React, { useState, useEffect } from 'react';
+import { Box, Text } from 'ink';
 import { SelectInput } from './SelectInput.js';
 import TextInput from 'ink-text-input';
-import { MultiLineTextEditor } from './MultiLineTextEditor.js';
-import { repeat, map, keys, startsWith, replace, isArray as _isArray } from 'lodash';
-import type { ArgumentMapping, TemplateMapping, ParameterMapping, JsonataMapping } from '../../types/config.js';
-import { ArgumentTransformer } from '../../middleware/argument-transformer.js';
+import { repeat, map, keys, isArray as _isArray } from 'lodash';
+import type { ArgumentMapping, TemplateMapping, ParameterMapping } from '../../types/config.js';
 
 interface ParameterMappingEditorProps {
     /** Current argument mapping (may be undefined if none exists) */
-    mapping:        ArgumentMapping | undefined
+    mapping:             ArgumentMapping | undefined
     /** Client input schema to validate against */
-    clientSchema?:  Record<string, unknown>
+    clientSchema?:       Record<string, unknown>
     /** Backend input schema for reference */
-    backendSchema?: Record<string, unknown>
+    backendSchema?:      Record<string, unknown>
+    /** Backend parameter name to edit directly (skips main menu) */
+    initialParamToEdit?: string
     /** Called when user saves the mapping */
-    onSave:         (mapping: ArgumentMapping | undefined) => void
+    onSave:              (mapping: ArgumentMapping | undefined) => void
     /** Called when user cancels */
-    onCancel:       () => void
+    onCancel:            () => void
 }
 
 type EditorMode
-    = | 'menu'
-      | 'select-type'
-      | 'select-param'
+    = | 'select-type'
       | 'select-source'
       | 'edit-mapping'
       | 'edit-value'
       | 'edit-name'
-      | 'edit-description'
-      | 'edit-jsonata-expression'
-      | 'test-preview';
+      | 'edit-description';
 
 interface MappingEditorState {
     /** Parameter name being edited */
@@ -49,95 +45,6 @@ const MAPPING_TYPE_OPTIONS = [
     { label: 'Default - Use client value or default', value: 'default' },
     { label: 'Omit - Hide parameter from agent', value: 'omit' },
 ];
-
-const GUIDANCE_TEXT = `
-📋 Argument Mapping Guide
-
-Template Mappings:
-• Passthrough: Copy parameter from client to backend unchanged
-  - Use 'name' field to rename the parameter for the agent
-• Constant: Always use a fixed value, ignore client input
-• Default: Use client's value if provided, otherwise use default
-  - Use 'name' field to rename the parameter for the agent
-• Omit: Hide parameter from agent (not included in schema)
-
-JSONata Expressions:
-• Complex transformations with conditional logic
-• Object restructuring and nested value extraction
-• String manipulation and array operations
-• Full JSONata expression language support
-
-Each backend parameter can have one mapping.
-Missing parameters won't be sent to backend.
-`;
-
-const JSONATA_GUIDANCE = `
-📋 JSONata Expression Guide
-
-JSONata provides powerful transformation capabilities:
-
-• Access client args directly: query, limit, timezone
-• Conditional logic: condition ? trueValue : falseValue
-• Default values: field ? field : "default"
-• Object restructuring: { "newKey": oldKey, "nested": { "value": field } }
-• String operations: $uppercase(name), $substring(text, 0, 10)
-• Array operations: items[0], $map(items, function($i) { $i.name })
-
-Example:
-{
-  "search": {
-    "q": query,
-    "limit": limit ? limit : 10
-  },
-  "apiKey": "secret-key",
-  "timezone": timezone ? timezone : "UTC"
-}
-
-The expression receives client arguments as input and must return
-the object to send to the backend server.
-`;
-
-/**
- * Handle keyboard input for navigation
- */
-const useEditorKeyboardNav = (
-    mode: EditorMode,
-    setMode: (mode: EditorMode) => void,
-    onCancel: () => void
-) => {
-    useInput((_input, key) => {
-        if(mode === 'menu' && (key.escape || key.leftArrow)) {
-            onCancel();
-        } else if(mode === 'test-preview' && key.escape) {
-            setMode('menu');
-        }
-    });
-};
-
-/**
- * Get parameter mapping description for menu display
- */
-const getParamMappingDescription = (paramMapping: ParameterMapping): string => {
-    switch(paramMapping.type) {
-        case 'passthrough':
-            return `← ${paramMapping.source}`;
-        case 'constant':
-            return `= ${JSON.stringify(paramMapping.value)}`;
-        case 'default':
-            return `${paramMapping.source} || ${JSON.stringify(paramMapping.default)}`;
-        case 'rename':
-            return `← ${paramMapping.source} (renamed)`;
-        case 'omit':
-            return '(omitted from agent)';
-    }
-};
-
-/**
- * Check if parameter mapping type has name/description overrides
- */
-const hasNameDescriptionOverrides = (type: ParameterMapping['type']): boolean => {
-    return type !== 'constant' && type !== 'omit';
-};
 
 /**
  * Build menu items for parameter mapping editor
@@ -172,7 +79,7 @@ const buildMappingEditorMenuItems = (paramMapping: ParameterMapping): { label: s
     }
 
     // Add name/description editors for non-constant/non-omit types
-    if(hasNameDescriptionOverrides(paramMapping.type) && (paramMapping.type === 'passthrough' || paramMapping.type === 'default' || paramMapping.type === 'rename')) {
+    if(paramMapping.type === 'passthrough' || paramMapping.type === 'default' || paramMapping.type === 'rename') {
         menuItems.push({
             label: `Agent Parameter Name: ${paramMapping.name ?? '(use backend name)'}`,
             value: 'edit-name',
@@ -198,113 +105,41 @@ export function ParameterMappingEditor({
     mapping,
     clientSchema,
     backendSchema,
+    initialParamToEdit,
     onSave,
     onCancel,
 }: ParameterMappingEditorProps) {
-    const [mode, setMode] = useState<EditorMode>('menu');
+    const [mode, setMode] = useState<EditorMode>('edit-mapping');
     const [currentMapping, setCurrentMapping] = useState<ArgumentMapping | undefined>(mapping);
     const [editState, setEditState] = useState<MappingEditorState | null>(null);
     const [inputValue, setInputValue] = useState('');
-    const [testInput, setTestInput] = useState('{}');
-    const [testOutput, setTestOutput] = useState<string | null>(null);
+    const [initialized, setInitialized] = useState(false);
 
-    const transformer = new ArgumentTransformer();
+    // Initialize with direct parameter edit if specified
+    useEffect(() => {
+        if(initialParamToEdit && !initialized) {
+            setInitialized(true);
 
-    // Handle Esc for navigation
-    useEditorKeyboardNav(mode, setMode, onCancel);
+            const templateMapping: TemplateMapping = currentMapping?.type === 'template'
+                ? currentMapping
+                : { type: 'template', mappings: {} };
+
+            const paramMapping = templateMapping.mappings[initialParamToEdit] ?? {
+                type:   'passthrough',
+                source: initialParamToEdit,
+            };
+
+            setEditState({ paramName: initialParamToEdit, paramMapping });
+            setMode('edit-mapping');
+        }
+    }, [initialParamToEdit, initialized, currentMapping]);
+
     const getClientParams = (): string[] => {
         if(!clientSchema?.properties) {
             return [];
         }
         const props = clientSchema.properties as Record<string, unknown>;
         return keys(props);
-    };
-
-    const getBackendParams = (): string[] => {
-        if(!backendSchema?.properties) {
-            return [];
-        }
-        const props = backendSchema.properties as Record<string, unknown>;
-        return keys(props);
-    };
-
-    const handleRemoveParam = (paramName: string) => {
-        if(currentMapping?.type === 'template') {
-            const newMappings = { ...currentMapping.mappings };
-            delete newMappings[paramName];
-            setCurrentMapping({
-                type:     'template',
-                mappings: newMappings,
-            });
-        }
-    };
-
-    const handleEditParam = (paramName: string) => {
-        if(currentMapping?.type === 'template') {
-            const paramMapping = currentMapping.mappings[paramName];
-            if(paramMapping) {
-                setEditState({ paramName, paramMapping });
-                setMode('edit-mapping');
-            }
-        }
-    };
-    const handleMenuSelect = (item: { value: string }) => {
-        switch(item.value) {
-            case 'save':
-                onSave(currentMapping);
-                break;
-            case 'cancel':
-                onCancel();
-                break;
-            case 'clear-mapping':
-                setCurrentMapping(undefined);
-                break;
-            case 'add-param':
-                setMode('select-param');
-                break;
-            case 'test-preview':
-                setMode('test-preview');
-                break;
-            case 'remove-template':
-                setCurrentMapping(undefined);
-                break;
-            case 'add-jsonata':
-                setInputValue('');
-                setMode('edit-jsonata-expression');
-                break;
-            case 'edit-jsonata':
-                setInputValue(currentMapping?.type === 'jsonata' ? currentMapping.expression : '');
-                setMode('edit-jsonata-expression');
-                break;
-            default:
-                // Editing specific parameter
-                if(startsWith(item.value, 'edit-')) {
-                    const paramName = replace(item.value, 'edit-', '');
-                    handleEditParam(paramName);
-                } else if(startsWith(item.value, 'remove-')) {
-                    const paramName = replace(item.value, 'remove-', '');
-                    handleRemoveParam(paramName);
-                }
-                break;
-        }
-    };
-    const handleParamSelect = (item: { value: string }) => {
-        if(item.value === 'cancel') {
-            setMode('menu');
-            return;
-        }
-
-        // Initialize new parameter mapping with passthrough
-        const newMapping: ParameterMapping = {
-            type:   'passthrough',
-            source: item.value,
-        };
-
-        setEditState({
-            paramName:    item.value,
-            paramMapping: newMapping,
-        });
-        setMode('edit-mapping');
     };
 
     const createPassthroughMapping = (paramName: string): ParameterMapping => ({
@@ -389,7 +224,7 @@ export function ParameterMappingEditor({
         templateMapping.mappings[editState.paramName] = updatedMapping;
         setCurrentMapping(templateMapping);
         setEditState(null);
-        setMode('menu');
+        onCancel();
     };
 
     const handleNameSubmit = (value: string) => {
@@ -460,57 +295,6 @@ export function ParameterMappingEditor({
 
         setEditState({ ...editState, paramMapping: updatedMapping });
         setMode('edit-mapping');
-    };
-
-    const handleTestPreview = async () => {
-        if(!currentMapping) {
-            return;
-        }
-
-        try {
-            const input = JSON.parse(testInput) as unknown;
-            const result = await transformer.test(input, currentMapping);
-
-            if(result.success) {
-                setTestOutput(JSON.stringify(result.output, null, 2));
-            } else {
-                setTestOutput(`Error: ${result.error}`);
-            }
-        } catch (err) {
-            setTestOutput(`Invalid JSON: ${String(err)}`);
-        }
-    };
-
-    const renderTestPreview = () => {
-        return (
-            <Box flexDirection="column" padding={1}>
-                <Text bold color="cyan">Test Argument Mapping</Text>
-
-                <Box marginTop={1}>
-                    <Text>Sample Input (JSON): </Text>
-                </Box>
-                <Box marginLeft={2}>
-                    <TextInput
-                      value={testInput}
-                      onChange={setTestInput}
-                      onSubmit={() => void handleTestPreview()}
-                    />
-                </Box>
-
-                {testOutput && (
-                    <Box marginTop={1} flexDirection="column">
-                        <Text bold>Output:</Text>
-                        <Box marginLeft={2} borderStyle="single" paddingX={1}>
-                            <Text color="green">{testOutput}</Text>
-                        </Box>
-                    </Box>
-                )}
-
-                <Box marginTop={1}>
-                    <Text dimColor>Press Enter to test, Esc to return to menu</Text>
-                </Box>
-            </Box>
-        );
     };
 
     const renderValueEditor = () => {
@@ -745,9 +529,9 @@ Examples: "text", 123, true,
                 : { type: 'template', mappings: {} };
 
             templateMapping.mappings[editState.paramName] = editState.paramMapping;
-            setCurrentMapping(templateMapping);
-            setEditState(null);
-            setMode('menu');
+
+            // Always in direct parameter edit mode - save and exit to parent
+            onSave(templateMapping);
         };
 
         const handleEditName = () => {
@@ -792,8 +576,7 @@ Examples: "text", 123, true,
                     handleSaveParam();
                     break;
                 case 'back':
-                    setEditState(null);
-                    setMode('menu');
+                    onCancel();
                     break;
             }
         };
@@ -812,171 +595,7 @@ Examples: "text", 123, true,
         );
     };
 
-    const renderParamSelector = () => {
-        const backendParams = getBackendParams();
-        const paramItems = map(backendParams, param => ({
-            label: param,
-            value: param,
-        }));
-        paramItems.push({ label: '← Cancel', value: 'cancel' });
-
-        return (
-            <Box flexDirection="column" padding={1}>
-                <Text bold color="cyan">
-                    Select Backend Parameter to Map
-                </Text>
-                <Box marginTop={1}>
-                    <SelectInput items={paramItems} onSelect={handleParamSelect} />
-                </Box>
-            </Box>
-        );
-    };
-
-    const handleJsonataSubmit = (expression: string) => {
-        const jsonataMapping: JsonataMapping = {
-            type:       'jsonata',
-            expression: expression,
-        };
-        setCurrentMapping(jsonataMapping);
-        setMode('menu');
-    };
-
-    const renderJsonataEditor = () => {
-        return (
-            <Box flexDirection="column" padding={1}>
-                <Box marginBottom={1}>
-                    <Text bold color="cyan">
-                        Edit JSONata Expression
-                    </Text>
-                </Box>
-
-                <Box flexDirection="row" gap={2}>
-                    {/* Left side - Editor */}
-                    <Box flexDirection="column" flexGrow={1} minWidth="50%">
-                        <Text bold underline>
-                            JSONata Expression:
-                        </Text>
-                        <Box marginTop={1}>
-                            <MultiLineTextEditor
-                              value={inputValue}
-                              onSubmit={handleJsonataSubmit}
-                              onCancel={() => setMode('menu')}
-                              showLineNumbers={false}
-                            />
-                        </Box>
-                    </Box>
-
-                    {/* Right side - Guidance */}
-                    <Box flexDirection="column" flexGrow={1} minWidth="40%" borderStyle="single" paddingX={1}>
-                        <Text color="yellow">
-                            {JSONATA_GUIDANCE}
-                        </Text>
-                    </Box>
-                </Box>
-            </Box>
-        );
-    };
-
-    const buildMenuItems = () => {
-        const menuItems: { label: string, value: string, disabled?: boolean }[] = [];
-
-        if(!currentMapping) {
-            menuItems.push(
-                { label: '➕ Add Template Mapping', value: 'add-param' },
-                { label: '➕ Add JSONata Expression', value: 'add-jsonata' },
-                { label: repeat('─', 60), value: 'sep1', disabled: true }
-            );
-        } else if(currentMapping.type === 'template') {
-            // Show existing mappings
-            menuItems.push({ label: '📋 Current Mappings:', value: 'header', disabled: true });
-
-            const mappingEntries = Object.entries(currentMapping.mappings);
-            if(mappingEntries.length === 0) {
-                menuItems.push({ label: '  (no parameters mapped)', value: 'empty', disabled: true });
-            } else {
-                for(const [paramName, paramMapping] of mappingEntries) {
-                    const description = getParamMappingDescription(paramMapping);
-                    menuItems.push({
-                        label: `  ${paramName}: ${description}`,
-                        value: `edit-${paramName}`,
-                    });
-                    menuItems.push({
-                        label: '    ✕ Remove',
-                        value: `remove-${paramName}`,
-                    });
-                }
-            }
-
-            menuItems.push(
-                { label: repeat('─', 60), value: 'sep2', disabled: true },
-                { label: '➕ Add Parameter Mapping', value: 'add-param' },
-                { label: '🧪 Test Preview', value: 'test-preview' },
-                { label: '🗑️  Remove All Mappings', value: 'remove-template' }
-            );
-        } else if(currentMapping.type === 'jsonata') {
-            // Show JSONata expression
-            const expressionPreview = currentMapping.expression.length > 100
-                ? currentMapping.expression.slice(0, 100) + '...'
-                : currentMapping.expression;
-
-            menuItems.push(
-                { label: '📋 Current JSONata Expression:', value: 'header', disabled: true },
-                { label: `  ${expressionPreview}`, value: 'edit-jsonata' },
-                { label: repeat('─', 60), value: 'sep2', disabled: true },
-                { label: '🧪 Test Preview', value: 'test-preview' },
-                { label: '🗑️  Remove Expression', value: 'remove-template' }
-            );
-        }
-
-        menuItems.push(
-            { label: repeat('─', 60), value: 'sep3', disabled: true },
-            { label: '💾 Save', value: 'save' },
-            { label: '← Cancel', value: 'cancel' }
-        );
-
-        return menuItems;
-    };
-
-    const renderMainMenu = () => {
-        const menuItems = buildMenuItems();
-
-        return (
-            <Box flexDirection="column" padding={1}>
-                <Box marginBottom={1}>
-                    <Text bold color="cyan">
-                        Edit Argument Mapping
-                    </Text>
-                </Box>
-
-                <Box marginBottom={1} borderStyle="single" paddingX={1}>
-                    <Text color="yellow">{GUIDANCE_TEXT}</Text>
-                </Box>
-
-                {backendSchema && (
-                    <Box marginBottom={1}>
-                        <Text dimColor>
-                            Backend Parameters:
-{' '}
-{getBackendParams().join(', ') || '(none)'}
-                        </Text>
-                    </Box>
-                )}
-
-                <SelectInput items={menuItems} onSelect={handleMenuSelect} />
-            </Box>
-        );
-    };
-
     // Mode-based rendering
-    if(mode === 'edit-jsonata-expression') {
-        return renderJsonataEditor();
-    }
-    if(mode === 'test-preview') {
-        return renderTestPreview();
-    }
-    if(mode === 'select-param') {
-        return renderParamSelector();
-    }
     if(mode === 'select-source') {
         return renderSourceSelector();
     }
@@ -1000,6 +619,5 @@ Examples: "text", 123, true,
         }
     }
 
-    // Default to main menu
-    return renderMainMenu();
+    return null;
 }

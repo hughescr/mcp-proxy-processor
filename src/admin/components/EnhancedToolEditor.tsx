@@ -57,6 +57,7 @@ export function EnhancedToolEditor({ tool, groupName, onSave, onRemove, onCancel
     const [backendTool, setBackendTool] = useState<Tool | null>(null);
     const [inputValue, setInputValue] = useState('');
     const [error, setError] = useState<string | null>(null);
+    const [initialParamToEdit, setInitialParamToEdit] = useState<string | undefined>(undefined);
 
     const schemaGenerator = useMemo(() => new SchemaGenerator(), []);
 
@@ -129,8 +130,14 @@ export function EnhancedToolEditor({ tool, groupName, onSave, onRemove, onCancel
 
     // eslint-disable-next-line complexity -- Menu handler with multiple edit modes
     const handleMenuSelect = (item: { value: string }) => {
-        // Handle parameter row selection - opens full mapping editor
+        // Handle parameter row selection - jump directly to editing that parameter
         if(startsWith(item.value, 'param-')) {
+            const indexStr = item.value.substring(6); // Remove 'param-' prefix
+            const index = parseInt(indexStr, 10);
+            const param = parameters[index];
+            if(param) {
+                setInitialParamToEdit(param.backendName);
+            }
             setMode('edit-argument-mapping');
             return;
         }
@@ -154,9 +161,6 @@ export function EnhancedToolEditor({ tool, groupName, onSave, onRemove, onCancel
             case 'edit-description':
                 setInputValue(currentTool.description ?? backendTool?.description ?? '');
                 setMode('edit-description');
-                break;
-            case 'edit-argument-mapping':
-                setMode('edit-argument-mapping');
                 break;
             case 'reset-mapping':
                 setCurrentTool({ ...currentTool, argumentMapping: undefined });
@@ -302,6 +306,7 @@ export function EnhancedToolEditor({ tool, groupName, onSave, onRemove, onCancel
     if(mode === 'edit-argument-mapping') {
         const handleMappingSave = (mapping: ArgumentMapping | undefined) => {
             setCurrentTool({ ...currentTool, argumentMapping: mapping });
+            setInitialParamToEdit(undefined);
             setMode('menu');
         };
 
@@ -310,13 +315,16 @@ export function EnhancedToolEditor({ tool, groupName, onSave, onRemove, onCancel
               mapping={currentTool.argumentMapping}
               clientSchema={backendTool?.inputSchema}
               backendSchema={backendTool?.inputSchema}
+              initialParamToEdit={initialParamToEdit}
               onSave={handleMappingSave}
-              onCancel={() => setMode('menu')}
+              onCancel={() => {
+                  setInitialParamToEdit(undefined);
+                  setMode('menu');
+              }}
             />
         );
     }
 
-    // eslint-disable-next-line complexity -- Menu builder with parameter table integration
     const buildMenuItems = () => {
         const effectiveName = currentTool.name ?? currentTool.originalName;
         const effectiveDescription = currentTool.description ?? backendTool?.description ?? '(no description)';
@@ -374,8 +382,8 @@ export function EnhancedToolEditor({ tool, groupName, onSave, onRemove, onCancel
             menuItems.push({ label: '  ✕ Clear Description Override', value: 'clear-description' });
         }
 
-        // Parameter table integration
-        if(currentTool.argumentMapping && parameters.length > 0) {
+        // Parameter table - always show if there are parameters
+        if(parameters.length > 0) {
             const totalBackend = parameters.length;
             const totalClient = _filter(parameters, p => !p.isHidden).length;
             const totalHidden = totalBackend - totalClient;
@@ -425,17 +433,13 @@ export function EnhancedToolEditor({ tool, groupName, onSave, onRemove, onCancel
                 disabled: true,
             });
 
-            // Reset option
-            menuItems.push({
-                label: '🔄 Reset all to passthrough',
-                value: 'reset-mapping',
-            });
-        } else if(backendTool?.inputSchema?.properties) {
-            // No mapping yet, offer to create one
-            menuItems.push({
-                label: '➕ Add Argument Mapping',
-                value: 'edit-argument-mapping',
-            });
+            // Reset option - only show if there's a custom mapping
+            if(currentTool.argumentMapping) {
+                menuItems.push({
+                    label: '🔄 Reset all to passthrough',
+                    value: 'reset-mapping',
+                });
+            }
         }
 
         // Actions separator
