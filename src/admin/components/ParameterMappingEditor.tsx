@@ -3,12 +3,13 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Box, Text } from 'ink';
+import { Box, Text, useInput } from 'ink';
 import { SelectInput } from './SelectInput.js';
-import TextInput from 'ink-text-input';
+import { CancellableTextInput } from './CancellableTextInput.js';
 import { map, keys, isArray as _isArray } from 'lodash';
 import type { ArgumentMapping, TemplateMapping, ParameterMapping } from '../../types/config.js';
 import { ScreenHeader } from './ui/ScreenHeader.js';
+import { ScrollableJsonViewer } from './ui/ScrollableJsonViewer.js';
 import { menuSeparator } from '../design-system.js';
 
 interface ParameterMappingEditorProps {
@@ -116,6 +117,13 @@ export function ParameterMappingEditor({
     const [editState, setEditState] = useState<MappingEditorState | null>(null);
     const [inputValue, setInputValue] = useState('');
     const [initialized, setInitialized] = useState(false);
+
+    // Handle Esc key in edit-mapping mode
+    useInput((input, key) => {
+        if(mode === 'edit-mapping' && key.escape) {
+            onCancel();
+        }
+    });
 
     // Initialize with direct parameter edit if specified
     useEffect(() => {
@@ -313,10 +321,11 @@ export function ParameterMappingEditor({
                 <ScreenHeader title={title} />
                 <Box marginTop={1}>
                     <Text>Value (use JSON for non-strings): </Text>
-                    <TextInput
+                    <CancellableTextInput
                       value={inputValue}
                       onChange={setInputValue}
                       onSubmit={handleValueSubmit}
+                      onCancel={() => setMode('edit-mapping')}
                     />
                 </Box>
                 <Box marginTop={1}>
@@ -325,7 +334,7 @@ Examples: "text", 123, true,
 {'{"{"key":"value"}"}'}
                     </Text>
                 </Box>
-                <Text>Press Enter to save</Text>
+                <Text>Press Enter to save, Esc to cancel</Text>
             </Box>
         );
     };
@@ -379,10 +388,11 @@ Examples: "text", 123, true,
 
                 <Box marginTop={1}>
                     <Text>Agent Parameter Name: </Text>
-                    <TextInput
+                    <CancellableTextInput
                       value={inputValue}
                       onChange={setInputValue}
                       onSubmit={handleNameSubmit}
+                      onCancel={() => setMode('edit-mapping')}
                       placeholder={editState.paramName}
                     />
                 </Box>
@@ -398,12 +408,11 @@ Examples: "text", 123, true,
                 )}
 
                 <Box marginTop={1}>
-                    <Text>Leave empty to use backend name. Press Enter to save</Text>
+                    <Text>Leave empty to use backend name. Press Enter to save, Esc to cancel</Text>
                 </Box>
             </Box>
         );
     };
-
     const renderDescriptionEditor = () => {
         if(!editState) {
             return null;
@@ -415,39 +424,70 @@ Examples: "text", 123, true,
             : undefined;
 
         const title = `Edit Agent Parameter Description for: ${editState.paramName}`;
+
+        // Get backend parameter schema for display
+        const backendParamSchema = backendSchema?.properties
+            ? (backendSchema.properties as Record<string, unknown>)[editState.paramName]
+            : undefined;
+
         return (
             <Box flexDirection="column" padding={1}>
                 <ScreenHeader title={title} />
 
-                <Box marginTop={1} borderStyle="single" paddingX={1}>
-                    <Box flexDirection="column">
-                        <Text color="yellow">Backend Parameter Info:</Text>
-                        <Text>{getBackendParamInfo(editState.paramName)}</Text>
-                    </Box>
-                </Box>
+                {/* Top row - Editor and Schema */}
+                <Box flexDirection="row" gap={2}>
+                    {/* Left side - Editor */}
+                    <Box flexDirection="column" flexGrow={1} minWidth="50%">
+                        <Text bold underline>
+                            Edit Description:
+                        </Text>
+                        <Box marginTop={1}>
+                            <Text>Agent Parameter Description: </Text>
+                            <CancellableTextInput
+                              value={inputValue}
+                              onChange={setInputValue}
+                              onSubmit={handleDescriptionSubmit}
+                              onCancel={() => setMode('edit-mapping')}
+                              placeholder="Enter description for agent"
+                            />
+                        </Box>
 
-                <Box marginTop={1}>
-                    <Text>Agent Parameter Description: </Text>
-                    <TextInput
-                      value={inputValue}
-                      onChange={setInputValue}
-                      onSubmit={handleDescriptionSubmit}
-                      placeholder="Enter description for agent"
-                    />
-                </Box>
-
-                {currentDescription && (
-                    <Box marginTop={1}>
-                        <Text>
-                            Current:
+                        {currentDescription && (
+                            <Box marginTop={1}>
+                                <Text>
+                                    Current:
 {' '}
 {currentDescription}
-                        </Text>
+                                </Text>
+                            </Box>
+                        )}
                     </Box>
-                )}
+
+                    {/* Right side - Backend Parameter Schema */}
+                    <Box flexDirection="column" flexGrow={1} minWidth="40%" borderStyle="single" paddingX={1}>
+                        <Text bold underline>
+                            Backend Parameter Schema:
+                        </Text>
+                        {backendParamSchema
+                            ? (
+                                <Box marginTop={1}>
+                                    <ScrollableJsonViewer
+                                      data={backendParamSchema}
+                                      viewportHeight={12}
+                                      color="green"
+                                    />
+                                </Box>
+                            )
+                            : (
+                                <Box marginTop={1}>
+                                    <Text>No schema available</Text>
+                                </Box>
+                            )}
+                    </Box>
+                </Box>
 
                 <Box marginTop={1}>
-                    <Text>Press Enter to save</Text>
+                    <Text>Leave empty to use backend description. Press Enter to save, Esc to cancel</Text>
                 </Box>
             </Box>
         );
