@@ -16,6 +16,7 @@ import { analyzeParameters } from '../utils/parameter-analysis.js';
 import { ScreenHeader } from './ui/ScreenHeader.js';
 import { LoadingScreen } from './ui/LoadingScreen.js';
 import { VirtualScrollList } from './ui/VirtualScrollList.js';
+import { ScrollableJsonViewer } from './ui/ScrollableJsonViewer.js';
 import { textSeparator, menuSeparator } from '../design-system.js';
 
 interface EnhancedToolEditorProps {
@@ -220,6 +221,7 @@ export function EnhancedToolEditor({ tool, groupName, onSave, onRemove, onCancel
             <Box flexDirection="column" padding={1}>
                 <ScreenHeader title={title} />
 
+                {/* Top row - Editor and Context */}
                 <Box flexDirection="row" gap={2}>
                     {/* Left side - Editor */}
                     <Box flexDirection="column" flexGrow={1} minWidth="50%">
@@ -236,7 +238,7 @@ export function EnhancedToolEditor({ tool, groupName, onSave, onRemove, onCancel
                         </Box>
                     </Box>
 
-                    {/* Right side - Context */}
+                    {/* Right side - Original Description & Schema */}
                     <Box flexDirection="column" flexGrow={1} minWidth="40%" borderStyle="single" paddingX={1}>
                         <Text bold underline>
                             Original Description:
@@ -252,20 +254,23 @@ export function EnhancedToolEditor({ tool, groupName, onSave, onRemove, onCancel
                                         Input Schema:
                                     </Text>
                                 </Box>
-                                <Box height={10} flexDirection="column">
-                                    <Text color="green">
-                                        {JSON.stringify(backendTool.inputSchema, null, 2)}
-                                    </Text>
+                                <Box marginTop={1}>
+                                    <ScrollableJsonViewer
+                                      data={backendTool.inputSchema}
+                                      viewportHeight={12}
+                                      color="green"
+                                    />
                                 </Box>
                             </>
                         )}
-
-                        <Box marginTop={1}>
-                            <Text color="yellow">
-                                {DESCRIPTION_GUIDANCE}
-                            </Text>
-                        </Box>
                     </Box>
+                </Box>
+
+                {/* Bottom row - Guidance */}
+                <Box marginTop={1} borderStyle="single" paddingX={1}>
+                    <Text color="yellow">
+                        {DESCRIPTION_GUIDANCE}
+                    </Text>
                 </Box>
             </Box>
         );
