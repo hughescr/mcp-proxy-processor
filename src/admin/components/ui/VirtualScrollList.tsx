@@ -7,6 +7,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Box, Text, useStdout } from 'ink';
 import { SelectInput, SelectInputItem } from '../SelectInput.js';
 import { calculateAvailableHeight, calculateViewportBounds } from '../../design-system.js';
+import { useNotification } from './NotificationContext.js';
 
 interface VirtualScrollListProps<T extends SelectInputItem = SelectInputItem> {
     /** All items to display */
@@ -36,11 +37,12 @@ export function VirtualScrollList<T extends SelectInputItem = SelectInputItem>({
     const terminalHeight = stdout?.rows ?? 24;
     const [viewportStart, setViewportStart] = useState(0);
     const [selectedIndex, setSelectedIndex] = useState(initialIndex);
+    const { notificationHeight } = useNotification();
 
-    // Calculate available height for list
+    // Calculate available height for list (adjust for notification bar)
     const availableHeight = useMemo(() => {
-        return calculateAvailableHeight(terminalHeight, fixedUIHeight);
-    }, [terminalHeight, fixedUIHeight]);
+        return calculateAvailableHeight(terminalHeight, fixedUIHeight + notificationHeight);
+    }, [terminalHeight, fixedUIHeight, notificationHeight]);
 
     // Calculate max visible items (reserve 2 lines for indicators if shown)
     const maxVisibleItems = useMemo(() => {

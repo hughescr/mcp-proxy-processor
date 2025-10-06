@@ -2,17 +2,19 @@
  * Server List Component - Display and manage backend MCP servers
  */
 
-import React, { useState, useEffect } from 'react';
-import { Box, useInput } from 'ink';
-import { isError, keys, chain } from 'lodash';
+import React, { useState, useEffect, useRef } from 'react';
+import { Box, useInput, Text } from 'ink';
+import { isError, keys, chain, compact } from 'lodash';
 import type { BackendServerConfig } from '../types/config.js';
 import { loadBackendServersConfig, saveBackendServersConfig } from './config-utils.js';
-import { useBackend } from './BackendContext.js';
+import { useBackend, useBackendStatus } from './BackendContext.js';
 import { ServerEditor } from './ServerEditor.js';
 import { ScreenHeader } from './components/ui/ScreenHeader.js';
 import { LoadingScreen } from './components/ui/LoadingScreen.js';
 import { ErrorScreen } from './components/ui/ErrorScreen.js';
 import { VirtualScrollList } from './components/ui/VirtualScrollList.js';
+import { ServerStatusIcon } from './components/ServerStatusIcon.js';
+import { useNotification } from './components/ui/NotificationContext.js';
 import { menuSeparator } from './design-system.js';
 
 interface ServerListProps {
@@ -40,7 +42,10 @@ export function ServerList({ onBack }: ServerListProps) {
     const [selectedServerName, setSelectedServerName] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const { reloadBackendConfig } = useBackend();
+    const { reloadBackendConfig, serverStatus } = useBackend();
+    const { connectedServers, connectingServers, failedServers } = useBackendStatus();
+    const { showNotification } = useNotification();
+    const notifiedFailures = useRef<Set<string>>(new Set());
 
     // Handle Esc and Left Arrow for navigation
     useInput((input, key) => {
@@ -66,6 +71,20 @@ export function ServerList({ onBack }: ServerListProps) {
             }
         })();
     }, []);
+
+    // Watch for server connection failures and emit notifications
+    useEffect(() => {
+        if(view !== 'list') {
+            return;
+        }
+
+        for(const [serverName, state] of serverStatus) {
+            if(state.status === 'failed' && !notifiedFailures.current.has(serverName)) {
+                notifiedFailures.current.add(serverName);
+                showNotification('error', `Failed to connect to server: ${serverName}`, state.error);
+            }
+        }
+    }, [serverStatus, view, showNotification]);
 
     const handleServerSelect = (item: { value: string }) => {
         if(item.value === 'back') {
@@ -165,13 +184,26 @@ export function ServerList({ onBack }: ServerListProps) {
         );
     }
 
-    // Build menu items with separators
+    // Build menu items with separators and status icons
     const serverItems = chain(servers)
         .keys()
-        .map(name => ({
-            label: `${name} (${getTransportDescription(servers[name])})`,
-            value: name,
-        }))
+        .map((name) => {
+            const status = serverStatus.get(name)?.status ?? 'connecting';
+            return {
+                label: (
+                    <>
+                        <ServerStatusIcon status={status} />
+                        {' '}
+                        {name}
+                        {' '}
+                        (
+                        {getTransportDescription(servers[name])}
+                        )
+                    </>
+                ),
+                value: name,
+            };
+        })
         .value();
 
     const menuItems = [
@@ -181,6 +213,43 @@ export function ServerList({ onBack }: ServerListProps) {
         { label: '← Back', value: 'back' },
     ];
 
+    // Build status summary
+    const statusSummary = keys(servers).length === 0
+        ? 'No backend servers configured. Create a new server to get started.'
+        : [
+            connectedServers > 0 && (
+                <Text key="connected">
+                    <Text color="green">✓</Text>
+                    {' '}
+                    {connectedServers}
+                    {' '}
+                    connected
+                </Text>
+            ),
+            connectingServers > 0 && (
+                <Text key="connecting">
+                    {connectedServers > 0 && ', '}
+                    <Text color="yellow">⋯</Text>
+                    {' '}
+                    {connectingServers}
+                    {' '}
+                    connecting
+                </Text>
+            ),
+            failedServers > 0 && (
+                <Text key="failed">
+                    {(connectedServers > 0 || connectingServers > 0) && ', '}
+                    <Text color="red">✗</Text>
+                    {' '}
+                    {failedServers}
+                    {' '}
+                    failed
+                </Text>
+            ),
+        ];
+
+    const filteredStatusSummary = compact(statusSummary);
+
     // Fixed UI height: padding(1) + header(1) + margin(1) + subtitle(1) + margin(1) + padding(1) = 6
     const fixedUIHeight = 6;
 
@@ -188,9 +257,7 @@ export function ServerList({ onBack }: ServerListProps) {
         <Box flexDirection="column" padding={1}>
             <ScreenHeader
               title="Backend Server Management"
-              subtitle={keys(servers).length === 0
-                  ? 'No backend servers configured. Create a new server to get started.'
-                  : 'Select a server to edit, or create a new one:'}
+              subtitle={filteredStatusSummary}
             />
             <VirtualScrollList
               items={menuItems}

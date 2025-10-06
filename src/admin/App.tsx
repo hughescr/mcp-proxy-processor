@@ -13,6 +13,8 @@ import { LoadingScreen } from './components/ui/LoadingScreen.js';
 import { ErrorScreen } from './components/ui/ErrorScreen.js';
 import { menuSeparator } from './design-system.js';
 import { BackendProvider, useBackend, useBackendStatus } from './BackendContext.js';
+import { NotificationProvider } from './components/ui/NotificationContext.js';
+import { NotificationBar } from './components/ui/NotificationBar.js';
 
 type Screen = 'main' | 'groups' | 'servers' | 'tools';
 
@@ -105,24 +107,29 @@ function AppContent() {
     }
 
     return (
-        <Box flexDirection="column" padding={1}>
-            <ScreenHeader title="MCP Proxy Processor - Admin Interface" subtitle={subtitle} />
-            <VirtualScrollList
-              items={mainMenuItems}
-              onSelect={handleMainMenuSelect}
-              fixedUIHeight={fixedUIHeight}
-            />
+        <Box flexDirection="column">
+            <Box flexDirection="column" padding={1}>
+                <ScreenHeader title="MCP Proxy Processor - Admin Interface" subtitle={subtitle} />
+                <VirtualScrollList
+                  items={mainMenuItems}
+                  onSelect={handleMainMenuSelect}
+                  fixedUIHeight={fixedUIHeight}
+                />
+            </Box>
+            <NotificationBar />
         </Box>
     );
 }
 
 /**
- * App wrapper with BackendProvider
+ * App wrapper with BackendProvider and NotificationProvider
  */
 export function App() {
     return (
-        <BackendProvider>
-            <AppContent />
-        </BackendProvider>
+        <NotificationProvider>
+            <BackendProvider>
+                <AppContent />
+            </BackendProvider>
+        </NotificationProvider>
     );
 }
