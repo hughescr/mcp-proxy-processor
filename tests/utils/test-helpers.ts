@@ -99,6 +99,7 @@ export function createMockGroupConfig(overrides: Partial<GroupConfig> = {}): Gro
         description: 'Test group description',
         tools:       [],
         resources:   [],
+        prompts:     [],
         ...overrides,
     };
 }

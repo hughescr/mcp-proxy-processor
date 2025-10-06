@@ -163,6 +163,64 @@ export const ResourceOverrideSchema = z.object({
 export type ResourceOverride = z.infer<typeof ResourceOverrideSchema>;
 
 /**
+ * Resource reference for priority-based fallback system
+ * Resources are included/excluded with no overrides
+ * Priority is determined by array order (first = highest priority)
+ */
+export const ResourceRefSchema = z.object({
+    /** Backend server name */
+    serverName: z.string(),
+    /** Resource URI (may be a template with {variables}) */
+    uri:        z.string(),
+});
+
+export type ResourceRef = z.infer<typeof ResourceRefSchema>;
+
+/**
+ * Prompt reference for priority-based fallback system
+ * Prompts are included/excluded with no overrides
+ * Priority is determined by array order (first = highest priority)
+ */
+export const PromptRefSchema = z.object({
+    /** Backend server name */
+    serverName: z.string(),
+    /** Prompt name */
+    name:       z.string(),
+});
+
+export type PromptRef = z.infer<typeof PromptRefSchema>;
+
+/**
+ * Resource conflict detection result
+ */
+export type ResourceConflictType
+    = | 'exact-duplicate'         // Same exact URI from different servers
+      | 'template-covers-exact'   // Template matches an exact URI
+      | 'exact-covered-by-template' // Inverse of above
+      | 'template-overlap';       // Two templates match some of the same URIs
+
+export interface ResourceConflict {
+    /** Type of conflict */
+    type:       ResourceConflictType
+    /** The two conflicting resources */
+    resources:  [ResourceRef, ResourceRef]
+    /** Example URI that both would match */
+    exampleUri: string
+    /** Array indices showing priority order */
+    priority:   [number, number]
+}
+
+/**
+ * Prompt conflict detection result
+ */
+export interface PromptConflict {
+    /** The two conflicting prompts */
+    prompts:  [PromptRef, PromptRef]
+    /** Array indices showing priority order */
+    priority: [number, number]
+}
+
+/**
  * Group configuration
  */
 export const GroupConfigSchema = z.object({
@@ -172,8 +230,10 @@ export const GroupConfigSchema = z.object({
     description: z.string().optional(),
     /** Tools to expose in this group */
     tools:       z.array(ToolOverrideSchema),
-    /** Resources to expose in this group */
-    resources:   z.array(ResourceOverrideSchema).optional().default([]),
+    /** Resources to expose in this group (priority ordered) */
+    resources:   z.array(ResourceRefSchema).optional().default([]),
+    /** Prompts to expose in this group (priority ordered) */
+    prompts:     z.array(PromptRefSchema).optional().default([]),
 });
 
 export const GroupsConfigSchema = z.object({

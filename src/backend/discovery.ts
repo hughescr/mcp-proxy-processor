@@ -2,8 +2,8 @@
 /**
  * Backend Server Discovery Service
  *
- * Discovers available tools and resources from backend MCP servers:
- * - Calls listTools() and listResources() on backend clients
+ * Discovers available tools, resources, and prompts from backend MCP servers:
+ * - Calls listTools(), listResources(), and listPrompts() on backend clients
  * - Caches discovery results per server
  * - Supports refresh operations to update cache
  * - Provides efficient batch discovery across all servers
@@ -12,7 +12,7 @@
 import { logger as realLogger } from '@hughescr/logger';
 import { logger as silentLogger } from '../utils/silent-logger.js';
 import _ from 'lodash';
-import type { Tool, Resource } from '@modelcontextprotocol/sdk/types';
+import type { Tool, Resource, Prompt } from '@modelcontextprotocol/sdk/types.js';
 import type { ClientManager } from './client-manager.js';
 
 // Use silent logger in admin mode
@@ -21,11 +21,12 @@ const logger = process.env.LOG_LEVEL === 'silent' ? silentLogger : realLogger;
 interface DiscoveryCache {
     tools?:          Tool[]
     resources?:      Resource[]
+    prompts?:        Prompt[]
     lastDiscovered?: number
 }
 
 /**
- * Service for discovering tools and resources from backend servers
+ * Service for discovering tools, resources, and prompts from backend servers
  */
 export class DiscoveryService {
     private clientManager: ClientManager;
@@ -211,6 +212,93 @@ export class DiscoveryService {
     }
 
     /**
+     * Discover prompts from a specific backend server
+     */
+    async discoverPrompts(serverName: string): Promise<Prompt[]> {
+        // Check cache first
+        const cached = this.getCachedPrompts(serverName);
+        if(cached) {
+            logger.debug({ serverName, promptCount: cached.length }, 'Returning cached prompts');
+            return cached;
+        }
+
+        logger.info({ serverName }, 'Discovering prompts from backend server');
+
+        const client = this.clientManager.getClient(serverName);
+        if(!client) {
+            throw new Error(`Not connected to backend server: ${serverName}`);
+        }
+
+        try {
+            const response = await client.listPrompts();
+            const prompts = response.prompts || [];
+
+            // Update cache
+            this.updateCache(serverName, { prompts });
+
+            logger.info({ serverName, promptCount: prompts.length }, 'Successfully discovered prompts');
+            return prompts;
+        } catch (error) {
+            logger.error(
+                { serverName, error: _.isError(error) ? error.message : String(error) },
+                'Failed to discover prompts from backend server'
+            );
+            throw new Error(`Failed to discover prompts from ${serverName}: ${_.isError(error) ? error.message : String(error)}`);
+        }
+    }
+
+    /**
+     * Discover prompts from all connected backend servers
+     */
+    async discoverAllPrompts(): Promise<Map<string, Prompt[]>> {
+        const serverNames = this.clientManager.getConnectedServerNames();
+
+        logger.info({ serverCount: serverNames.length }, 'Discovering prompts from all backend servers');
+
+        const results = new Map<string, Prompt[]>();
+        const errors: { serverName: string, error: string }[] = [];
+
+        const discoveryPromises = _.map(serverNames, async (serverName) => {
+            try {
+                const prompts = await this.discoverPrompts(serverName);
+                results.set(serverName, prompts);
+                logger.debug({ serverName, promptCount: prompts.length }, 'Successfully discovered prompts from server');
+            } catch (error) {
+                const errorMessage = _.isError(error) ? error.message : String(error);
+                errors.push({ serverName, error: errorMessage });
+                logger.error(
+                    { serverName, error: errorMessage },
+                    'Failed to discover prompts during discoverAllPrompts'
+                );
+                // Still continue with other servers
+                results.set(serverName, []);
+            }
+        });
+
+        await Promise.all(discoveryPromises);
+
+        const totalPrompts = _.reduce(Array.from(results.values()), (sum, prompts) => sum + prompts.length, 0);
+        const successCount = results.size - errors.length;
+
+        if(errors.length > 0) {
+            logger.warn(
+                {
+                    serverCount:  results.size,
+                    successCount,
+                    failureCount: errors.length,
+                    totalPrompts,
+                    failures:     errors,
+                },
+                'Finished discovering prompts with some failures'
+            );
+        } else {
+            logger.info({ serverCount: results.size, totalPrompts }, 'Finished discovering prompts from all servers');
+        }
+
+        return results;
+    }
+
+    /**
      * Refresh discovery cache for a specific server
      */
     async refresh(serverName: string): Promise<void> {
@@ -223,6 +311,7 @@ export class DiscoveryService {
         await Promise.all([
             this.discoverTools(serverName),
             this.discoverResources(serverName),
+            this.discoverPrompts(serverName),
         ]);
 
         logger.info({ serverName }, 'Discovery cache refreshed');
@@ -243,6 +332,7 @@ export class DiscoveryService {
         await Promise.all([
             this.discoverAllTools(),
             this.discoverAllResources(),
+            this.discoverAllPrompts(),
         ]);
 
         logger.info('Discovery cache refreshed for all servers');
@@ -283,9 +373,25 @@ export class DiscoveryService {
             return undefined;
         }
 
-        // Type assertion needed because optional array properties are inferred as any[]
-
         return cached.resources;
+    }
+
+    /**
+     * Get cached prompts if available and not expired
+     */
+    private getCachedPrompts(serverName: string): Prompt[] | undefined {
+        const cached = this.cache.get(serverName);
+        if(!cached?.prompts || !cached.lastDiscovered) {
+            return undefined;
+        }
+
+        const age = Date.now() - cached.lastDiscovered;
+        if(age > this.CACHE_TTL_MS) {
+            logger.debug({ serverName, ageMs: age }, 'Cache expired');
+            return undefined;
+        }
+
+        return cached.prompts;
     }
 
     /**

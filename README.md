@@ -1,6 +1,6 @@
 # MCP Proxy Processor
 
-An MCP (Model Context Protocol) proxy server that allows selective re-exposure of tools and resources from backend MCP servers through configurable "groups". Keep your AI agents focused by exposing only the tools they need.
+An MCP (Model Context Protocol) proxy server that allows selective re-exposure of tools, resources, and prompts from backend MCP servers through configurable "groups". Keep your AI agents focused by exposing only the tools they need, with smart resource management and prompt prioritization.
 
 ## Why Use MCP Proxy Processor?
 
@@ -22,11 +22,26 @@ Modern MCP servers often expose 20-50+ tools with verbose descriptions and numer
 
 MCP Proxy Processor **completely excludes** unwanted tools from your agent's context. The agent never sees them, never wastes tokens on them, and never gets confused by irrelevant options.
 
+#### Tools
 - **Curate tool sets**: Reduce 50 backend tools to 5 focused tools. Save thousands of context tokens per conversation.
 - **Rewrite verbose descriptions**: Transform 200-word descriptions into clear, concise 20-word summaries.
 - **Hide unnecessary parameters**: Remove rarely-used optional parameters from the agent-visible schema entirely. The agent sees only the 3 parameters that matter.
 - **Inject hidden parameters**: Add API keys, default values, and configuration as constants—agents never see or waste tokens on them.
-- **Organize by purpose**: Create different tool groups for different tasks (coding, research, financial analysis), each optimized for its specific workflow.
+
+#### Resources (NEW!)
+- **Selective resource exposure**: Choose which files, APIs, or data sources to expose from backend servers
+- **URI template matching**: Use RFC 6570 templates to match multiple resource URIs with patterns
+- **Priority-based fallback**: Configure multiple servers for the same resource with automatic failover
+- **Conflict detection**: Identify overlapping resource patterns and resolve conflicts
+
+#### Prompts (NEW!)
+- **Prompt curation**: Select specific prompts from backend servers to expose to agents
+- **Argument pass-through**: Preserve prompt arguments and requirements from backend definitions
+- **Priority ordering**: Set fallback chains for prompts across multiple backend servers
+- **Deduplication**: Automatically handle duplicate prompt names with smart priority resolution
+
+#### Organization
+- **Organize by purpose**: Create different groups for different tasks (coding, research, financial analysis), each optimized for its specific workflow.
 - **Improve agent performance**: Cleaner, smaller tool sets help agents make better decisions faster with less confusion.
 
 ## Example Use Case
@@ -186,6 +201,10 @@ Add the proxy to your Claude Desktop config (`~/Library/Application Support/Clau
 
 Restart Claude Desktop. Your agent now has access to the curated tool sets!
 
+## Documentation
+
+- [Resources and Prompts Guide](docs/RESOURCES_AND_PROMPTS.md) - Complete guide to using resources and prompts
+
 ## Configuration Reference
 
 ### Backend Servers
@@ -228,9 +247,17 @@ The `config/groups.json` file defines tool groups:
       "resources": [
         {
           "serverName": "backend-server-name",
-          "originalUri": "resource://uri",
-          "name": "optional-override-name",
-          "description": "Optional override description"
+          "uri": "resource://uri"
+        },
+        {
+          "serverName": "fs-server",
+          "uri": "file:///{path}"
+        }
+      ],
+      "prompts": [
+        {
+          "serverName": "ai-assistant",
+          "name": "code-review"
         }
       ]
     }
@@ -238,13 +265,21 @@ The `config/groups.json` file defines tool groups:
 }
 ```
 
-**Tool Override Fields:**
+**Tool Fields:**
 - `serverName` (required): Backend server providing the tool
 - `originalName` (required): Tool name from backend server
 - `name` (optional): Override the tool name
 - `description` (optional): Override the tool description
 - `inputSchema` (optional): Override the input schema
 - `argumentMapping` (optional): Transform arguments before sending to backend
+
+**Resource Fields:**
+- `serverName` (required): Backend server providing the resource
+- `uri` (required): Exact URI or RFC 6570 URI template (e.g., `file:///{path}`)
+
+**Prompt Fields:**
+- `serverName` (required): Backend server providing the prompt
+- `name` (required): Prompt name from backend server
 
 ## Argument Mapping
 

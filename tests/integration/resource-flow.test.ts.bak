@@ -27,7 +27,7 @@ describe('Resource Flow Integration', () => {
             const resources = groupManager.getResourcesForGroup('test-group', mockBackendResources);
 
             expect(resources).toHaveLength(1);
-            expect(resources[0].name).toBe('Original Resource'); // ResourceRef doesn't override - uses backend as-is
+            expect(resources[0].name).toBe('Custom Resource Name');
             expect(resources[0].uri).toBe('test://resource1');
         });
 
@@ -39,12 +39,14 @@ describe('Resource Flow Integration', () => {
                         tools:     [],
                         resources: [
                             {
-                                uri:        'test://resource1',
-                                serverName: 'test-server-1',
+                                originalUri: 'test://resource1',
+                                serverName:  'test-server-1',
+                                name:        'Resource from Server 1',
                             },
                             {
-                                uri:        'test://resource3',
-                                serverName: 'test-server-2',
+                                originalUri: 'test://resource3',
+                                serverName:  'test-server-2',
+                                name:        'Resource from Server 2',
                             },
                         ],
                     },
@@ -58,8 +60,8 @@ describe('Resource Flow Integration', () => {
             const resources = multiManager.getResourcesForGroup('multi-resource', mockBackendResources);
 
             expect(resources).toHaveLength(2);
-            expect(resources[0].name).toBe('Original Resource'); // No overrides with ResourceRef
-            expect(resources[1].name).toBe('Server 2 Resource');
+            expect(resources[0].name).toBe('Resource from Server 1');
+            expect(resources[1].name).toBe('Resource from Server 2');
         });
 
         it('should handle partial backend server availability for resources', () => {
@@ -77,20 +79,20 @@ describe('Resource Flow Integration', () => {
     });
 
     describe('Resource Read Proxying', () => {
-        it('should use resources as-is from backend', () => {
+        it('should apply overrides when proxying resource reads', () => {
             const resources = groupManager.getResourcesForGroup('test-group', mockBackendResources);
             const resource = resources[0];
 
-            // ResourceRef doesn't override - uses backend as-is
-            expect(resource.name).toBe('Original Resource');
+            // Verify the resource has overrides applied
+            expect(resource.name).toBe('Custom Resource Name');
             expect(resource.uri).toBe('test://resource1');
 
-            // The resource info is directly from config
+            // The original resource info would be needed for backend read
             const groupConfig = groupManager.getGroup('test-group');
-            const resourceRef = groupConfig?.resources?.[0];
+            const resourceOverride = groupConfig?.resources?.[0];
 
-            expect(resourceRef?.uri).toBe('test://resource1');
-            expect(resourceRef?.serverName).toBe('test-server-1');
+            expect(resourceOverride?.originalUri).toBe('test://resource1');
+            expect(resourceOverride?.serverName).toBe('test-server-1');
         });
 
         it('should map resource reads to correct backend server', async () => {
@@ -101,16 +103,16 @@ describe('Resource Flow Integration', () => {
                         tools:     [],
                         resources: [
                             {
-                                uri:        'test://resource1',
-                                serverName: 'server-a',
+                                originalUri: 'test://resource1',
+                                serverName:  'server-a',
                             },
                             {
-                                uri:        'test://resource2',
-                                serverName: 'server-b',
+                                originalUri: 'test://resource2',
+                                serverName:  'server-b',
                             },
                             {
-                                uri:        'test://resource3',
-                                serverName: 'server-a',
+                                originalUri: 'test://resource3',
+                                serverName:  'server-a',
                             },
                         ],
                     },
@@ -133,39 +135,43 @@ describe('Resource Flow Integration', () => {
             expect(servers).toEqual(['server-a', 'server-b']);
         });
 
-        it('should use backend resource without overrides', async () => {
-            const simpleGroup = {
+        it('should handle resource with all overrides applied', async () => {
+            const fullOverrideGroup = {
                 groups: {
-                    simple: {
-                        name:      'simple',
+                    'full-override': {
+                        name:      'full-override',
                         tools:     [],
                         resources: [
                             {
-                                uri:        'test://resource1',
-                                serverName: 'test-server-1',
+                                originalUri: 'test://resource1',
+                                serverName:  'test-server-1',
+                                name:        'Completely Overridden',
+                                description: 'New description',
+                                mimeType:    'application/xml',
                             },
                         ],
                     },
                 },
             };
 
-            const simplePath = await createTempConfigFile(simpleGroup);
-            const simpleManager = new GroupManager(simplePath);
-            await simpleManager.load();
+            const fullPath = await createTempConfigFile(fullOverrideGroup);
+            const fullManager = new GroupManager(fullPath);
+            await fullManager.load();
 
-            const resources = simpleManager.getResourcesForGroup('simple', mockBackendResources);
+            const resources = fullManager.getResourcesForGroup('full-override', mockBackendResources);
             const resource = resources[0];
 
-            // Verify resource is used as-is from backend (no overrides)
+            // Verify all overrides are applied
+            expect(resource.name).toBe('Completely Overridden');
+            expect(resource.description).toBe('New description');
+            expect(resource.mimeType).toBe('application/xml');
+            expect(resource.uri).toBe('test://resource1'); // URI never changes
+
+            // Original backend would have different values
             const backendResource = _find(mockBackendResources.get('test-server-1'), { uri: 'test://resource1' });
-            expect(backendResource).toBeDefined();
-
-            expect(resource.name).toBe(backendResource!.name);
-
-            expect(resource.description).toBe(backendResource!.description);
-
-            expect(resource.mimeType).toBe(backendResource!.mimeType);
-            expect(resource.uri).toBe('test://resource1');
+            expect(backendResource?.name).not.toBe(resource.name);
+            expect(backendResource?.description).not.toBe(resource.description);
+            expect(backendResource?.mimeType).not.toBe(resource.mimeType);
         });
     });
 
@@ -187,12 +193,12 @@ describe('Resource Flow Integration', () => {
             const resourceUri = 'test://resource1';
             const resource = _find(resources, { uri: resourceUri });
             expect(resource).toBeDefined();
-            expect(resource?.name).toBe('Original Resource'); // ResourceRef uses backend as-is
+            expect(resource?.name).toBe('Custom Resource Name');
 
-            // 5. Get resource info for backend read
-            const resourceRef = _find(group?.resources, { uri: resourceUri });
-            expect(resourceRef?.uri).toBe('test://resource1');
-            expect(resourceRef?.serverName).toBe('test-server-1');
+            // 5. Get original resource info for backend read
+            const resourceOverride = _find(group?.resources, { originalUri: resourceUri });
+            expect(resourceOverride?.originalUri).toBe('test://resource1');
+            expect(resourceOverride?.serverName).toBe('test-server-1');
 
             // 6. Simulate backend read and response
             const response = mockResourceReadResponse;
@@ -209,16 +215,19 @@ describe('Resource Flow Integration', () => {
                         tools:     [],
                         resources: [
                             {
-                                uri:        'test://resource1',
-                                serverName: 'test-server-1',
+                                originalUri: 'test://resource1',
+                                serverName:  'test-server-1',
+                                name:        'Resource 1',
                             },
                             {
-                                uri:        'test://resource2',
-                                serverName: 'test-server-1',
+                                originalUri: 'test://resource2',
+                                serverName:  'test-server-1',
+                                name:        'Resource 2',
                             },
                             {
-                                uri:        'test://resource3',
-                                serverName: 'test-server-2',
+                                originalUri: 'test://resource3',
+                                serverName:  'test-server-2',
+                                name:        'Resource 3',
                             },
                         ],
                     },
@@ -233,13 +242,14 @@ describe('Resource Flow Integration', () => {
 
             // Simulate concurrent reads
             expect(resources).toHaveLength(3);
-            expect(resources[0].name).toBe('Original Resource');
-            expect(resources[1].name).toBe('Unused Resource');
-            expect(resources[2].name).toBe('Server 2 Resource');
+            expect(resources[0].name).toBe('Resource 1');
+            expect(resources[1].name).toBe('Resource 2');
+            expect(resources[2].name).toBe('Resource 3');
 
+            // Get backend mappings
             const group = concurrentManager.getGroup('concurrent');
             const mappings = _map(group?.resources, r => ({
-                uri:    r.uri,
+                uri:    r.originalUri,
                 server: r.serverName,
             }));
 
@@ -259,8 +269,10 @@ describe('Resource Flow Integration', () => {
                         tools:     [],
                         resources: [
                             {
-                                uri:        'test://resource1',
-                                serverName: 'test-server-1',
+                                originalUri: 'test://resource1',
+                                serverName:  'test-server-1',
+                                name:        'Different Name',
+                                description: 'Different description',
                             },
                         ],
                     },
@@ -275,16 +287,16 @@ describe('Resource Flow Integration', () => {
             const resources1 = groupManager.getResourcesForGroup('test-group', mockBackendResources);
             const resources2 = anotherManager.getResourcesForGroup('another-group', mockBackendResources);
 
-            // Same backend resource - ResourceRef doesn't override
-            expect(resources1[0].name).toBe('Original Resource');
-            expect(resources2[0].name).toBe('Original Resource'); // Same since no overrides
+            // Same backend resource, different overrides
+            expect(resources1[0].name).toBe('Custom Resource Name');
+            expect(resources2[0].name).toBe('Different Name');
             expect(resources1[0].uri).toBe(resources2[0].uri); // Same URI
 
             // Both map to same backend resource
             const group1 = groupManager.getGroup('test-group');
             const group2 = anotherManager.getGroup('another-group');
 
-            expect(group1?.resources?.[0].uri).toBe(group2?.resources?.[0].uri);
+            expect(group1?.resources?.[0].originalUri).toBe(group2?.resources?.[0].originalUri);
             expect(group1?.resources?.[0].serverName).toBe(group2?.resources?.[0].serverName);
         });
     });
@@ -367,8 +379,10 @@ describe('Resource Flow Integration', () => {
                         name:      'many-resources',
                         tools:     [],
                         resources: Array.from({ length: 100 }, (_, i) => ({
-                            uri:        `test://resource${i}`,
-                            serverName: `server_${i % 10}`, // Distribute across 10 servers
+                            originalUri: `test://resource${i}`,
+                            serverName:  `server_${i % 10}`, // Distribute across 10 servers
+                            name:        `Resource ${i}`,
+                            description: `Description for resource ${i}`,
                         })),
                     },
                 },

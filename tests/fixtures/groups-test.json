@@ -87,6 +87,84 @@
         }
       ],
       "resources": []
+    },
+    "resource_test": {
+      "name": "resource_test",
+      "description": "Test group with resources from multiple backends",
+      "tools": [
+        {
+          "serverName": "everything",
+          "originalName": "echo"
+        }
+      ],
+      "resources": [
+        {
+          "serverName": "everything",
+          "uri": "test://static/resource"
+        },
+        {
+          "serverName": "filesystem",
+          "uri": "file:///tmp/test.txt"
+        }
+      ]
+    },
+    "resource_priority_test": {
+      "name": "resource_priority_test",
+      "description": "Test group demonstrating resource priority ordering with overlapping URIs",
+      "tools": [],
+      "resources": [
+        {
+          "serverName": "everything",
+          "uri": "test://static/resource"
+        },
+        {
+          "serverName": "filesystem",
+          "uri": "file:///tmp/"
+        }
+      ]
+    },
+    "prompt_test": {
+      "name": "prompt_test",
+      "description": "Test group with prompts from everything server",
+      "tools": [
+        {
+          "serverName": "everything",
+          "originalName": "echo"
+        }
+      ],
+      "resources": [],
+      "prompts": [
+        {
+          "serverName": "everything",
+          "name": "simple_prompt"
+        }
+      ]
+    },
+    "mixed_capabilities": {
+      "name": "mixed_capabilities",
+      "description": "Test group combining tools, resources, and prompts",
+      "tools": [
+        {
+          "serverName": "time",
+          "originalName": "get_current_time"
+        },
+        {
+          "serverName": "everything",
+          "originalName": "echo"
+        }
+      ],
+      "resources": [
+        {
+          "serverName": "everything",
+          "uri": "test://static/resource"
+        }
+      ],
+      "prompts": [
+        {
+          "serverName": "everything",
+          "name": "simple_prompt"
+        }
+      ]
     }
   }
 }

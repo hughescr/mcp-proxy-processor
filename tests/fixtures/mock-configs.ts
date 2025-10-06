@@ -44,16 +44,17 @@ export const validGroupConfig: GroupsConfig = {
             ],
             resources: [
                 {
-                    originalUri: 'test://resource1',
-                    serverName:  'test-server-1',
-                    name:        'Custom Resource Name',
+                    uri:        'test://resource1',
+                    serverName: 'test-server-1',
                 },
             ],
+            prompts: [],
         },
         'minimal-group': {
             name:      'minimal-group',
             tools:     [],
             resources: [],
+            prompts:   [],
         },
     },
 };
@@ -191,6 +192,7 @@ export const groupWithSchemaOverride: GroupConfig = {
         },
     ],
     resources: [],
+    prompts:   [],
 };
 
 export const groupWithDuplicateTools: GroupConfig = {
@@ -208,6 +210,7 @@ export const groupWithDuplicateTools: GroupConfig = {
         },
     ],
     resources: [],
+    prompts:   [],
 };
 
 export const groupWithMissingBackendTool: GroupConfig = {
@@ -219,6 +222,7 @@ export const groupWithMissingBackendTool: GroupConfig = {
         },
     ],
     resources: [],
+    prompts:   [],
 };
 
 // Helper function to create temporary config files

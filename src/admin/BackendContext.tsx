@@ -8,7 +8,7 @@
 import React, { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react';
 import type { ReactNode } from 'react';
 import { isError, keys } from 'lodash';
-import type { Tool, Resource } from '@modelcontextprotocol/sdk/types';
+import type { Tool, Resource, Prompt } from '@modelcontextprotocol/sdk/types.js';
 import type { BackendServersConfig } from '../types/config.js';
 import { ClientManager } from '../backend/client-manager.js';
 import { DiscoveryService } from '../backend/discovery.js';
@@ -51,6 +51,9 @@ interface BackendContextState {
 
     /** Discover resources from all servers */
     discoverAllResources: () => Promise<Map<string, Resource[]>>
+
+    /** Discover prompts from all servers */
+    discoverAllPrompts: () => Promise<Map<string, Prompt[]>>
 
     /** Reload backend configuration and restart servers */
     reloadBackendConfig: () => Promise<void>
@@ -279,6 +282,18 @@ export function BackendProvider({ children }: BackendProviderProps) {
     }, []);
 
     /**
+     * Discover all prompts from all connected servers
+     */
+    const discoverAllPrompts = useCallback(async (): Promise<Map<string, Prompt[]>> => {
+        const discoveryService = discoveryServiceRef.current;
+        if(!discoveryService) {
+            throw new Error('Backend not initialized');
+        }
+
+        return discoveryService.discoverAllPrompts();
+    }, []);
+
+    /**
      * Reload backend configuration (e.g., after adding/editing/deleting servers)
      */
     const reloadBackendConfig = useCallback(async () => {
@@ -318,6 +333,7 @@ export function BackendProvider({ children }: BackendProviderProps) {
         ensureServerReady,
         discoverAllTools,
         discoverAllResources,
+        discoverAllPrompts,
         reloadBackendConfig,
         getServerNames,
     };

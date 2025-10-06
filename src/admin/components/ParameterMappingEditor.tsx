@@ -472,7 +472,7 @@ Examples: "text", 123, true,
                             ? (
                                 <Box marginTop={1}>
                                     <ScrollableJsonViewer
-                                      data={backendParamSchema}
+                                      data={backendParamSchema as Record<string, unknown>}
                                       viewportHeight={12}
                                       color="green"
                                     />

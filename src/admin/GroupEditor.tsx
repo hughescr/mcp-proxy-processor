@@ -6,9 +6,13 @@ import React, { useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import _ from 'lodash';
 import { CancellableTextInput } from './components/CancellableTextInput.js';
-import type { GroupConfig, ToolOverride } from '../types/config.js';
+import type { GroupConfig, ToolOverride, ResourceRef, PromptRef } from '../types/config.js';
 import { GroupedMultiSelectToolBrowser } from './components/GroupedMultiSelectToolBrowser.js';
 import { EnhancedToolEditor } from './components/EnhancedToolEditor.js';
+import { ResourceBrowserScreen } from './components/ResourceBrowserScreen.js';
+import { ResourcePriorityScreen } from './components/ResourcePriorityScreen.js';
+import { PromptBrowserScreen } from './components/PromptBrowserScreen.js';
+import { PromptPriorityScreen } from './components/PromptPriorityScreen.js';
 import { ScreenHeader } from './components/ui/ScreenHeader.js';
 import { LoadingScreen } from './components/ui/LoadingScreen.js';
 import { VirtualScrollList } from './components/ui/VirtualScrollList.js';
@@ -22,11 +26,12 @@ interface GroupEditorProps {
     onCancel:  () => void
 }
 
-type EditMode = 'menu' | 'edit-name' | 'edit-description' | 'add-tool' | 'edit-tool' | 'success';
+type EditMode = 'menu' | 'edit-name' | 'edit-description' | 'add-tool' | 'edit-tool' | 'edit-resources' | 'priority-resources' | 'edit-prompts' | 'priority-prompts' | 'success';
 
 /**
  * Group editor screen
  */
+// eslint-disable-next-line complexity -- This component manages multiple edit modes and state transitions
 export function GroupEditor({ groupName, group, onSave, onDelete, onCancel }: GroupEditorProps) {
     const [mode, setMode] = useState<EditMode>('menu');
     const [currentGroup, setCurrentGroup] = useState<GroupConfig>(group);
@@ -110,9 +115,16 @@ export function GroupEditor({ groupName, group, onSave, onDelete, onCancel }: Gr
             const index = parseInt(_.replace(item.value, 'edit-tool-', ''), 10);
             setEditingToolIndex(index);
             setMode('edit-tool');
+        } else if(item.value === 'edit-resources') {
+            setMode('edit-resources');
+        } else if(item.value === 'priority-resources') {
+            setMode('priority-resources');
+        } else if(item.value === 'edit-prompts') {
+            setMode('edit-prompts');
+        } else if(item.value === 'priority-prompts') {
+            setMode('priority-prompts');
         }
     };
-
     const handleAddTools = (tools: ToolOverride[]) => {
         setCurrentGroup({
             ...currentGroup,
@@ -135,6 +147,38 @@ export function GroupEditor({ groupName, group, onSave, onDelete, onCancel }: Gr
 
     const handleDescriptionSubmit = (value: string) => {
         setCurrentGroup({ ...currentGroup, description: value });
+        setMode('menu');
+    };
+
+    const handleResourcesSubmit = (resources: ResourceRef[]) => {
+        setCurrentGroup({
+            ...currentGroup,
+            resources,
+        });
+        setMode('priority-resources');
+    };
+
+    const handleResourcesPriority = (resources: ResourceRef[]) => {
+        setCurrentGroup({
+            ...currentGroup,
+            resources,
+        });
+        setMode('menu');
+    };
+
+    const handlePromptsSubmit = (prompts: PromptRef[]) => {
+        setCurrentGroup({
+            ...currentGroup,
+            prompts,
+        });
+        setMode('priority-prompts');
+    };
+
+    const handlePromptsPriority = (prompts: PromptRef[]) => {
+        setCurrentGroup({
+            ...currentGroup,
+            prompts,
+        });
         setMode('menu');
     };
 
@@ -163,6 +207,50 @@ export function GroupEditor({ groupName, group, onSave, onDelete, onCancel }: Gr
               groupName={currentGroup.name}
               onSave={tool => handleEditTool(editingToolIndex, tool)}
               onRemove={handleRemoveCurrentTool}
+              onCancel={() => setMode('menu')}
+            />
+        );
+    }
+
+    // Resource browser
+    if(mode === 'edit-resources') {
+        return (
+            <ResourceBrowserScreen
+              onBack={() => setMode('menu')}
+              onSubmit={handleResourcesSubmit}
+              existingResources={currentGroup.resources ?? []}
+            />
+        );
+    }
+
+    // Resource priority screen
+    if(mode === 'priority-resources') {
+        return (
+            <ResourcePriorityScreen
+              resources={currentGroup.resources ?? []}
+              onSave={handleResourcesPriority}
+              onCancel={() => setMode('menu')}
+            />
+        );
+    }
+
+    // Prompt browser
+    if(mode === 'edit-prompts') {
+        return (
+            <PromptBrowserScreen
+              onBack={() => setMode('menu')}
+              onSubmit={handlePromptsSubmit}
+              existingPrompts={currentGroup.prompts ?? []}
+            />
+        );
+    }
+
+    // Prompt priority screen
+    if(mode === 'priority-prompts') {
+        return (
+            <PromptPriorityScreen
+              prompts={currentGroup.prompts ?? []}
+              onSave={handlePromptsPriority}
               onCancel={() => setMode('menu')}
             />
         );
@@ -233,6 +321,30 @@ export function GroupEditor({ groupName, group, onSave, onDelete, onCancel }: Gr
             value: `edit-tool-${index}`,
         })),
         { label: '⚙️  Activate/Deactivate Tools', value: 'add-tool' },
+        menuSeparator(),
+        {
+            label: `Resources (${currentGroup.resources?.length ?? 0}):`,
+            value: 'edit-resources'
+        },
+        {
+            label: currentGroup.resources && currentGroup.resources.length > 0
+                ? '📊 Set Resource Priority'
+                : '📊 Set Resource Priority (add resources first)',
+            value:    'priority-resources',
+            disabled: !currentGroup.resources || currentGroup.resources.length === 0
+        },
+        menuSeparator(),
+        {
+            label: `Prompts (${currentGroup.prompts?.length ?? 0}):`,
+            value: 'edit-prompts'
+        },
+        {
+            label: currentGroup.prompts && currentGroup.prompts.length > 0
+                ? '📊 Set Prompt Priority'
+                : '📊 Set Prompt Priority (add prompts first)',
+            value:    'priority-prompts',
+            disabled: !currentGroup.prompts || currentGroup.prompts.length === 0
+        },
         menuSeparator(),
         { label: '💾 Save Group', value: 'save' },
     ];

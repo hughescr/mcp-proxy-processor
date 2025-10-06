@@ -122,11 +122,16 @@ program
             console.log(`\nResources (${group.resources.length}):`);
             for(const resource of group.resources) {
                 // eslint-disable-next-line no-console -- CLI output to stdout is appropriate
-                console.log(`  - ${resource.name ?? resource.originalUri} (from ${resource.serverName})`);
-                if(resource.description) {
-                    // eslint-disable-next-line no-console -- CLI output to stdout is appropriate
-                    console.log(`    ${resource.description}`);
-                }
+                console.log(`  - ${resource.uri} (from ${resource.serverName})`);
+            }
+        }
+
+        if(group.prompts && group.prompts.length > 0) {
+            // eslint-disable-next-line no-console -- CLI output to stdout is appropriate
+            console.log(`\nPrompts (${group.prompts.length}):`);
+            for(const prompt of group.prompts) {
+                // eslint-disable-next-line no-console -- CLI output to stdout is appropriate
+                console.log(`  - ${prompt.name} (from ${prompt.serverName})`);
             }
         }
 

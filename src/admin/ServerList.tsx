@@ -3,7 +3,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Box, useInput, Text } from 'ink';
+import { Box, useInput } from 'ink';
 import { isError, keys, chain, compact } from 'lodash';
 import type { BackendServerConfig } from '../types/config.js';
 import { loadBackendServersConfig, saveBackendServersConfig } from './config-utils.js';
@@ -13,7 +13,6 @@ import { ScreenHeader } from './components/ui/ScreenHeader.js';
 import { LoadingScreen } from './components/ui/LoadingScreen.js';
 import { ErrorScreen } from './components/ui/ErrorScreen.js';
 import { VirtualScrollList } from './components/ui/VirtualScrollList.js';
-import { ServerStatusIcon } from './components/ServerStatusIcon.js';
 import { useNotification } from './components/ui/NotificationContext.js';
 import { menuSeparator } from './design-system.js';
 
@@ -184,23 +183,29 @@ export function ServerList({ onBack }: ServerListProps) {
         );
     }
 
-    // Build menu items with separators and status icons
+    // Helper to get status character for string labels
+    const getStatusChar = (status: 'connected' | 'connecting' | 'failed' | 'unavailable'): string => {
+        if(status === 'connected') {
+            return '✓';
+        }
+        if(status === 'failed') {
+            return '✗';
+        }
+        if(status === 'unavailable') {
+            return '○';
+        }
+        return '⋯';  // connecting
+    };
+
+    // Build menu items with text-only labels
     const serverItems = chain(servers)
         .keys()
         .map((name) => {
-            const status = serverStatus.get(name)?.status ?? 'connecting';
+            const rawStatus = serverStatus.get(name)?.status ?? 'connecting';
+            const status = rawStatus === 'unavailable' ? 'failed' : rawStatus;
+            const statusChar = getStatusChar(status);
             return {
-                label: (
-                    <>
-                        <ServerStatusIcon status={status} />
-                        {' '}
-                        {name}
-                        {' '}
-                        (
-                        {getTransportDescription(servers[name])}
-                        )
-                    </>
-                ),
+                label: `${statusChar} ${name} (${getTransportDescription(servers[name])})`,
                 value: name,
             };
         })
@@ -213,43 +218,14 @@ export function ServerList({ onBack }: ServerListProps) {
         { label: '← Back', value: 'back' },
     ];
 
-    // Build status summary
+    // Build status summary as plain text
     const statusSummary = keys(servers).length === 0
         ? 'No backend servers configured. Create a new server to get started.'
-        : [
-            connectedServers > 0 && (
-                <Text key="connected">
-                    <Text color="green">✓</Text>
-                    {' '}
-                    {connectedServers}
-                    {' '}
-                    connected
-                </Text>
-            ),
-            connectingServers > 0 && (
-                <Text key="connecting">
-                    {connectedServers > 0 && ', '}
-                    <Text color="yellow">⋯</Text>
-                    {' '}
-                    {connectingServers}
-                    {' '}
-                    connecting
-                </Text>
-            ),
-            failedServers > 0 && (
-                <Text key="failed">
-                    {(connectedServers > 0 || connectingServers > 0) && ', '}
-                    <Text color="red">✗</Text>
-                    {' '}
-                    {failedServers}
-                    {' '}
-                    failed
-                </Text>
-            ),
-        ];
-
-    const filteredStatusSummary = compact(statusSummary);
-
+        : compact([
+            connectedServers > 0 && `✓ ${connectedServers} connected`,
+            connectingServers > 0 && `⋯ ${connectingServers} connecting`,
+            failedServers > 0 && `✗ ${failedServers} failed`,
+        ]).join(', ');
     // Fixed UI height: padding(1) + header(1) + margin(1) + subtitle(1) + margin(1) + padding(1) = 6
     const fixedUIHeight = 6;
 
@@ -257,7 +233,7 @@ export function ServerList({ onBack }: ServerListProps) {
         <Box flexDirection="column" padding={1}>
             <ScreenHeader
               title="Backend Server Management"
-              subtitle={filteredStatusSummary}
+              subtitle={statusSummary}
             />
             <VirtualScrollList
               items={menuItems}

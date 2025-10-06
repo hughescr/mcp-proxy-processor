@@ -129,7 +129,8 @@ export function GroupList({ onBack }: GroupListProps) {
                     description: '',
                     tools:       [],
                     resources:   [],
-                }}
+                    prompts:     [],
+              }}
               onSave={handleSaveGroup}
               onDelete={async () => { /* noop for new group */ }}
               onCancel={handleCancel}
