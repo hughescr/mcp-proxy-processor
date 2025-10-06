@@ -3,14 +3,16 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Box, Text, useStdout, useInput } from 'ink';
-import { EnhancedSelectInput } from 'ink-enhanced-select-input';
-import { isError, map, repeat, replace, trim } from 'lodash';
+import { Box, useInput } from 'ink';
+import { isError, map, replace, trim } from 'lodash';
 import type { Tool } from '@modelcontextprotocol/sdk/types';
 import type { ToolOverride } from '../types/config.js';
-import { loadBackendServersConfig } from './config-utils.js';
-import { ClientManager } from '../backend/client-manager.js';
-import { DiscoveryService } from '../backend/discovery.js';
+import { useBackend } from './BackendContext.js';
+import { ScreenHeader } from './components/ui/ScreenHeader.js';
+import { LoadingScreen } from './components/ui/LoadingScreen.js';
+import { ErrorScreen } from './components/ui/ErrorScreen.js';
+import { VirtualScrollList } from './components/ui/VirtualScrollList.js';
+import { menuSeparator } from './design-system.js';
 
 interface ToolBrowserProps {
     onBack:    () => void
@@ -29,8 +31,7 @@ export function ToolBrowser({ onBack, onSelect }: ToolBrowserProps) {
     const [tools, setTools] = useState<ToolItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const { stdout } = useStdout();
-    const terminalWidth = stdout?.columns ?? 80;
+    const { discoverAllTools } = useBackend();
 
     // Handle Esc and Left Arrow for navigation
     useInput((input, key) => {
@@ -38,23 +39,13 @@ export function ToolBrowser({ onBack, onSelect }: ToolBrowserProps) {
             onBack();
         }
     });
+
     // Load and discover tools on mount
     useEffect(() => {
         void (async () => {
             try {
-                // Load backend server config
-                const backendConfig = await loadBackendServersConfig();
-
-                // Create client manager
-                const serverConfigs = new Map(Object.entries(backendConfig.mcpServers));
-                const clientManager = new ClientManager(serverConfigs);
-
-                // Connect to all servers
-                await clientManager.connectAll();
-
-                // Discover tools
-                const discoveryService = new DiscoveryService(clientManager);
-                const toolsMap = await discoveryService.discoverAllTools();
+                // Discover tools using shared backend connection
+                const toolsMap = await discoverAllTools();
 
                 // Flatten into array of ToolItems
                 const allTools: ToolItem[] = [];
@@ -66,15 +57,12 @@ export function ToolBrowser({ onBack, onSelect }: ToolBrowserProps) {
 
                 setTools(allTools);
                 setLoading(false);
-
-                // Cleanup: disconnect from servers
-                await clientManager.disconnectAll();
             } catch (err) {
                 setError(isError(err) ? err.message : String(err));
                 setLoading(false);
             }
         })();
-    }, []);
+    }, [discoverAllTools]);
 
     const handleToolSelect = (item: { value: string }) => {
         if(item.value === 'back') {
@@ -97,81 +85,34 @@ export function ToolBrowser({ onBack, onSelect }: ToolBrowserProps) {
 
     // Show loading state
     if(loading) {
-        return (
-            <Box flexDirection="column" padding={1}>
-                <Text bold color="cyan">
-                    Browse Backend Tools
-                </Text>
-                <Box marginTop={1}>
-                    <Text>Connecting to backend servers and discovering tools...</Text>
-                </Box>
-            </Box>
-        );
+        return <LoadingScreen title="Browse Backend Tools" message="Discovering tools from backend servers..." />;
     }
 
     // Show error state
     if(error) {
         return (
-            <Box flexDirection="column" padding={1}>
-                <Text bold color="cyan">
-                    Browse Backend Tools
-                </Text>
-                <Box marginTop={1}>
-                    <Text color="red">
-                        Error:
-                        {error}
-                    </Text>
-                </Box>
-                <Box marginTop={1}>
-                    <Text dimColor>Press Esc to go back</Text>
-                </Box>
-            </Box>
+            <ErrorScreen
+              title="Error Discovering Tools"
+              message={error}
+              troubleshooting={[
+                  '• Check that backend servers are properly configured',
+                  '• Verify backend server commands are valid and accessible',
+                  '• Ensure backend servers support the MCP protocol',
+                  '• Check network connectivity (for HTTP/SSE servers)',
+                  '• Review error message above for specific details',
+              ]}
+              helpText="Press Esc to return"
+            />
         );
     }
 
-    // Custom item component for colored rendering
-    // Parse label format: "toolName (serverName) - description"
-    const ToolItemComponent = ({ isSelected: _isSelected, label }: { isSelected?: boolean, label: string }) => {
-        // Parse the structured label
-        const match = /^(.+?) \((.+?)\) - (.+)$/.exec(label);
-        if(match) {
-            const [, toolName, serverName, description] = match;
-            return (
-                <Text>
-                    <Text bold color="cyan">{toolName}</Text>
-                    <Text dimColor color="yellow">
-{' '}
-(
-{serverName}
-)
-                    </Text>
-                    <Text>
-{' '}
--
-{description}
-                    </Text>
-                </Text>
-            );
-        }
-        // Fallback for special items like separator and back
-        return <Text>{label}</Text>;
-    };
-    // Build menu items with enhanced formatting and dynamic truncation
-    // Build menu items with enhanced formatting and dynamic truncation
+    // Build menu items
     const menuItems: { label: string, value: string, disabled?: boolean }[] = map(tools, (toolItem, index) => {
         // Clean description: remove newlines, collapse spaces
         const cleanDesc = trim(replace(replace(toolItem.tool.description ?? '', /[\r\n]+/g, ' '), /\s+/g, ' '));
-
-        // Calculate available space for description
-        const toolNameLength = toolItem.tool.name.length;
-        const serverNameLength = toolItem.serverName.length;
-        // Reserve space for: " (" + ") - " + "..." + indicator = ~15 chars buffer
-        const reservedSpace = toolNameLength + serverNameLength + 15;
-        const maxDescLength = Math.max(30, terminalWidth - reservedSpace);
-
-        const truncatedDesc = cleanDesc
-            ? cleanDesc.slice(0, maxDescLength) + (cleanDesc.length > maxDescLength ? '...' : '')
-            : 'No description';
+        const truncatedDesc = cleanDesc.length > 80
+            ? cleanDesc.slice(0, 80) + '...'
+            : cleanDesc || 'No description';
 
         return {
             label: `${toolItem.tool.name} (${toolItem.serverName}) - ${truncatedDesc}`,
@@ -180,32 +121,29 @@ export function ToolBrowser({ onBack, onSelect }: ToolBrowserProps) {
     });
 
     menuItems.push(
+        menuSeparator(),
         {
-            label:    repeat('\u2500', Math.min(40, terminalWidth - 5)),
-            value:    'sep1',
-            disabled: true,
-        },
-        {
-            label: '\u2190 Back',
+            label: '← Back',
             value: 'back',
         }
     );
 
+    // Fixed UI height: padding(1) + header(1) + margin(1) + subtitle(1) + margin(1) + padding(1) = 6
+    const fixedUIHeight = 6;
+
     return (
         <Box flexDirection="column" padding={1}>
-            <Box marginBottom={1}>
-                <Text bold color="cyan">
-                    Browse Backend Tools
-                </Text>
-            </Box>
-            <Box marginBottom={1}>
-                <Text dimColor>
-                    {tools.length === 0
-                        ? 'No tools found from backend servers'
-                        : `Found ${tools.length} tools. Select a tool to add to the group:`}
-                </Text>
-            </Box>
-            <EnhancedSelectInput items={menuItems} onSelect={handleToolSelect} itemComponent={ToolItemComponent} limit={15} />
+            <ScreenHeader
+              title="Browse Backend Tools"
+              subtitle={tools.length === 0
+                  ? 'No tools found from backend servers'
+                  : `Found ${tools.length} tools. Select a tool to add to the group:`}
+            />
+            <VirtualScrollList
+              items={menuItems}
+              onSelect={handleToolSelect}
+              fixedUIHeight={fixedUIHeight}
+            />
         </Box>
     );
 }

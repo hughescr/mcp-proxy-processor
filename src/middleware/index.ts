@@ -12,14 +12,17 @@
 import { readFile } from 'node:fs/promises';
 import { logger } from '@hughescr/logger';
 import { uniq, keys, isError, map, find } from 'lodash';
-import { GroupsConfigSchema, type GroupConfig, type GroupsConfig, type ToolOverride, type ResourceOverride } from '../types/config.js';
-import type { Tool, Resource } from '@modelcontextprotocol/sdk/types';
+import { deduplicatePrompts, deduplicateResources } from './resource-prompt-utils.js';
+import type { Tool, Resource, Prompt } from '@modelcontextprotocol/sdk/types.js';
+import { GroupsConfigSchema, type GroupConfig, type GroupsConfig, type ToolOverride } from '../types/config.js';
+import { SchemaGenerator } from './schema-generator.js';
 
 /**
  * Manages group configurations and applies overrides to backend tools/resources
  */
 export class GroupManager {
-    private groupsConfig: GroupsConfig;
+    private groupsConfig:    GroupsConfig;
+    private schemaGenerator: SchemaGenerator;
 
     /**
      * Create a new GroupManager
@@ -27,6 +30,7 @@ export class GroupManager {
      */
     constructor(private configPath: string) {
         this.groupsConfig = { groups: {} };
+        this.schemaGenerator = new SchemaGenerator();
     }
 
     /**
@@ -126,26 +130,69 @@ export class GroupManager {
         const result: Resource[] = [];
         const resources = group.resources ?? [];
 
-        for(const resourceOverride of resources) {
-            const serverResources = backendResources.get(resourceOverride.serverName);
+        // ResourceRef uses simple inclusion - no overrides applied
+        for(const resourceRef of resources) {
+            const serverResources = backendResources.get(resourceRef.serverName);
             if(!serverResources) {
-                logger.warn({ serverName: resourceOverride.serverName, groupName }, 'Backend server resources not found');
+                logger.warn({ serverName: resourceRef.serverName, groupName }, 'Backend server resources not found');
                 continue;
             }
 
-            const backendResource = find(serverResources, { uri: resourceOverride.originalUri });
+            const backendResource = find(serverResources, { uri: resourceRef.uri });
             if(!backendResource) {
-                logger.warn({ resourceUri: resourceOverride.originalUri, serverName: resourceOverride.serverName, groupName }, 'Backend resource not found');
+                logger.warn({ resourceUri: resourceRef.uri, serverName: resourceRef.serverName, groupName }, 'Backend resource not found');
                 continue;
             }
 
-            // Apply overrides
-            const finalResource = this.applyResourceOverrides(backendResource, resourceOverride);
-            result.push(finalResource);
+            // No overrides - use resource as-is from backend
+            result.push(backendResource);
         }
 
-        logger.debug({ groupName, resourceCount: result.length }, 'Built resources for group');
-        return result;
+        // Deduplicate resources by URI (first occurrence wins)
+        const deduplicated = deduplicateResources(result);
+
+        logger.debug({ groupName, resourceCount: deduplicated.length }, 'Built resources for group');
+        return deduplicated;
+    }
+
+    /**
+     * Get prompts for a group
+     * @param groupName - The name of the group
+     * @param backendPrompts - Map of backend server name to list of prompts from that server
+     * @returns Array of prompts, or empty array if group not found
+     */
+    getPromptsForGroup(groupName: string, backendPrompts: Map<string, Prompt[]>): Prompt[] {
+        const group = this.getGroup(groupName);
+        if(!group) {
+            logger.warn({ groupName }, 'Group not found');
+            return [];
+        }
+
+        const result: Prompt[] = [];
+        const prompts = group.prompts ?? [];
+
+        // PromptRef uses simple inclusion - no overrides applied
+        for(const promptRef of prompts) {
+            const serverPrompts = backendPrompts.get(promptRef.serverName);
+            if(!serverPrompts) {
+                logger.warn({ serverName: promptRef.serverName, groupName }, 'Backend server prompts not found');
+                continue;
+            }
+
+            const backendPrompt = find(serverPrompts, { name: promptRef.name });
+            if(!backendPrompt) {
+                logger.warn({ promptName: promptRef.name, serverName: promptRef.serverName, groupName }, 'Backend prompt not found');
+                continue;
+            }
+
+            // No overrides - use prompt as-is from backend
+            result.push(backendPrompt);
+        }
+        // Deduplicate prompts by name (first occurrence wins)
+        const deduplicated = deduplicatePrompts(result);
+
+        logger.debug({ groupName, promptCount: deduplicated.length }, 'Built prompts for group');
+        return deduplicated;
     }
 
     /**
@@ -155,25 +202,28 @@ export class GroupManager {
      * @returns A new tool with overrides applied
      */
     private applyToolOverrides(backendTool: Tool, override: ToolOverride): Tool {
+        // Determine the input schema to use
+        let inputSchema: { type: 'object', properties?: Record<string, unknown>, required?: string[] } & Record<string, unknown>;
+
+        if(override.argumentMapping?.type === 'template') {
+            // Generate schema from argument mapping
+            const generated = this.schemaGenerator.generateClientSchema(
+                backendTool.inputSchema,
+                override.argumentMapping
+            );
+            inputSchema = { type: 'object' as const, ...generated };
+        } else if(override.inputSchema) {
+            // Use explicit override
+            inputSchema = { type: 'object' as const, ...override.inputSchema };
+        } else {
+            // Use backend schema as-is (ensure it has the required type)
+            inputSchema = backendTool.inputSchema as { type: 'object', properties?: Record<string, unknown>, required?: string[] } & Record<string, unknown>;
+        }
+
         return {
             name:        override.name ?? backendTool.name,
             description: override.description ?? backendTool.description,
-            inputSchema: override.inputSchema ? { type: 'object' as const, ...override.inputSchema } : backendTool.inputSchema,
-        };
-    }
-
-    /**
-     * Apply overrides to a backend resource
-     * @param backendResource - The original resource from the backend server
-     * @param override - The override configuration
-     * @returns A new resource with overrides applied
-     */
-    private applyResourceOverrides(backendResource: Resource, override: ResourceOverride): Resource {
-        return {
-            uri:         backendResource.uri,
-            name:        override.name ?? backendResource.name,
-            description: override.description ?? backendResource.description,
-            mimeType:    override.mimeType ?? backendResource.mimeType,
+            inputSchema,
         };
     }
 

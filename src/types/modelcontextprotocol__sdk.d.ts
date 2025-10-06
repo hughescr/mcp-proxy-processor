@@ -59,6 +59,7 @@ declare module '@modelcontextprotocol/sdk/types' {
             required?:     string[]
             [key: string]: unknown
         }
+        [key: string]: unknown
     }
 
     export interface ListResourcesResult {
@@ -66,10 +67,11 @@ declare module '@modelcontextprotocol/sdk/types' {
     }
 
     export interface Resource {
-        uri:          string
-        name:         string
-        description?: string
-        mimeType?:    string
+        uri:           string
+        name:          string
+        description?:  string
+        mimeType?:     string
+        [key: string]: unknown
     }
 
     export interface CallToolResult {
@@ -88,5 +90,45 @@ declare module '@modelcontextprotocol/sdk/types' {
             text?:     string
             blob?:     string
         }[]
+    }
+
+    export interface ListPromptsResult {
+        prompts: Prompt[]
+    }
+
+    export interface Prompt {
+        name:         string
+        title?:       string
+        description?: string
+        arguments?:   PromptArgument[]
+        _meta?:       Record<string, unknown>
+        icons?:       {
+            src:           string
+            mimeType?:     string
+            sizes?:        string[]
+            [key: string]: unknown
+        }[]
+        [key: string]: unknown
+    }
+
+    export interface PromptArgument {
+        name:          string
+        description?:  string
+        required?:     boolean
+        [key: string]: unknown
+    }
+
+    export interface PromptMessage {
+        role:    'user' | 'assistant'
+        content: {
+            type:          string
+            text?:         string
+            [key: string]: unknown
+        }
+    }
+
+    export interface GetPromptResult {
+        description?: string
+        messages:     PromptMessage[]
     }
 }

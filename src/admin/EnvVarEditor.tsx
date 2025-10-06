@@ -4,9 +4,12 @@
 
 import React, { useState } from 'react';
 import { Box, Text, useInput } from 'ink';
-import { EnhancedSelectInput } from 'ink-enhanced-select-input';
-import TextInput from 'ink-text-input';
+import { SelectInput } from './components/SelectInput.js';
 import _ from 'lodash';
+import { CancellableTextInput } from './components/CancellableTextInput.js';
+import { ScreenHeader } from './components/ui/ScreenHeader.js';
+import { VirtualScrollList } from './components/ui/VirtualScrollList.js';
+import { menuSeparator } from './design-system.js';
 
 interface EnvVarEditorProps {
     env:      Record<string, string>
@@ -154,16 +157,17 @@ export function EnvVarEditor({ env, onSave, onCancel }: EnvVarEditorProps) {
     if(mode === 'edit-key') {
         return (
             <Box flexDirection="column" padding={1}>
-                <Text bold>Edit Variable Name</Text>
+                <ScreenHeader title="Edit Variable Name" />
                 <Box marginTop={1}>
                     <Text>Variable Name: </Text>
-                    <TextInput
+                    <CancellableTextInput
                       value={inputValue}
                       onChange={setInputValue}
                       onSubmit={handleKeySubmit}
+                      onCancel={() => setMode('var-menu')}
                     />
                 </Box>
-                <Text dimColor>Press Enter to save, Esc to cancel</Text>
+                <Text>Press Enter to save, Esc to cancel</Text>
             </Box>
         );
     }
@@ -172,16 +176,17 @@ export function EnvVarEditor({ env, onSave, onCancel }: EnvVarEditorProps) {
     if(mode === 'edit-value') {
         return (
             <Box flexDirection="column" padding={1}>
-                <Text bold>Edit Variable Value</Text>
+                <ScreenHeader title="Edit Variable Value" />
                 <Box marginTop={1}>
                     <Text>Value: </Text>
-                    <TextInput
+                    <CancellableTextInput
                       value={inputValue}
                       onChange={setInputValue}
                       onSubmit={handleValueSubmit}
+                      onCancel={() => setMode('var-menu')}
                     />
                 </Box>
-                <Text dimColor>Press Enter to save, Esc to cancel</Text>
+                <Text>Press Enter to save, Esc to cancel</Text>
             </Box>
         );
     }
@@ -191,7 +196,7 @@ export function EnvVarEditor({ env, onSave, onCancel }: EnvVarEditorProps) {
         const varToDelete = variables[selectedIndex];
         return (
             <Box flexDirection="column" padding={1}>
-                <Text bold color="red">Confirm Delete</Text>
+                <ScreenHeader title="Confirm Delete" />
                 <Box marginTop={1}>
                     <Text>
                         Delete variable "
@@ -200,7 +205,7 @@ export function EnvVarEditor({ env, onSave, onCancel }: EnvVarEditorProps) {
                     </Text>
                 </Box>
                 <Box marginTop={1}>
-                    <EnhancedSelectInput
+                    <SelectInput
                       items={[
                           { label: 'Yes, delete it', value: 'yes' },
                           { label: 'No, keep it', value: 'no' },
@@ -218,17 +223,15 @@ export function EnvVarEditor({ env, onSave, onCancel }: EnvVarEditorProps) {
         const varMenuItems = [
             { label: `Name: ${selectedVar.key}`, value: 'edit-key' },
             { label: `Value: ${selectedVar.value}`, value: 'edit-value' },
-            { label: '───────────────────', value: 'sep1', disabled: true },
+            menuSeparator(),
             { label: '🗑️  Remove variable', value: 'remove' },
             { label: '← Back to list', value: 'back' },
         ];
 
         return (
             <Box flexDirection="column" padding={1}>
-                <Box marginBottom={1}>
-                    <Text bold color="cyan">Edit Environment Variable</Text>
-                </Box>
-                <EnhancedSelectInput items={varMenuItems} onSelect={handleVarMenuSelect} />
+                <ScreenHeader title="Edit Environment Variable" />
+                <SelectInput items={varMenuItems} onSelect={handleVarMenuSelect} />
             </Box>
         );
     }
@@ -241,23 +244,23 @@ export function EnvVarEditor({ env, onSave, onCancel }: EnvVarEditorProps) {
 
     const listItems: { label: string, value: string, disabled?: boolean }[] = [
         ...varListItems,
-        ...(varListItems.length > 0 ? [{ label: '───────────────────', value: 'sep1', disabled: true }] : []),
+        ...(varListItems.length > 0 ? [menuSeparator()] : []),
         { label: '➕ Add new variable', value: 'add' },
         { label: '💾 Save and return', value: 'save' },
         { label: '← Cancel', value: 'cancel' },
     ];
 
+    // Calculate fixed UI height for virtual scrolling
+    // 1 (padding) + 2 (ScreenHeader) + optional subtitle + 1 (padding)
+    const fixedUIHeight = variables.length === 0 ? 5 : 4;
+
     return (
         <Box flexDirection="column" padding={1}>
-            <Box marginBottom={1}>
-                <Text bold color="cyan">Edit Environment Variables</Text>
-            </Box>
-            {variables.length === 0 && (
-                <Box marginBottom={1}>
-                    <Text dimColor>No variables defined yet</Text>
-                </Box>
-            )}
-            <EnhancedSelectInput items={listItems} onSelect={handleListSelect} />
+            <ScreenHeader
+              title="Edit Environment Variables"
+              subtitle={variables.length === 0 ? 'No variables defined yet' : undefined}
+            />
+            <VirtualScrollList items={listItems} onSelect={handleListSelect} fixedUIHeight={fixedUIHeight} />
         </Box>
     );
 }

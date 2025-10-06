@@ -20,6 +20,7 @@ coverage/
 *.swp
 *.swo
 *~
+.eslintcache
 
 # OS
 .DS_Store
@@ -36,8 +37,8 @@ lerna-debug.log*
 
 # Claude local config options
 .claude/settings.local.json
+.serena
 
 # Runtime config (user's actual configs, not examples)
 config/backend-servers.json
 config/groups.json
-.eslintcache

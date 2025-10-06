@@ -12,7 +12,7 @@
 
 import { logger } from '@hughescr/logger';
 import _ from 'lodash';
-import type { CallToolResult, ReadResourceResult } from '@modelcontextprotocol/sdk/types';
+import type { CallToolResult, ReadResourceResult, GetPromptResult } from '@modelcontextprotocol/sdk/types';
 import type { ClientManager } from './client-manager.js';
 
 /**
@@ -157,6 +157,65 @@ export class ProxyService {
     }
 
     /**
+     * Get a prompt from a backend server
+     */
+    async getPrompt(
+        serverName: string,
+        name: string,
+        args?: Record<string, string>,
+        timeoutMs?: number
+    ): Promise<GetPromptResult> {
+        const startTime = Date.now();
+        const timeout = timeoutMs ?? this.defaultTimeoutMs;
+
+        logger.info({ serverName, name, timeout }, 'Proxying prompt get to backend server');
+
+        const client = this.clientManager.getClient(serverName);
+        if(!client) {
+            throw new Error(`Not connected to backend server: ${serverName}`);
+        }
+
+        try {
+            // Create timeout promise
+            const timeoutPromise = new Promise<never>((_resolve, reject) => {
+                setTimeout(() => {
+                    reject(new Error(`Prompt get timed out after ${timeout}ms`));
+                }, timeout);
+            });
+
+            // Race between prompt get and timeout
+            const result = await Promise.race([
+                client.getPrompt({ name, arguments: args }),
+                timeoutPromise,
+            ]);
+
+            const duration = Date.now() - startTime;
+            logger.info(
+                { serverName, name, durationMs: duration },
+                'Prompt get completed successfully'
+            );
+
+            return result;
+        } catch (error) {
+            const duration = Date.now() - startTime;
+            logger.error(
+                {
+                    serverName,
+                    name,
+                    durationMs: duration,
+                    error:      _.isError(error) ? error.message : String(error),
+                },
+                'Prompt get failed'
+            );
+
+            // Re-throw with more context
+            throw new Error(
+                `Prompt get from ${serverName} (${name}) failed: ${_.isError(error) ? error.message : String(error)}`
+            );
+        }
+    }
+
+    /**
      * Call a tool with automatic retry on failure
      */
     async callToolWithRetry(
@@ -251,6 +310,55 @@ export class ProxyService {
         }
 
         throw lastError ?? new Error('Resource read failed with unknown error');
+    }
+
+    /**
+     * Get a prompt with automatic retry on failure
+     */
+    async getPromptWithRetry(
+        serverName: string,
+        name: string,
+        args?: Record<string, string>,
+        options: {
+            maxRetries?:   number
+            retryDelayMs?: number
+            timeoutMs?:    number
+        } = {}
+    ): Promise<GetPromptResult> {
+        const maxRetries = options.maxRetries ?? 2;
+        const retryDelayMs = options.retryDelayMs ?? 1000;
+        let lastError: Error | undefined;
+
+        for(let attempt = 0; attempt <= maxRetries; attempt++) {
+            try {
+                if(attempt > 0) {
+                    logger.info(
+                        { serverName, name, attempt, maxRetries },
+                        'Retrying prompt get'
+                    );
+                    await new Promise(resolve => setTimeout(resolve, retryDelayMs * attempt));
+                }
+
+                return await this.getPrompt(serverName, name, args, options.timeoutMs);
+            } catch (error) {
+                lastError = _.isError(error) ? error : new Error(String(error));
+
+                if(attempt === maxRetries) {
+                    logger.error(
+                        { serverName, name, attempt, maxRetries },
+                        'Prompt get failed after all retries'
+                    );
+                    break;
+                }
+
+                logger.warn(
+                    { serverName, name, attempt, maxRetries, error: lastError.message },
+                    'Prompt get failed, will retry'
+                );
+            }
+        }
+
+        throw lastError ?? new Error('Prompt get failed with unknown error');
     }
 
     /**

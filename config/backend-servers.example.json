@@ -1,50 +1,28 @@
 {
   "mcpServers": {
-    "browser": {
-      "command": "/opt/homebrew/bin/bunx",
-      "args": [
-        "--bun",
-        "@playwright/mcp@latest",
-        "--browser",
-        "webkit",
-        "--user-agent",
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Safari/605.1.15"
-      ]
+    "time": {
+      "command": "uvx",
+      "args": ["mcp-server-time@latest", "--local-timezone=America/Los_Angeles"]
+    },
+    "calculator": {
+      "command": "uvx",
+      "args": ["--from", "calculator-mcp-server", "--", "calculator-mcp-server", "--stdio"]
     },
     "search": {
-      "command": "/opt/homebrew/bin/bunx",
-      "args": [
-        "--bun",
-        "mcp-omnisearch@latest"
-      ],
+      "command": "bunx",
+      "args": ["--bun", "mcp-omnisearch@latest"],
       "env": {
         "BRAVE_API_KEY": "<YOUR_BRAVE_API_KEY>",
         "PERPLEXITY_API_KEY": "<YOUR_PERPLEXITY_API_KEY>"
       }
     },
-    "time": {
-      "command": "uvx",
-      "args": [
-        "mcp-server-time@latest",
-        "--local-timezone=America/Los_Angeles"
-      ]
-    },
-    "calculator": {
-      "command": "/opt/homebrew/bin/uvx",
-      "args": [
-        "--from",
-        "calculator-mcp-server@git+https://github.com/hughescr/calculator-mcp-server.git",
-        "--",
-        "calculator-mcp-server",
-        "--stdio"
-      ]
+    "browser": {
+      "command": "bunx",
+      "args": ["--bun", "@playwright/mcp@latest", "--browser", "webkit"]
     },
     "excel": {
-      "command": "/opt/homebrew/bin/bunx",
-      "args": [
-        "--bun",
-        "@negokaz/excel-mcp-server@latest"
-      ],
+      "command": "bunx",
+      "args": ["--bun", "@negokaz/excel-mcp-server@latest"],
       "env": {
         "EXCEL_MCP_PAGING_CELLS_LIMIT": "4000"
       }

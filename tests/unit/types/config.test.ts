@@ -7,7 +7,6 @@ import {
     BackendServerConfigSchema,
     BackendServersConfigSchema,
     ToolOverrideSchema,
-    ResourceOverrideSchema,
     GroupConfigSchema,
     GroupsConfigSchema
 } from '../../../src/types/config.js';
@@ -155,49 +154,6 @@ describe('Configuration Schemas', () => {
         });
     });
 
-    describe('ResourceOverrideSchema', () => {
-        it('should validate minimal resource override', () => {
-            const valid = {
-                serverName:  'time',
-                originalUri: 'config://app',
-            };
-
-            const result = ResourceOverrideSchema.safeParse(valid);
-            expect(result.success).toBe(true);
-        });
-
-        it('should validate full resource override', () => {
-            const valid = {
-                serverName:  'time',
-                originalUri: 'config://app',
-                name:        'Configuration',
-                description: 'App configuration',
-                mimeType:    'application/json',
-            };
-
-            const result = ResourceOverrideSchema.safeParse(valid);
-            expect(result.success).toBe(true);
-        });
-
-        it('should reject missing serverName', () => {
-            const invalid = {
-                originalUri: 'config://app',
-            };
-
-            const result = ResourceOverrideSchema.safeParse(invalid);
-            expect(result.success).toBe(false);
-        });
-
-        it('should reject missing originalUri', () => {
-            const invalid = {
-                serverName: 'server',
-            };
-
-            const result = ResourceOverrideSchema.safeParse(invalid);
-            expect(result.success).toBe(false);
-        });
-    });
-
     describe('GroupConfigSchema', () => {
         it('should validate minimal group config', () => {
             const valid = {
@@ -224,8 +180,8 @@ describe('Configuration Schemas', () => {
                 ],
                 resources: [
                     {
-                        serverName:  'time',
-                        originalUri: 'config://app',
+                        serverName: 'time',
+                        uri:        'config://app',
                     },
                 ],
             };

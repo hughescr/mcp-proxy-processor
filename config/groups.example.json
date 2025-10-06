@@ -1,8 +1,8 @@
 {
   "groups": {
-    "standard_tools": {
-      "name": "standard_tools",
-      "description": "Basic tools for everyday use - time and simple math",
+    "basic_tools": {
+      "name": "basic_tools",
+      "description": "Simple example showing basic tool passthrough with no overrides",
       "tools": [
         {
           "serverName": "time",
@@ -11,18 +11,218 @@
         {
           "serverName": "calculator",
           "originalName": "calculate"
-        },
+        }
+      ],
+      "resources": []
+    },
+    "improved_calculator": {
+      "name": "improved_calculator",
+      "description": "Example showing how to fix a confusing tool description",
+      "tools": [
         {
           "serverName": "calculator",
           "originalName": "solve",
-          "description": "Solve algebraic equations for a variable. Provide the equation as a string with one variable (e.g., '2*x + 5 = 13' or 'y^2 - 4 = 0'). This override fixes the confusing original description."
+          "description": "Solve algebraic equations for a variable. Provide the equation as a string with one variable (e.g., '2*x + 5 = 13' or 'y^2 - 4 = 0'). Returns the solution(s) for the variable."
+        }
+      ],
+      "resources": []
+    },
+    "simplified_search": {
+      "name": "simplified_search",
+      "description": "Example showing how to hide API keys and inject constant parameters",
+      "tools": [
+        {
+          "serverName": "search",
+          "originalName": "web_search",
+          "name": "search_web",
+          "description": "Search the web using Brave search. Returns titles, URLs, and snippets.",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "query": {
+                "type": "string",
+                "description": "Search query"
+              },
+              "limit": {
+                "type": "number",
+                "description": "Maximum number of results (optional, defaults to 10)"
+              }
+            },
+            "required": ["query"]
+          },
+          "argumentMapping": {
+            "type": "template",
+            "mappings": {
+              "query": {
+                "type": "passthrough",
+                "source": "query"
+              },
+              "provider": {
+                "type": "constant",
+                "value": "brave"
+              },
+              "limit": {
+                "type": "default",
+                "source": "limit",
+                "default": 10
+              }
+            }
+          }
+        }
+      ],
+      "resources": []
+    },
+    "timezone_aware_tools": {
+      "name": "timezone_aware_tools",
+      "description": "Example showing how to add default values for parameters",
+      "tools": [
+        {
+          "serverName": "time",
+          "originalName": "get_current_time",
+          "description": "Get current time in any timezone (defaults to America/Los_Angeles if not specified)",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "timezone": {
+                "type": "string",
+                "description": "IANA timezone name (optional, defaults to America/Los_Angeles)"
+              }
+            }
+          },
+          "argumentMapping": {
+            "type": "template",
+            "mappings": {
+              "timezone": {
+                "type": "default",
+                "source": "timezone",
+                "default": "America/Los_Angeles"
+              }
+            }
+          }
+        }
+      ],
+      "resources": []
+    },
+    "cleaned_browser": {
+      "name": "cleaned_browser",
+      "description": "Example showing how to remove unnecessary optional parameters to reduce context bloat",
+      "tools": [
+        {
+          "serverName": "browser",
+          "originalName": "browser_navigate",
+          "description": "Navigate to a URL",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "url": {
+                "type": "string",
+                "description": "URL to navigate to"
+              }
+            },
+            "required": ["url"]
+          },
+          "argumentMapping": {
+            "type": "template",
+            "mappings": {
+              "url": {
+                "type": "passthrough",
+                "source": "url"
+              }
+            }
+          }
+        },
+        {
+          "serverName": "browser",
+          "originalName": "browser_snapshot",
+          "description": "Capture accessibility snapshot of current page"
+        }
+      ],
+      "resources": []
+    },
+    "research_tools": {
+      "name": "research_tools",
+      "description": "Real-world example: focused toolkit for web research combining multiple backend servers",
+      "tools": [
+        {
+          "serverName": "search",
+          "originalName": "web_search",
+          "name": "search_web",
+          "description": "Search the web using Brave. Returns titles, URLs, and snippets.",
+          "argumentMapping": {
+            "type": "template",
+            "mappings": {
+              "query": {
+                "type": "passthrough",
+                "source": "query"
+              },
+              "provider": {
+                "type": "constant",
+                "value": "brave"
+              },
+              "limit": {
+                "type": "default",
+                "source": "limit",
+                "default": 10
+              },
+              "include_domains": {
+                "type": "passthrough",
+                "source": "include_domains"
+              },
+              "exclude_domains": {
+                "type": "passthrough",
+                "source": "exclude_domains"
+              }
+            }
+          }
+        },
+        {
+          "serverName": "search",
+          "originalName": "ai_search",
+          "name": "ai_search",
+          "description": "AI-powered search with reasoning using Perplexity. Use for complex research questions.",
+          "argumentMapping": {
+            "type": "template",
+            "mappings": {
+              "query": {
+                "type": "passthrough",
+                "source": "query"
+              },
+              "provider": {
+                "type": "constant",
+                "value": "perplexity"
+              }
+            }
+          }
+        },
+        {
+          "serverName": "browser",
+          "originalName": "browser_navigate"
+        },
+        {
+          "serverName": "browser",
+          "originalName": "browser_snapshot"
+        },
+        {
+          "serverName": "time",
+          "originalName": "get_current_time",
+          "description": "Get current time for timestamping research findings",
+          "argumentMapping": {
+            "type": "template",
+            "mappings": {
+              "timezone": {
+                "type": "default",
+                "source": "timezone",
+                "default": "America/Los_Angeles"
+              }
+            }
+          }
         }
       ],
       "resources": []
     },
     "financial_tools": {
       "name": "financial_tools",
-      "description": "Tools for financial analysis including Excel, calculator, web search, and browser automation",
+      "description": "Real-world example: comprehensive toolkit for financial analysis",
       "tools": [
         {
           "serverName": "calculator",
@@ -42,8 +242,27 @@
         },
         {
           "serverName": "search",
-          "originalName": "brave_web_search",
-          "description": "Search the web for financial information, SEC filings, market data, and company information. Returns titles, URLs, and snippets."
+          "originalName": "web_search",
+          "name": "search_financial_data",
+          "description": "Search the web for financial information, SEC filings, market data, and company information",
+          "argumentMapping": {
+            "type": "template",
+            "mappings": {
+              "query": {
+                "type": "passthrough",
+                "source": "query"
+              },
+              "provider": {
+                "type": "constant",
+                "value": "brave"
+              },
+              "limit": {
+                "type": "default",
+                "source": "limit",
+                "default": 10
+              }
+            }
+          }
         },
         {
           "serverName": "browser",
@@ -52,37 +271,6 @@
         {
           "serverName": "browser",
           "originalName": "browser_snapshot"
-        }
-      ],
-      "resources": []
-    },
-    "research_tools": {
-      "name": "research_tools",
-      "description": "Tools for web research, AI-powered search, and browser automation",
-      "tools": [
-        {
-          "serverName": "search",
-          "originalName": "brave_web_search"
-        },
-        {
-          "serverName": "search",
-          "originalName": "perplexity_search"
-        },
-        {
-          "serverName": "browser",
-          "originalName": "browser_navigate"
-        },
-        {
-          "serverName": "browser",
-          "originalName": "browser_snapshot"
-        },
-        {
-          "serverName": "browser",
-          "originalName": "browser_click"
-        },
-        {
-          "serverName": "time",
-          "originalName": "get_current_time"
         }
       ],
       "resources": []

@@ -3,12 +3,16 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Box, Text, useInput } from 'ink';
-import { EnhancedSelectInput } from 'ink-enhanced-select-input';
-import { isError, keys, chain, repeat } from 'lodash';
+import { Box, useInput } from 'ink';
+import { isError, keys, chain } from 'lodash';
 import type { GroupConfig } from '../types/config.js';
 import { loadGroupsConfig, saveGroupsConfig } from './config-utils.js';
 import { GroupEditor } from './GroupEditor.js';
+import { ScreenHeader } from './components/ui/ScreenHeader.js';
+import { LoadingScreen } from './components/ui/LoadingScreen.js';
+import { ErrorScreen } from './components/ui/ErrorScreen.js';
+import { VirtualScrollList } from './components/ui/VirtualScrollList.js';
+import { menuSeparator } from './design-system.js';
 
 interface GroupListProps {
     onBack: () => void
@@ -33,11 +37,15 @@ export function GroupList({ onBack }: GroupListProps) {
         }
     });
 
+    const [loadingStatus, setLoadingStatus] = useState<string>('Loading groups configuration...');
+
     // Load groups on mount
     useEffect(() => {
         void (async () => {
             try {
+                setLoadingStatus('Reading groups configuration...');
                 const config = await loadGroupsConfig();
+                setLoadingStatus('Processing groups...');
                 setGroups(config.groups);
                 setLoading(false);
             } catch (err) {
@@ -59,9 +67,18 @@ export function GroupList({ onBack }: GroupListProps) {
         }
     };
 
-    const handleSaveGroup = async (groupName: string, group: GroupConfig) => {
+    const handleSaveGroup = async (originalGroupName: string, newGroupName: string, group: GroupConfig) => {
         try {
-            const newGroups = { ...groups, [groupName]: group };
+            const newGroups = { ...groups };
+
+            // If renaming, remove the old group entry
+            if(originalGroupName && originalGroupName !== newGroupName) {
+                delete newGroups[originalGroupName];
+            }
+
+            // Add/update the group with the new name
+            newGroups[newGroupName] = group;
+
             await saveGroupsConfig({ groups: newGroups });
             setGroups(newGroups);
             setView('list');
@@ -112,7 +129,8 @@ export function GroupList({ onBack }: GroupListProps) {
                     description: '',
                     tools:       [],
                     resources:   [],
-                }}
+                    prompts:     [],
+              }}
               onSave={handleSaveGroup}
               onDelete={async () => { /* noop for new group */ }}
               onCancel={handleCancel}
@@ -122,23 +140,22 @@ export function GroupList({ onBack }: GroupListProps) {
 
     // Show loading state
     if(loading) {
-        return (
-            <Box padding={1}>
-                <Text>Loading groups...</Text>
-            </Box>
-        );
+        return <LoadingScreen message={loadingStatus} />;
     }
 
     // Show error state
     if(error) {
         return (
-            <Box flexDirection="column" padding={1}>
-                <Text color="red">
-                    Error:
-                    {error}
-                </Text>
-                <Text dimColor>Press Esc to go back</Text>
-            </Box>
+            <ErrorScreen
+              title="Error Loading Groups"
+              message={error}
+              troubleshooting={[
+                  '• Check that config/groups.json exists and is readable',
+                  '• Verify the file contains valid JSON',
+                  '• Ensure you have permission to read the file',
+              ]}
+              helpText="Press Esc to return to main menu"
+            />
         );
     }
 
@@ -151,26 +168,27 @@ export function GroupList({ onBack }: GroupListProps) {
                 value: name,
             }))
             .value(),
-        { label: repeat('─', 40), value: 'sep1', disabled: true },
+        menuSeparator(),
         { label: '+ Create New Group', value: 'create' },
         { label: '← Back', value: 'back' },
     ];
 
+    // Fixed UI height: padding(1) + header(1) + margin(1) + subtitle(1) + margin(1) + padding(1) = 6
+    const fixedUIHeight = 6;
+
     return (
         <Box flexDirection="column" padding={1}>
-            <Box marginBottom={1}>
-                <Text bold color="cyan">
-                    Group Management
-                </Text>
-            </Box>
-            <Box marginBottom={1}>
-                <Text dimColor>
-                    {keys(groups).length === 0
-                        ? 'No groups configured. Create a new group to get started.'
-                        : 'Select a group to edit, or create a new one:'}
-                </Text>
-            </Box>
-            <EnhancedSelectInput items={menuItems} onSelect={handleGroupSelect} />
+            <ScreenHeader
+              title="Group Management"
+              subtitle={keys(groups).length === 0
+                  ? 'No groups configured. Create a new group to get started.'
+                  : 'Select a group to edit, or create a new one:'}
+            />
+            <VirtualScrollList
+              items={menuItems}
+              onSelect={handleGroupSelect}
+              fixedUIHeight={fixedUIHeight}
+            />
         </Box>
     );
 }

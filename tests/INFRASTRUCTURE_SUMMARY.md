@@ -81,7 +81,6 @@ Configuration schema validation tests covering:
 - BackendServerConfigSchema validation
 - BackendServersConfigSchema validation
 - ToolOverrideSchema validation
-- ResourceOverrideSchema validation
 - GroupConfigSchema validation
 - GroupsConfigSchema validation
 - Mock factory validation

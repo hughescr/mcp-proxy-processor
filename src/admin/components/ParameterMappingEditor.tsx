@@ -2,35 +2,38 @@
  * Parameter Mapping Editor Component - Edit argument mappings for tools
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Box, Text, useInput } from 'ink';
-import { EnhancedSelectInput } from 'ink-enhanced-select-input';
-import TextInput from 'ink-text-input';
-import { repeat, map, keys, startsWith, replace } from 'lodash';
+import { SelectInput } from './SelectInput.js';
+import { CancellableTextInput } from './CancellableTextInput.js';
+import { map, keys, isArray as _isArray } from 'lodash';
 import type { ArgumentMapping, TemplateMapping, ParameterMapping } from '../../types/config.js';
-import { ArgumentTransformer } from '../../middleware/argument-transformer.js';
+import { ScreenHeader } from './ui/ScreenHeader.js';
+import { ScrollableJsonViewer } from './ui/ScrollableJsonViewer.js';
+import { menuSeparator } from '../design-system.js';
 
 interface ParameterMappingEditorProps {
     /** Current argument mapping (may be undefined if none exists) */
-    mapping:        ArgumentMapping | undefined
+    mapping:             ArgumentMapping | undefined
     /** Client input schema to validate against */
-    clientSchema?:  Record<string, unknown>
+    clientSchema?:       Record<string, unknown>
     /** Backend input schema for reference */
-    backendSchema?: Record<string, unknown>
+    backendSchema?:      Record<string, unknown>
+    /** Backend parameter name to edit directly (skips main menu) */
+    initialParamToEdit?: string
     /** Called when user saves the mapping */
-    onSave:         (mapping: ArgumentMapping | undefined) => void
+    onSave:              (mapping: ArgumentMapping | undefined) => void
     /** Called when user cancels */
-    onCancel:       () => void
+    onCancel:            () => void
 }
 
 type EditorMode
-    = | 'menu'
-      | 'select-type'
-      | 'select-param'
+    = | 'select-type'
       | 'select-source'
       | 'edit-mapping'
       | 'edit-value'
-      | 'test-preview';
+      | 'edit-name'
+      | 'edit-description';
 
 interface MappingEditorState {
     /** Parameter name being edited */
@@ -43,21 +46,60 @@ const MAPPING_TYPE_OPTIONS = [
     { label: 'Passthrough - Copy parameter unchanged', value: 'passthrough' },
     { label: 'Constant - Always use a fixed value', value: 'constant' },
     { label: 'Default - Use client value or default', value: 'default' },
-    { label: 'Rename - Copy from different parameter', value: 'rename' },
+    { label: 'Omit - Hide parameter from agent', value: 'omit' },
 ];
 
-const GUIDANCE_TEXT = `
-📋 Argument Mapping Guide
+/**
+ * Build menu items for parameter mapping editor
+ */
+const buildMappingEditorMenuItems = (paramMapping: ParameterMapping): { label: string, value: string, disabled?: boolean }[] => {
+    const menuItems: { label: string, value: string, disabled?: boolean }[] = [];
 
-Template Mappings:
-• Passthrough: Copy parameter from client to backend unchanged
-• Constant: Always use a fixed value, ignore client input
-• Default: Use client's value if provided, otherwise use default
-• Rename: Copy from a different client parameter name
+    menuItems.push({
+        label: `Type: ${paramMapping.type}`,
+        value: 'change-type',
+    });
 
-Each backend parameter can have one mapping.
-Missing parameters won't be sent to backend.
-`;
+    if(paramMapping.type === 'passthrough' || paramMapping.type === 'rename' || paramMapping.type === 'default') {
+        menuItems.push({
+            label: `Source Parameter: ${paramMapping.source || '(not set)'}`,
+            value: 'select-source',
+        });
+    }
+
+    if(paramMapping.type === 'constant') {
+        menuItems.push({
+            label: `Constant Value: ${JSON.stringify(paramMapping.value)}`,
+            value: 'edit-constant',
+        });
+    }
+
+    if(paramMapping.type === 'default') {
+        menuItems.push({
+            label: `Default Value: ${JSON.stringify(paramMapping.default)}`,
+            value: 'edit-default',
+        });
+    }
+
+    // Add name/description editors for non-constant/non-omit types
+    if(paramMapping.type === 'passthrough' || paramMapping.type === 'default' || paramMapping.type === 'rename') {
+        menuItems.push({
+            label: `Agent Parameter Name: ${paramMapping.name ?? '(use backend name)'}`,
+            value: 'edit-name',
+        }, {
+            label: `Agent Parameter Description: ${paramMapping.description ?? '(use backend description)'}`,
+            value: 'edit-description',
+        });
+    }
+
+    menuItems.push(
+        menuSeparator(),
+        { label: '💾 Save Parameter', value: 'save-param' },
+        { label: '← Back', value: 'back' }
+    );
+
+    return menuItems;
+};
 
 /**
  * Editor for argument mappings with type-specific controls
@@ -66,34 +108,41 @@ export function ParameterMappingEditor({
     mapping,
     clientSchema,
     backendSchema,
+    initialParamToEdit,
     onSave,
     onCancel,
 }: ParameterMappingEditorProps) {
-    const [mode, setMode] = useState<EditorMode>('menu');
+    const [mode, setMode] = useState<EditorMode>('edit-mapping');
     const [currentMapping, setCurrentMapping] = useState<ArgumentMapping | undefined>(mapping);
     const [editState, setEditState] = useState<MappingEditorState | null>(null);
     const [inputValue, setInputValue] = useState('');
-    const [testInput, setTestInput] = useState('{}');
-    const [testOutput, setTestOutput] = useState<string | null>(null);
+    const [initialized, setInitialized] = useState(false);
 
-    const transformer = new ArgumentTransformer();
-
-    // Handle Esc for navigation
+    // Handle Esc key in edit-mapping mode
     useInput((input, key) => {
-        if(mode === 'menu') {
-            if(key.escape || key.leftArrow) {
-                onCancel();
-            }
-        } else if(mode === 'test-preview') {
-            if(key.escape) {
-                setMode('menu');
-            }
-        } else if(mode === 'edit-value') {
-            if(key.escape) {
-                setMode('edit-mapping');
-            }
+        if(mode === 'edit-mapping' && key.escape) {
+            onCancel();
         }
     });
+
+    // Initialize with direct parameter edit if specified
+    useEffect(() => {
+        if(initialParamToEdit && !initialized) {
+            setInitialized(true);
+
+            const templateMapping: TemplateMapping = currentMapping?.type === 'template'
+                ? currentMapping
+                : { type: 'template', mappings: {} };
+
+            const paramMapping = templateMapping.mappings[initialParamToEdit] ?? {
+                type:   'passthrough',
+                source: initialParamToEdit,
+            };
+
+            setEditState({ paramName: initialParamToEdit, paramMapping });
+            setMode('edit-mapping');
+        }
+    }, [initialParamToEdit, initialized, currentMapping]);
 
     const getClientParams = (): string[] => {
         if(!clientSchema?.properties) {
@@ -101,87 +150,6 @@ export function ParameterMappingEditor({
         }
         const props = clientSchema.properties as Record<string, unknown>;
         return keys(props);
-    };
-
-    const getBackendParams = (): string[] => {
-        if(!backendSchema?.properties) {
-            return [];
-        }
-        const props = backendSchema.properties as Record<string, unknown>;
-        return keys(props);
-    };
-
-    const handleRemoveParam = (paramName: string) => {
-        if(currentMapping?.type === 'template') {
-            const newMappings = { ...currentMapping.mappings };
-            delete newMappings[paramName];
-            setCurrentMapping({
-                type:     'template',
-                mappings: newMappings,
-            });
-        }
-    };
-
-    const handleEditParam = (paramName: string) => {
-        if(currentMapping?.type === 'template') {
-            const paramMapping = currentMapping.mappings[paramName];
-            if(paramMapping) {
-                setEditState({ paramName, paramMapping });
-                setMode('edit-mapping');
-            }
-        }
-    };
-
-    const handleMenuSelect = (item: { value: string }) => {
-        switch(item.value) {
-            case 'save':
-                onSave(currentMapping);
-                break;
-            case 'cancel':
-                onCancel();
-                break;
-            case 'clear-mapping':
-                setCurrentMapping(undefined);
-                break;
-            case 'add-param':
-                setMode('select-param');
-                break;
-            case 'test-preview':
-                setMode('test-preview');
-                break;
-            case 'remove-template':
-                setCurrentMapping(undefined);
-                break;
-            default:
-                // Editing specific parameter
-                if(startsWith(item.value, 'edit-')) {
-                    const paramName = replace(item.value, 'edit-', '');
-                    handleEditParam(paramName);
-                } else if(startsWith(item.value, 'remove-')) {
-                    const paramName = replace(item.value, 'remove-', '');
-                    handleRemoveParam(paramName);
-                }
-                break;
-        }
-    };
-
-    const handleParamSelect = (item: { value: string }) => {
-        if(item.value === 'cancel') {
-            setMode('menu');
-            return;
-        }
-
-        // Initialize new parameter mapping with passthrough
-        const newMapping: ParameterMapping = {
-            type:   'passthrough',
-            source: item.value,
-        };
-
-        setEditState({
-            paramName:    item.value,
-            paramMapping: newMapping,
-        });
-        setMode('edit-mapping');
     };
 
     const createPassthroughMapping = (paramName: string): ParameterMapping => ({
@@ -200,9 +168,8 @@ export function ParameterMappingEditor({
         'default': '',
     });
 
-    const createRenameMapping = (): ParameterMapping => ({
-        type:   'rename',
-        source: '',
+    const createOmitMapping = (): ParameterMapping => ({
+        type: 'omit',
     });
 
     const handleMappingTypeSelect = (item: { value: string }) => {
@@ -222,8 +189,8 @@ export function ParameterMappingEditor({
             case 'default':
                 newParamMapping = createDefaultMapping(editState.paramName);
                 break;
-            case 'rename':
-                newParamMapping = createRenameMapping();
+            case 'omit':
+                newParamMapping = createOmitMapping();
                 break;
             default:
                 return;
@@ -267,7 +234,53 @@ export function ParameterMappingEditor({
         templateMapping.mappings[editState.paramName] = updatedMapping;
         setCurrentMapping(templateMapping);
         setEditState(null);
-        setMode('menu');
+        onCancel();
+    };
+
+    const handleNameSubmit = (value: string) => {
+        if(!editState) {
+            return;
+        }
+
+        const { paramMapping } = editState;
+        let updatedMapping = paramMapping;
+
+        if(paramMapping.type === 'passthrough' || paramMapping.type === 'default' || paramMapping.type === 'rename') {
+            updatedMapping = { ...paramMapping, name: value || undefined };
+        }
+
+        // Save to current mapping
+        const templateMapping: TemplateMapping = currentMapping?.type === 'template'
+            ? currentMapping
+            : { type: 'template', mappings: {} };
+
+        templateMapping.mappings[editState.paramName] = updatedMapping;
+        setCurrentMapping(templateMapping);
+        setEditState({ ...editState, paramMapping: updatedMapping });
+        setMode('edit-mapping');
+    };
+
+    const handleDescriptionSubmit = (value: string) => {
+        if(!editState) {
+            return;
+        }
+
+        const { paramMapping } = editState;
+        let updatedMapping = paramMapping;
+
+        if(paramMapping.type === 'passthrough' || paramMapping.type === 'default' || paramMapping.type === 'rename') {
+            updatedMapping = { ...paramMapping, description: value || undefined };
+        }
+
+        // Save to current mapping
+        const templateMapping: TemplateMapping = currentMapping?.type === 'template'
+            ? currentMapping
+            : { type: 'template', mappings: {} };
+
+        templateMapping.mappings[editState.paramName] = updatedMapping;
+        setCurrentMapping(templateMapping);
+        setEditState({ ...editState, paramMapping: updatedMapping });
+        setMode('edit-mapping');
     };
 
     const updateMappingSource = (mapping: ParameterMapping, source: string): ParameterMapping => {
@@ -294,57 +307,6 @@ export function ParameterMappingEditor({
         setMode('edit-mapping');
     };
 
-    const handleTestPreview = async () => {
-        if(!currentMapping) {
-            return;
-        }
-
-        try {
-            const input = JSON.parse(testInput) as unknown;
-            const result = await transformer.test(input, currentMapping);
-
-            if(result.success) {
-                setTestOutput(JSON.stringify(result.output, null, 2));
-            } else {
-                setTestOutput(`Error: ${result.error}`);
-            }
-        } catch (err) {
-            setTestOutput(`Invalid JSON: ${String(err)}`);
-        }
-    };
-
-    const renderTestPreview = () => {
-        return (
-            <Box flexDirection="column" padding={1}>
-                <Text bold color="cyan">Test Argument Mapping</Text>
-
-                <Box marginTop={1}>
-                    <Text>Sample Input (JSON): </Text>
-                </Box>
-                <Box marginLeft={2}>
-                    <TextInput
-                      value={testInput}
-                      onChange={setTestInput}
-                      onSubmit={() => void handleTestPreview()}
-                    />
-                </Box>
-
-                {testOutput && (
-                    <Box marginTop={1} flexDirection="column">
-                        <Text bold>Output:</Text>
-                        <Box marginLeft={2} borderStyle="single" paddingX={1}>
-                            <Text color="green">{testOutput}</Text>
-                        </Box>
-                    </Box>
-                )}
-
-                <Box marginTop={1}>
-                    <Text dimColor>Press Enter to test, Esc to return to menu</Text>
-                </Box>
-            </Box>
-        );
-    };
-
     const renderValueEditor = () => {
         if(!editState) {
             return null;
@@ -353,32 +315,180 @@ export function ParameterMappingEditor({
         const isConstant = editState.paramMapping.type === 'constant';
         const label = isConstant ? 'Constant Value' : 'Default Value';
 
+        const title = `Edit ${label} for: ${editState.paramName}`;
         return (
             <Box flexDirection="column" padding={1}>
-                <Text bold color="cyan">
-                    Edit
-{' '}
-{label}
-{' '}
-for:
-{' '}
-{editState.paramName}
-                </Text>
+                <ScreenHeader title={title} />
                 <Box marginTop={1}>
                     <Text>Value (use JSON for non-strings): </Text>
-                    <TextInput
+                    <CancellableTextInput
                       value={inputValue}
                       onChange={setInputValue}
                       onSubmit={handleValueSubmit}
+                      onCancel={() => setMode('edit-mapping')}
                     />
                 </Box>
                 <Box marginTop={1}>
-                    <Text dimColor>
+                    <Text>
 Examples: "text", 123, true,
-{'{"key":"value"}'}
+{'{"{"key":"value"}"}'}
                     </Text>
                 </Box>
-                <Text dimColor>Press Enter to save, Esc to cancel</Text>
+                <Text>Press Enter to save, Esc to cancel</Text>
+            </Box>
+        );
+    };
+
+    const getBackendParamInfo = (paramName: string): string => {
+        if(!backendSchema?.properties) {
+            return 'No schema available';
+        }
+        const props = backendSchema.properties as Record<string, unknown>;
+        const paramSchema = props[paramName] as Record<string, unknown> | undefined;
+        if(!paramSchema) {
+            return 'Parameter not found in schema';
+        }
+
+        const required = _isArray(backendSchema.required) && backendSchema.required.includes(paramName);
+        const type = paramSchema.type as string | undefined ?? 'unknown';
+        const description = paramSchema.description as string | undefined ?? '';
+
+        let info = `Type: ${type}`;
+        if(required) {
+            info += ' (required)';
+        }
+        if(description) {
+            info += `\nDescription: ${description}`;
+        }
+
+        return info;
+    };
+
+    const renderNameEditor = () => {
+        if(!editState) {
+            return null;
+        }
+
+        const { paramMapping } = editState;
+        const currentName = paramMapping.type === 'passthrough' || paramMapping.type === 'default' || paramMapping.type === 'rename'
+            ? paramMapping.name
+            : undefined;
+
+        const title = `Edit Agent Parameter Name for: ${editState.paramName}`;
+        return (
+            <Box flexDirection="column" padding={1}>
+                <ScreenHeader title={title} />
+
+                <Box marginTop={1} borderStyle="single" paddingX={1}>
+                    <Box flexDirection="column">
+                        <Text color="yellow">Backend Parameter Info:</Text>
+                        <Text>{getBackendParamInfo(editState.paramName)}</Text>
+                    </Box>
+                </Box>
+
+                <Box marginTop={1}>
+                    <Text>Agent Parameter Name: </Text>
+                    <CancellableTextInput
+                      value={inputValue}
+                      onChange={setInputValue}
+                      onSubmit={handleNameSubmit}
+                      onCancel={() => setMode('edit-mapping')}
+                      placeholder={editState.paramName}
+                    />
+                </Box>
+
+                {currentName && (
+                    <Box marginTop={1}>
+                        <Text>
+                            Current:
+{' '}
+{currentName}
+                        </Text>
+                    </Box>
+                )}
+
+                <Box marginTop={1}>
+                    <Text>Leave empty to use backend name. Press Enter to save, Esc to cancel</Text>
+                </Box>
+            </Box>
+        );
+    };
+    const renderDescriptionEditor = () => {
+        if(!editState) {
+            return null;
+        }
+
+        const { paramMapping } = editState;
+        const currentDescription = paramMapping.type === 'passthrough' || paramMapping.type === 'default' || paramMapping.type === 'rename'
+            ? paramMapping.description
+            : undefined;
+
+        const title = `Edit Agent Parameter Description for: ${editState.paramName}`;
+
+        // Get backend parameter schema for display
+        const backendParamSchema = backendSchema?.properties
+            ? (backendSchema.properties as Record<string, unknown>)[editState.paramName]
+            : undefined;
+
+        return (
+            <Box flexDirection="column" padding={1}>
+                <ScreenHeader title={title} />
+
+                {/* Top row - Editor and Schema */}
+                <Box flexDirection="row" gap={2}>
+                    {/* Left side - Editor */}
+                    <Box flexDirection="column" flexGrow={1} minWidth="50%">
+                        <Text bold underline>
+                            Edit Description:
+                        </Text>
+                        <Box marginTop={1}>
+                            <Text>Agent Parameter Description: </Text>
+                            <CancellableTextInput
+                              value={inputValue}
+                              onChange={setInputValue}
+                              onSubmit={handleDescriptionSubmit}
+                              onCancel={() => setMode('edit-mapping')}
+                              placeholder="Enter description for agent"
+                            />
+                        </Box>
+
+                        {currentDescription && (
+                            <Box marginTop={1}>
+                                <Text>
+                                    Current:
+{' '}
+{currentDescription}
+                                </Text>
+                            </Box>
+                        )}
+                    </Box>
+
+                    {/* Right side - Backend Parameter Schema */}
+                    <Box flexDirection="column" flexGrow={1} minWidth="40%" borderStyle="single" paddingX={1}>
+                        <Text bold underline>
+                            Backend Parameter Schema:
+                        </Text>
+                        {backendParamSchema
+                            ? (
+                                <Box marginTop={1}>
+                                    <ScrollableJsonViewer
+                                      data={backendParamSchema as Record<string, unknown>}
+                                      viewportHeight={12}
+                                      color="green"
+                                    />
+                                </Box>
+                            )
+                            : (
+                                <Box marginTop={1}>
+                                    <Text>No schema available</Text>
+                                </Box>
+                            )}
+                    </Box>
+                </Box>
+
+                <Box marginTop={1}>
+                    <Text>Leave empty to use backend description. Press Enter to save, Esc to cancel</Text>
+                </Box>
             </Box>
         );
     };
@@ -388,19 +498,14 @@ Examples: "text", 123, true,
             return null;
         }
 
+        const title = `Select Mapping Type for: ${editState.paramName}`;
         return (
             <Box flexDirection="column" padding={1}>
-                <Text bold color="cyan">
-                    Select Mapping Type for:
-{' '}
-{editState.paramName}
-                </Text>
-                <Box marginTop={1}>
-                    <EnhancedSelectInput
-                      items={MAPPING_TYPE_OPTIONS}
-                      onSelect={handleMappingTypeSelect}
-                    />
-                </Box>
+                <ScreenHeader title={title} />
+                <SelectInput
+                  items={MAPPING_TYPE_OPTIONS}
+                  onSelect={handleMappingTypeSelect}
+                />
             </Box>
         );
     };
@@ -417,19 +522,14 @@ Examples: "text", 123, true,
         }));
         sourceItems.push({ label: '← Cancel', value: 'cancel' });
 
+        const title = `Select Source Parameter for: ${editState.paramName}`;
         return (
             <Box flexDirection="column" padding={1}>
-                <Text bold color="cyan">
-                    Select Source Parameter for:
-{' '}
-{editState.paramName}
-                </Text>
-                <Box marginTop={1}>
-                    <EnhancedSelectInput
-                      items={sourceItems}
-                      onSelect={handleSourceSelect}
-                    />
-                </Box>
+                <ScreenHeader title={title} />
+                <SelectInput
+                  items={sourceItems}
+                  onSelect={handleSourceSelect}
+                />
             </Box>
         );
     };
@@ -440,42 +540,34 @@ Examples: "text", 123, true,
         }
 
         const { paramMapping } = editState;
+        const menuItems = buildMappingEditorMenuItems(paramMapping);
 
-        const menuItems: { label: string, value: string }[] = [];
+        const handleSaveParam = () => {
+            const templateMapping: TemplateMapping = currentMapping?.type === 'template'
+                ? currentMapping
+                : { type: 'template', mappings: {} };
 
-        menuItems.push({
-            label: `Type: ${paramMapping.type}`,
-            value: 'change-type',
-        });
+            templateMapping.mappings[editState.paramName] = editState.paramMapping;
 
-        if(paramMapping.type === 'passthrough' || paramMapping.type === 'rename' || paramMapping.type === 'default') {
-            menuItems.push({
-                label: `Source Parameter: ${paramMapping.source || '(not set)'}`,
-                value: 'select-source',
-            });
-        }
+            // Always in direct parameter edit mode - save and exit to parent
+            onSave(templateMapping);
+        };
 
-        if(paramMapping.type === 'constant') {
-            const valueStr = JSON.stringify(paramMapping.value);
-            menuItems.push({
-                label: `Constant Value: ${valueStr}`,
-                value: 'edit-constant',
-            });
-        }
+        const handleEditName = () => {
+            const currentName = paramMapping.type === 'passthrough' || paramMapping.type === 'default' || paramMapping.type === 'rename'
+                ? paramMapping.name ?? ''
+                : '';
+            setInputValue(currentName);
+            setMode('edit-name');
+        };
 
-        if(paramMapping.type === 'default') {
-            const defaultStr = JSON.stringify(paramMapping.default);
-            menuItems.push({
-                label: `Default Value: ${defaultStr}`,
-                value: 'edit-default',
-            });
-        }
-
-        menuItems.push(
-            { label: repeat('─', 40), value: 'sep' },
-            { label: '💾 Save Parameter', value: 'save-param' },
-            { label: '← Back', value: 'back' }
-        );
+        const handleEditDescription = () => {
+            const currentDescription = paramMapping.type === 'passthrough' || paramMapping.type === 'default' || paramMapping.type === 'rename'
+                ? paramMapping.description ?? ''
+                : '';
+            setInputValue(currentDescription);
+            setMode('edit-description');
+        };
 
         const handleEditMenuSelect = (item: { value: string }) => {
             switch(item.value) {
@@ -493,170 +585,53 @@ Examples: "text", 123, true,
                     setInputValue(JSON.stringify(paramMapping.type === 'default' ? paramMapping.default : ''));
                     setMode('edit-value');
                     break;
+                case 'edit-name':
+                    handleEditName();
+                    break;
+                case 'edit-description':
+                    handleEditDescription();
+                    break;
                 case 'save-param':
-                    {
-                        const templateMapping: TemplateMapping = currentMapping?.type === 'template'
-                            ? currentMapping
-                            : { type: 'template', mappings: {} };
-
-                        templateMapping.mappings[editState.paramName] = editState.paramMapping;
-                        setCurrentMapping(templateMapping);
-                        setEditState(null);
-                        setMode('menu');
-                    }
+                    handleSaveParam();
                     break;
                 case 'back':
-                    setEditState(null);
-                    setMode('menu');
+                    onCancel();
                     break;
             }
         };
 
+        const title = `Edit Mapping for: ${editState.paramName}`;
         return (
             <Box flexDirection="column" padding={1}>
-                <Text bold color="cyan">
-                    Edit Mapping for:
-{' '}
-{editState.paramName}
-                </Text>
-                <Box marginTop={1}>
-                    <EnhancedSelectInput items={menuItems} onSelect={handleEditMenuSelect} />
-                </Box>
-            </Box>
-        );
-    };
-
-    const renderParamSelector = () => {
-        const backendParams = getBackendParams();
-        const paramItems = map(backendParams, param => ({
-            label: param,
-            value: param,
-        }));
-        paramItems.push({ label: '← Cancel', value: 'cancel' });
-
-        return (
-            <Box flexDirection="column" padding={1}>
-                <Text bold color="cyan">
-                    Select Backend Parameter to Map
-                </Text>
-                <Box marginTop={1}>
-                    <EnhancedSelectInput items={paramItems} onSelect={handleParamSelect} />
-                </Box>
+                <ScreenHeader title={title} />
+                <SelectInput items={menuItems} onSelect={handleEditMenuSelect} />
             </Box>
         );
     };
 
     // Mode-based rendering
-    if(mode === 'test-preview') {
-        return renderTestPreview();
-    }
-
-    if(mode === 'edit-value' && editState) {
-        return renderValueEditor();
-    }
-
-    if(mode === 'select-type' && editState) {
-        return renderTypeSelector();
-    }
-
-    if(mode === 'edit-mapping' && editState) {
-        return renderMappingEditor();
-    }
-
-    if(mode === 'select-param') {
-        return renderParamSelector();
-    }
-
     if(mode === 'select-source') {
         return renderSourceSelector();
     }
 
-    // Main menu
-    const buildMenuItems = () => {
-        const menuItems: { label: string, value: string, disabled?: boolean }[] = [];
-
-        if(!currentMapping) {
-            menuItems.push(
-                { label: '➕ Add Template Mapping', value: 'add-param' },
-                { label: repeat('─', 60), value: 'sep1', disabled: true }
-            );
-        } else if(currentMapping.type === 'template') {
-            // Show existing mappings
-            menuItems.push({ label: '📋 Current Mappings:', value: 'header', disabled: true });
-
-            const mappingEntries = Object.entries(currentMapping.mappings);
-            if(mappingEntries.length === 0) {
-                menuItems.push({ label: '  (no parameters mapped)', value: 'empty', disabled: true });
-            } else {
-                for(const [paramName, paramMapping] of mappingEntries) {
-                    let description = '';
-                    switch(paramMapping.type) {
-                        case 'passthrough':
-                            description = `← ${paramMapping.source}`;
-                            break;
-                        case 'constant':
-                            description = `= ${JSON.stringify(paramMapping.value)}`;
-                            break;
-                        case 'default':
-                            description = `${paramMapping.source} || ${JSON.stringify(paramMapping.default)}`;
-                            break;
-                        case 'rename':
-                            description = `← ${paramMapping.source} (renamed)`;
-                            break;
-                    }
-                    menuItems.push({
-                        label: `  ${paramName}: ${description}`,
-                        value: `edit-${paramName}`,
-                    });
-                    menuItems.push({
-                        label: '    ✕ Remove',
-                        value: `remove-${paramName}`,
-                    });
-                }
-            }
-
-            menuItems.push(
-                { label: repeat('─', 60), value: 'sep2', disabled: true },
-                { label: '➕ Add Parameter Mapping', value: 'add-param' },
-                { label: '🧪 Test Preview', value: 'test-preview' },
-                { label: '🗑️  Remove All Mappings', value: 'remove-template' }
-            );
+    // Edit state required modes
+    if(editState) {
+        if(mode === 'edit-value') {
+            return renderValueEditor();
         }
+        if(mode === 'select-type') {
+            return renderTypeSelector();
+        }
+        if(mode === 'edit-mapping') {
+            return renderMappingEditor();
+        }
+        if(mode === 'edit-name') {
+            return renderNameEditor();
+        }
+        if(mode === 'edit-description') {
+            return renderDescriptionEditor();
+        }
+    }
 
-        menuItems.push(
-            { label: repeat('─', 60), value: 'sep3', disabled: true },
-            { label: '💾 Save', value: 'save' },
-            { label: '← Cancel', value: 'cancel' }
-        );
-
-        return menuItems;
-    };
-
-    const menuItems = buildMenuItems();
-
-    return (
-        <Box flexDirection="column" padding={1}>
-            <Box marginBottom={1}>
-                <Text bold color="cyan">
-                    Edit Argument Mapping
-                </Text>
-            </Box>
-
-            <Box marginBottom={1} borderStyle="single" paddingX={1}>
-                <Text color="yellow">{GUIDANCE_TEXT}</Text>
-            </Box>
-
-            {backendSchema && (
-                <Box marginBottom={1}>
-                    <Text dimColor>
-                        Backend Parameters:
-{' '}
-{getBackendParams().join(', ') || '(none)'}
-                    </Text>
-                </Box>
-            )}
-
-            <EnhancedSelectInput items={menuItems} onSelect={handleMenuSelect} />
-        </Box>
-    );
+    return null;
 }

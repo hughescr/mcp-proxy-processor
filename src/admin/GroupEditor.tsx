@@ -4,26 +4,34 @@
 
 import React, { useState } from 'react';
 import { Box, Text, useInput } from 'ink';
-import { EnhancedSelectInput } from 'ink-enhanced-select-input';
-import TextInput from 'ink-text-input';
 import _ from 'lodash';
-import type { GroupConfig, ToolOverride } from '../types/config.js';
-import { ToolBrowser } from './ToolBrowser.js';
+import { CancellableTextInput } from './components/CancellableTextInput.js';
+import type { GroupConfig, ToolOverride, ResourceRef, PromptRef } from '../types/config.js';
+import { GroupedMultiSelectToolBrowser } from './components/GroupedMultiSelectToolBrowser.js';
 import { EnhancedToolEditor } from './components/EnhancedToolEditor.js';
+import { ResourceBrowserScreen } from './components/ResourceBrowserScreen.js';
+import { ResourcePriorityScreen } from './components/ResourcePriorityScreen.js';
+import { PromptBrowserScreen } from './components/PromptBrowserScreen.js';
+import { PromptPriorityScreen } from './components/PromptPriorityScreen.js';
+import { ScreenHeader } from './components/ui/ScreenHeader.js';
+import { LoadingScreen } from './components/ui/LoadingScreen.js';
+import { VirtualScrollList } from './components/ui/VirtualScrollList.js';
+import { menuSeparator } from './design-system.js';
 
 interface GroupEditorProps {
     groupName: string
     group:     GroupConfig
-    onSave:    (groupName: string, group: GroupConfig) => Promise<void>
+    onSave:    (originalGroupName: string, newGroupName: string, group: GroupConfig) => Promise<void>
     onDelete:  (groupName: string) => Promise<void>
     onCancel:  () => void
 }
 
-type EditMode = 'menu' | 'edit-name' | 'edit-description' | 'add-tool' | 'edit-tool';
+type EditMode = 'menu' | 'edit-name' | 'edit-description' | 'add-tool' | 'edit-tool' | 'edit-resources' | 'priority-resources' | 'edit-prompts' | 'priority-prompts' | 'success';
 
 /**
  * Group editor screen
  */
+// eslint-disable-next-line complexity -- This component manages multiple edit modes and state transitions
 export function GroupEditor({ groupName, group, onSave, onDelete, onCancel }: GroupEditorProps) {
     const [mode, setMode] = useState<EditMode>('menu');
     const [currentGroup, setCurrentGroup] = useState<GroupConfig>(group);
@@ -34,19 +42,13 @@ export function GroupEditor({ groupName, group, onSave, onDelete, onCancel }: Gr
 
     const isNewGroup = groupName === '';
 
-    // Handle Esc for navigation - works in all modes
+    // Handle Esc for navigation - only in menu mode
+    // Note: Input modes (edit-name, edit-description) handle ESC via CancellableTextInput
     useInput((input, key) => {
-        if(key.escape) {
-            if(mode === 'menu' && !saving) {
-                // Esc in menu mode goes back to parent
+        if(mode === 'menu' && !saving) {
+            if(key.escape || key.leftArrow) {
                 onCancel();
-            } else if(mode !== 'menu') {
-                // Esc in any input mode cancels and returns to menu
-                setMode('menu');
             }
-        } else if(mode === 'menu' && !saving && key.leftArrow) {
-            // Left arrow also works in menu mode
-            onCancel();
         }
     });
 
@@ -61,7 +63,14 @@ export function GroupEditor({ groupName, group, onSave, onDelete, onCancel }: Gr
         try {
             // Ensure name matches the group config
             const groupToSave = { ...currentGroup, name: currentGroup.name };
-            await onSave(currentGroup.name, groupToSave);
+            await onSave(groupName, currentGroup.name, groupToSave);
+            // Show success message
+            setMode('success');
+            setSaving(false);
+            // Auto-dismiss after 1.5 seconds
+            setTimeout(() => {
+                onCancel();
+            }, 1500);
         } catch (err) {
             setError(_.isError(err) ? err.message : String(err));
             setSaving(false);
@@ -106,13 +115,20 @@ export function GroupEditor({ groupName, group, onSave, onDelete, onCancel }: Gr
             const index = parseInt(_.replace(item.value, 'edit-tool-', ''), 10);
             setEditingToolIndex(index);
             setMode('edit-tool');
+        } else if(item.value === 'edit-resources') {
+            setMode('edit-resources');
+        } else if(item.value === 'priority-resources') {
+            setMode('priority-resources');
+        } else if(item.value === 'edit-prompts') {
+            setMode('edit-prompts');
+        } else if(item.value === 'priority-prompts') {
+            setMode('priority-prompts');
         }
     };
-
-    const handleAddTool = (tool: ToolOverride) => {
+    const handleAddTools = (tools: ToolOverride[]) => {
         setCurrentGroup({
             ...currentGroup,
-            tools: [...currentGroup.tools, tool],
+            tools,
         });
         setMode('menu');
     };
@@ -134,23 +150,107 @@ export function GroupEditor({ groupName, group, onSave, onDelete, onCancel }: Gr
         setMode('menu');
     };
 
+    const handleResourcesSubmit = (resources: ResourceRef[]) => {
+        setCurrentGroup({
+            ...currentGroup,
+            resources,
+        });
+        setMode('priority-resources');
+    };
+
+    const handleResourcesPriority = (resources: ResourceRef[]) => {
+        setCurrentGroup({
+            ...currentGroup,
+            resources,
+        });
+        setMode('menu');
+    };
+
+    const handlePromptsSubmit = (prompts: PromptRef[]) => {
+        setCurrentGroup({
+            ...currentGroup,
+            prompts,
+        });
+        setMode('priority-prompts');
+    };
+
+    const handlePromptsPriority = (prompts: PromptRef[]) => {
+        setCurrentGroup({
+            ...currentGroup,
+            prompts,
+        });
+        setMode('menu');
+    };
+
     // Tool browser for adding tools
     if(mode === 'add-tool') {
         return (
-            <ToolBrowser
+            <GroupedMultiSelectToolBrowser
               onBack={() => setMode('menu')}
-              onSelect={handleAddTool}
+              onSubmit={handleAddTools}
+              existingTools={currentGroup.tools}
             />
         );
     }
 
     // Tool editor for editing existing tool
     if(mode === 'edit-tool' && editingToolIndex !== null) {
+        const handleRemoveCurrentTool = () => {
+            handleRemoveTool(editingToolIndex);
+            setEditingToolIndex(null);
+            setMode('menu');
+        };
+
         return (
             <EnhancedToolEditor
               tool={currentGroup.tools[editingToolIndex]}
               groupName={currentGroup.name}
               onSave={tool => handleEditTool(editingToolIndex, tool)}
+              onRemove={handleRemoveCurrentTool}
+              onCancel={() => setMode('menu')}
+            />
+        );
+    }
+
+    // Resource browser
+    if(mode === 'edit-resources') {
+        return (
+            <ResourceBrowserScreen
+              onBack={() => setMode('menu')}
+              onSubmit={handleResourcesSubmit}
+              existingResources={currentGroup.resources ?? []}
+            />
+        );
+    }
+
+    // Resource priority screen
+    if(mode === 'priority-resources') {
+        return (
+            <ResourcePriorityScreen
+              resources={currentGroup.resources ?? []}
+              onSave={handleResourcesPriority}
+              onCancel={() => setMode('menu')}
+            />
+        );
+    }
+
+    // Prompt browser
+    if(mode === 'edit-prompts') {
+        return (
+            <PromptBrowserScreen
+              onBack={() => setMode('menu')}
+              onSubmit={handlePromptsSubmit}
+              existingPrompts={currentGroup.prompts ?? []}
+            />
+        );
+    }
+
+    // Prompt priority screen
+    if(mode === 'priority-prompts') {
+        return (
+            <PromptPriorityScreen
+              prompts={currentGroup.prompts ?? []}
+              onSave={handlePromptsPriority}
               onCancel={() => setMode('menu')}
             />
         );
@@ -160,16 +260,17 @@ export function GroupEditor({ groupName, group, onSave, onDelete, onCancel }: Gr
     if(mode === 'edit-name') {
         return (
             <Box flexDirection="column" padding={1}>
-                <Text bold>Edit Group Name</Text>
+                <ScreenHeader title="Edit Group Name" />
                 <Box marginTop={1}>
                     <Text>Name: </Text>
-                    <TextInput
+                    <CancellableTextInput
                       value={inputValue}
                       onChange={setInputValue}
                       onSubmit={handleNameSubmit}
+                      onCancel={() => setMode('menu')}
                     />
                 </Box>
-                <Text dimColor>Press Enter to save, Esc to cancel</Text>
+                <Text>Press Enter to save, Esc to cancel</Text>
             </Box>
         );
     }
@@ -178,25 +279,33 @@ export function GroupEditor({ groupName, group, onSave, onDelete, onCancel }: Gr
     if(mode === 'edit-description') {
         return (
             <Box flexDirection="column" padding={1}>
-                <Text bold>Edit Group Description</Text>
+                <ScreenHeader title="Edit Group Description" />
                 <Box marginTop={1}>
                     <Text>Description: </Text>
-                    <TextInput
+                    <CancellableTextInput
                       value={inputValue}
                       onChange={setInputValue}
                       onSubmit={handleDescriptionSubmit}
+                      onCancel={() => setMode('menu')}
                     />
                 </Box>
-                <Text dimColor>Press Enter to save, Esc to cancel</Text>
+                <Text>Press Enter to save, Esc to cancel</Text>
             </Box>
         );
     }
 
     // Show saving state
     if(saving) {
+        return <LoadingScreen message="Saving..." />;
+    }
+
+    // Show success state
+    if(mode === 'success') {
         return (
             <Box padding={1}>
-                <Text>Saving...</Text>
+                <Text color="green">
+                    ✓ Group saved successfully!
+                </Text>
             </Box>
         );
     }
@@ -205,14 +314,38 @@ export function GroupEditor({ groupName, group, onSave, onDelete, onCancel }: Gr
     const menuItems: { label: string, value: string, disabled?: boolean }[] = [
         { label: `Name: ${currentGroup.name ?? '(not set)'}`, value: 'edit-name' },
         { label: `Description: ${currentGroup.description ?? '(none)'}`, value: 'edit-description' },
-        { label: _.repeat('─', 40), value: 'sep1', disabled: true },
+        menuSeparator(),
         { label: `Tools (${currentGroup.tools.length}):`, value: 'tools-header', disabled: true },
         ..._.map(currentGroup.tools, (tool, index) => ({
             label: `  ${tool.name ?? tool.originalName} (${tool.serverName})`,
             value: `edit-tool-${index}`,
         })),
-        { label: '+ Add Tool', value: 'add-tool' },
-        { label: _.repeat('─', 40), value: 'sep2', disabled: true },
+        { label: '⚙️  Activate/Deactivate Tools', value: 'add-tool' },
+        menuSeparator(),
+        {
+            label: `Resources (${currentGroup.resources?.length ?? 0}):`,
+            value: 'edit-resources'
+        },
+        {
+            label: currentGroup.resources && currentGroup.resources.length > 0
+                ? '📊 Set Resource Priority'
+                : '📊 Set Resource Priority (add resources first)',
+            value:    'priority-resources',
+            disabled: !currentGroup.resources || currentGroup.resources.length === 0
+        },
+        menuSeparator(),
+        {
+            label: `Prompts (${currentGroup.prompts?.length ?? 0}):`,
+            value: 'edit-prompts'
+        },
+        {
+            label: currentGroup.prompts && currentGroup.prompts.length > 0
+                ? '📊 Set Prompt Priority'
+                : '📊 Set Prompt Priority (add prompts first)',
+            value:    'priority-prompts',
+            disabled: !currentGroup.prompts || currentGroup.prompts.length === 0
+        },
+        menuSeparator(),
         { label: '💾 Save Group', value: 'save' },
     ];
 
@@ -221,22 +354,26 @@ export function GroupEditor({ groupName, group, onSave, onDelete, onCancel }: Gr
     }
 
     menuItems.push({ label: '← Cancel', value: 'cancel' });
+
+    const title = isNewGroup ? 'Create New Group' : `Edit Group: ${groupName}`;
+
+    // Calculate fixed UI height for virtual scrolling
+    // 1 (padding) + 2 (ScreenHeader) + optional error (2 lines) + 1 (padding)
+    const fixedUIHeight = error ? 6 : 4;
+
     return (
         <Box flexDirection="column" padding={1}>
-            <Box marginBottom={1}>
-                <Text bold color="cyan">
-                    {isNewGroup ? 'Create New Group' : `Edit Group: ${groupName}`}
-                </Text>
-            </Box>
+            <ScreenHeader title={title} />
             {error && (
                 <Box marginBottom={1}>
                     <Text color="red">
                         Error:
+                        {' '}
                         {error}
                     </Text>
                 </Box>
             )}
-            <EnhancedSelectInput items={menuItems} onSelect={handleMenuSelect} />
+            <VirtualScrollList items={menuItems} onSelect={handleMenuSelect} fixedUIHeight={fixedUIHeight} />
         </Box>
     );
 }

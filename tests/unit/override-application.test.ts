@@ -36,7 +36,7 @@ describe('Override Application', () => {
             expect(anotherTool?.description).toBe('Another tool from server 2'); // Original retained
         });
 
-        it('should apply description override while keeping original name', () => {
+        it('should apply description override while keeping original name', async () => {
             const customGroup = {
                 groups: {
                     'desc-override': {
@@ -54,17 +54,15 @@ describe('Override Application', () => {
             };
 
             // Create a new group manager with custom config
-            beforeEach(async () => {
-                const customPath = await createTempConfigFile(customGroup);
-                const customManager = new GroupManager(customPath);
-                await customManager.load();
+            const customPath = await createTempConfigFile(customGroup);
+            const customManager = new GroupManager(customPath);
+            await customManager.load();
 
-                const tools = customManager.getToolsForGroup('desc-override', mockBackendTools);
-                const tool = tools[0];
+            const tools = customManager.getToolsForGroup('desc-override', mockBackendTools);
+            const tool = tools[0];
 
-                expect(tool.name).toBe('original_tool'); // Name unchanged
-                expect(tool.description).toBe('Only description changed'); // Description overridden
-            });
+            expect(tool.name).toBe('original_tool'); // Name unchanged
+            expect(tool.description).toBe('Only description changed'); // Description overridden
         });
 
         it('should apply schema override completely', async () => {
@@ -187,144 +185,6 @@ describe('Override Application', () => {
         });
     });
 
-    describe('Resource Override Application', () => {
-        it('should apply name override to resource', () => {
-            const resources = groupManager.getResourcesForGroup('test-group', mockBackendResources);
-            const renamedResource = _find(resources, { name: 'Custom Resource Name' });
-
-            expect(renamedResource).toBeDefined();
-            expect(renamedResource?.name).toBe('Custom Resource Name'); // Override applied
-            expect(renamedResource?.uri).toBe('test://resource1'); // URI unchanged
-        });
-
-        it('should retain original values when no override specified', async () => {
-            const noOverrideGroup = {
-                groups: {
-                    'no-override': {
-                        name:      'no-override',
-                        tools:     [],
-                        resources: [
-                            {
-                                originalUri: 'test://resource3',
-                                serverName:  'test-server-2',
-                            },
-                        ],
-                    },
-                },
-            };
-
-            const noOverridePath = await createTempConfigFile(noOverrideGroup);
-            const noOverrideManager = new GroupManager(noOverridePath);
-            await noOverrideManager.load();
-
-            const resources = noOverrideManager.getResourcesForGroup('no-override', mockBackendResources);
-            const resource = resources[0];
-
-            expect(resource.name).toBe('Server 2 Resource');
-            expect(resource.description).toBe('Resource from server 2');
-            expect(resource.mimeType).toBe('text/html');
-        });
-
-        it('should apply description override to resource', async () => {
-            const descOverrideGroup = {
-                groups: {
-                    'desc-override': {
-                        name:      'desc-override',
-                        tools:     [],
-                        resources: [
-                            {
-                                originalUri: 'test://resource1',
-                                serverName:  'test-server-1',
-                                description: 'New resource description',
-                            },
-                        ],
-                    },
-                },
-            };
-
-            const descPath = await createTempConfigFile(descOverrideGroup);
-            const descManager = new GroupManager(descPath);
-            await descManager.load();
-
-            const resources = descManager.getResourcesForGroup('desc-override', mockBackendResources);
-            const resource = resources[0];
-
-            expect(resource.description).toBe('New resource description');
-            expect(resource.name).toBe('Original Resource'); // Original retained
-        });
-
-        it('should apply mimeType override to resource', async () => {
-            const mimeOverrideGroup = {
-                groups: {
-                    'mime-override': {
-                        name:      'mime-override',
-                        tools:     [],
-                        resources: [
-                            {
-                                originalUri: 'test://resource1',
-                                serverName:  'test-server-1',
-                                mimeType:    'application/xml',
-                            },
-                        ],
-                    },
-                },
-            };
-
-            const mimePath = await createTempConfigFile(mimeOverrideGroup);
-            const mimeManager = new GroupManager(mimePath);
-            await mimeManager.load();
-
-            const resources = mimeManager.getResourcesForGroup('mime-override', mockBackendResources);
-            const resource = resources[0];
-
-            expect(resource.mimeType).toBe('application/xml');
-            expect(resource.name).toBe('Original Resource'); // Original retained
-        });
-
-        it('should apply multiple overrides to resource', async () => {
-            const multiOverrideGroup = {
-                groups: {
-                    'multi-override': {
-                        name:      'multi-override',
-                        tools:     [],
-                        resources: [
-                            {
-                                originalUri: 'test://resource1',
-                                serverName:  'test-server-1',
-                                name:        'Fully Overridden',
-                                description: 'All fields overridden',
-                                mimeType:    'text/markdown',
-                            },
-                        ],
-                    },
-                },
-            };
-
-            const multiPath = await createTempConfigFile(multiOverrideGroup);
-            const multiManager = new GroupManager(multiPath);
-            await multiManager.load();
-
-            const resources = multiManager.getResourcesForGroup('multi-override', mockBackendResources);
-            const resource = resources[0];
-
-            expect(resource.name).toBe('Fully Overridden');
-            expect(resource.description).toBe('All fields overridden');
-            expect(resource.mimeType).toBe('text/markdown');
-            expect(resource.uri).toBe('test://resource1'); // URI never changes
-        });
-
-        it('should preserve resource URI (never override)', async () => {
-            // Even if we try to override URI, it should be ignored
-            const resources = groupManager.getResourcesForGroup('test-group', mockBackendResources);
-            const resource = resources[0];
-
-            expect(resource.uri).toBe('test://resource1');
-            // Verify URI is exactly the same as backend
-            const backendResource = _find(mockBackendResources.get('test-server-1'), { uri: 'test://resource1' });
-            expect(resource.uri).toBe(backendResource!.uri);
-        });
-    });
-
     describe('Mixed Overrides', () => {
         it('should handle group with both tool and resource overrides', () => {
             const tools = groupManager.getToolsForGroup('test-group', mockBackendTools);
@@ -338,7 +198,7 @@ describe('Override Application', () => {
             expect(tools[1].name).toBe('another_tool');
 
             // Check resource overrides applied
-            expect(resources[0].name).toBe('Custom Resource Name');
+            expect(resources[0].name).toBe('Original Resource');
         });
 
         it('should handle empty overrides gracefully', async () => {
@@ -355,8 +215,8 @@ describe('Override Application', () => {
                         ],
                         resources: [
                             {
-                                originalUri: 'test://resource1',
-                                serverName:  'test-server-1',
+                                uri:        'test://resource1',
+                                serverName: 'test-server-1',
                                 // No overrides at all
                             },
                         ],

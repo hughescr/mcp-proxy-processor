@@ -4,12 +4,15 @@
 
 import React, { useState } from 'react';
 import { Box, Text, useInput } from 'ink';
-import { EnhancedSelectInput } from 'ink-enhanced-select-input';
-import TextInput from 'ink-text-input';
+import { SelectInput } from './components/SelectInput.js';
 import _ from 'lodash';
+import { CancellableTextInput } from './components/CancellableTextInput.js';
 import type { BackendServerConfig, StdioServerConfig, StreamableHttpServerConfig, SseServerConfig } from '../types/config.js';
 import { BackendServerConfigSchema } from '../types/config.js';
 import { EnvVarEditor } from './EnvVarEditor.js';
+import { ScreenHeader } from './components/ui/ScreenHeader.js';
+import { LoadingScreen } from './components/ui/LoadingScreen.js';
+import { menuSeparator } from './design-system.js';
 
 interface ServerEditorProps {
     serverName: string
@@ -28,7 +31,8 @@ type EditMode
       | 'edit-cwd'
       | 'edit-url'
       | 'edit-headers'
-      | 'edit-json';
+      | 'edit-json'
+      | 'success';
 
 type TransportType = 'stdio' | 'streamable-http' | 'sse';
 
@@ -57,20 +61,13 @@ export function ServerEditor({ serverName, server, onSave, onDelete, onCancel }:
     const isNewServer = serverName === '';
     const transportType = getTransportType(currentServer);
 
-    // Handle Esc for navigation - works in all modes except edit-env
+    // Handle Esc for navigation - only in menu mode
+    // Note: Input modes handle ESC via CancellableTextInput or their own handlers (edit-env)
     useInput((input, key) => {
-        if(key.escape) {
-            if(mode === 'menu' && !saving) {
-                // Esc in menu mode goes back to parent
+        if(mode === 'menu' && !saving) {
+            if(key.escape || key.leftArrow) {
                 onCancel();
-            } else if(mode !== 'menu' && mode !== 'edit-env') {
-                // Esc in any input mode (except edit-env) cancels and returns to menu
-                // edit-env has its own input handler
-                setMode('menu');
             }
-        } else if(mode === 'menu' && !saving && key.leftArrow) {
-            // Left arrow also works in menu mode
-            onCancel();
         }
     });
 
@@ -92,6 +89,13 @@ export function ServerEditor({ serverName, server, onSave, onDelete, onCancel }:
         setSaving(true);
         try {
             await onSave(currentServerName, currentServer);
+            // Show success message
+            setMode('success');
+            setSaving(false);
+            // Auto-dismiss after 1.5 seconds
+            setTimeout(() => {
+                onCancel();
+            }, 1500);
         } catch (err) {
             setError(_.isError(err) ? err.message : String(err));
             setSaving(false);
@@ -354,10 +358,8 @@ export function ServerEditor({ serverName, server, onSave, onDelete, onCancel }:
 
         return (
             <Box flexDirection="column" padding={1}>
-                <Text bold>Select Transport Type</Text>
-                <Box marginTop={1}>
-                    <EnhancedSelectInput items={transportItems} onSelect={handleTransportSelect} />
-                </Box>
+                <ScreenHeader title="Select Transport Type" />
+                <SelectInput items={transportItems} onSelect={handleTransportSelect} />
             </Box>
         );
     }
@@ -366,16 +368,17 @@ export function ServerEditor({ serverName, server, onSave, onDelete, onCancel }:
     if(mode === 'edit-name') {
         return (
             <Box flexDirection="column" padding={1}>
-                <Text bold>Edit Server Name</Text>
+                <ScreenHeader title="Edit Server Name" />
                 <Box marginTop={1}>
                     <Text>Name: </Text>
-                    <TextInput
+                    <CancellableTextInput
                       value={inputValue}
                       onChange={setInputValue}
                       onSubmit={handleNameSubmit}
+                      onCancel={() => setMode('menu')}
                     />
                 </Box>
-                <Text dimColor>Press Enter to save, Esc to cancel</Text>
+                <Text>Press Enter to save, Esc to cancel</Text>
             </Box>
         );
     }
@@ -384,20 +387,21 @@ export function ServerEditor({ serverName, server, onSave, onDelete, onCancel }:
     if(mode === 'edit-command-line') {
         return (
             <Box flexDirection="column" padding={1}>
-                <Text bold>Edit Command Line</Text>
+                <ScreenHeader title="Edit Command Line" />
                 <Box marginTop={1}>
                     <Text>Command line: </Text>
-                    <TextInput
+                    <CancellableTextInput
                       value={inputValue}
                       onChange={setInputValue}
                       onSubmit={handleCommandLineSubmit}
+                      onCancel={() => setMode('menu')}
                     />
                 </Box>
-                <Text dimColor>
+                <Text>
                     Enter full command with arguments. Use quotes for args with spaces.
                 </Text>
-                <Text dimColor>Example: uvx mcp-server-time --local-timezone "America/Los Angeles"</Text>
-                <Text dimColor>Press Enter to save, Esc to cancel</Text>
+                <Text>Example: uvx mcp-server-time --local-timezone "America/Los Angeles"</Text>
+                <Text>Press Enter to save, Esc to cancel</Text>
             </Box>
         );
     }
@@ -418,16 +422,17 @@ export function ServerEditor({ serverName, server, onSave, onDelete, onCancel }:
     if(mode === 'edit-cwd') {
         return (
             <Box flexDirection="column" padding={1}>
-                <Text bold>Edit Working Directory</Text>
+                <ScreenHeader title="Edit Working Directory" />
                 <Box marginTop={1}>
                     <Text>Working Directory: </Text>
-                    <TextInput
+                    <CancellableTextInput
                       value={inputValue}
                       onChange={setInputValue}
                       onSubmit={handleCwdSubmit}
+                      onCancel={() => setMode('menu')}
                     />
                 </Box>
-                <Text dimColor>Press Enter to save, Esc to cancel</Text>
+                <Text>Press Enter to save, Esc to cancel</Text>
             </Box>
         );
     }
@@ -436,16 +441,17 @@ export function ServerEditor({ serverName, server, onSave, onDelete, onCancel }:
     if(mode === 'edit-url') {
         return (
             <Box flexDirection="column" padding={1}>
-                <Text bold>Edit URL</Text>
+                <ScreenHeader title="Edit URL" />
                 <Box marginTop={1}>
                     <Text>URL: </Text>
-                    <TextInput
+                    <CancellableTextInput
                       value={inputValue}
                       onChange={setInputValue}
                       onSubmit={handleUrlSubmit}
+                      onCancel={() => setMode('menu')}
                     />
                 </Box>
-                <Text dimColor>Press Enter to save, Esc to cancel</Text>
+                <Text>Press Enter to save, Esc to cancel</Text>
             </Box>
         );
     }
@@ -454,16 +460,17 @@ export function ServerEditor({ serverName, server, onSave, onDelete, onCancel }:
     if(mode === 'edit-headers') {
         return (
             <Box flexDirection="column" padding={1}>
-                <Text bold>Edit Headers</Text>
+                <ScreenHeader title="Edit Headers" />
                 <Box marginTop={1}>
                     <Text>Headers (Header: Value, one per line): </Text>
-                    <TextInput
+                    <CancellableTextInput
                       value={inputValue}
                       onChange={setInputValue}
                       onSubmit={handleHeadersSubmit}
+                      onCancel={() => setMode('menu')}
                     />
                 </Box>
-                <Text dimColor>Press Enter to save, Esc to cancel</Text>
+                <Text>Press Enter to save, Esc to cancel</Text>
             </Box>
         );
     }
@@ -472,13 +479,14 @@ export function ServerEditor({ serverName, server, onSave, onDelete, onCancel }:
     if(mode === 'edit-json') {
         return (
             <Box flexDirection="column" padding={1}>
-                <Text bold>Edit as JSON</Text>
+                <ScreenHeader title="Edit as JSON" />
                 <Box marginTop={1}>
                     <Text>Paste mcp.json snippet: </Text>
-                    <TextInput
+                    <CancellableTextInput
                       value={inputValue}
                       onChange={setInputValue}
                       onSubmit={handleJsonSubmit}
+                      onCancel={() => setMode('menu')}
                     />
                 </Box>
                 {error && (
@@ -488,16 +496,23 @@ export function ServerEditor({ serverName, server, onSave, onDelete, onCancel }:
                         </Text>
                     </Box>
                 )}
-                <Text dimColor>Press Enter to parse, Esc to cancel</Text>
+                <Text>Press Enter to parse, Esc to cancel</Text>
             </Box>
         );
     }
 
     // Show saving state
     if(saving) {
+        return <LoadingScreen message="Saving..." />;
+    }
+
+    // Show success state
+    if(mode === 'success') {
         return (
             <Box padding={1}>
-                <Text>Saving...</Text>
+                <Text color="green">
+                    ✓ Server saved successfully!
+                </Text>
             </Box>
         );
     }
@@ -547,7 +562,7 @@ export function ServerEditor({ serverName, server, onSave, onDelete, onCancel }:
     }
 
     menuItems.push(
-        { label: '───────────────────', value: 'sep1', disabled: true },
+        menuSeparator(),
         { label: '📋 Edit as JSON', value: 'edit-json' },
         { label: '💾 Save Server', value: 'save' }
     );
@@ -558,22 +573,21 @@ export function ServerEditor({ serverName, server, onSave, onDelete, onCancel }:
 
     menuItems.push({ label: '← Cancel', value: 'cancel' });
 
+    const title = isNewServer ? 'Create New Backend Server' : `Edit Server: ${serverName}`;
+
     return (
         <Box flexDirection="column" padding={1}>
-            <Box marginBottom={1}>
-                <Text bold color="cyan">
-                    {isNewServer ? 'Create New Backend Server' : `Edit Server: ${serverName}`}
-                </Text>
-            </Box>
+            <ScreenHeader title={title} />
             {error && (
                 <Box marginBottom={1}>
                     <Text color="red">
                         Error:
+                        {' '}
                         {error}
                     </Text>
                 </Box>
             )}
-            <EnhancedSelectInput items={menuItems} onSelect={handleMenuSelect} />
+            <SelectInput items={menuItems} onSelect={handleMenuSelect} />
         </Box>
     );
 }
