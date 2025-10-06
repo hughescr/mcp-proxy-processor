@@ -122,7 +122,7 @@ describe('Resource Priority Fallback System', () => {
                         resources: [
                             // Template with high priority
                             {
-                                uri:        'file:///{path}',
+                                uri:        'file:///{+path}',
                                 serverName: 'fs-server',
                             },
                             // Exact URI that matches the template
@@ -149,7 +149,7 @@ describe('Resource Priority Fallback System', () => {
             const group = groupManager.getGroup('template-resources');
             const conflicts = detectResourceConflicts(group?.resources ?? []);
 
-            // Should detect that 'file:///{path}' template covers 'file:///etc/hosts'
+            // Should detect that 'file:///{+path}' template covers 'file:///etc/hosts'
             const templateCoversExact = _.find(conflicts, { type: 'template-covers-exact' });
             expect(templateCoversExact).toBeDefined();
             expect(templateCoversExact?.exampleUri).toBe('file:///etc/hosts');
@@ -161,7 +161,7 @@ describe('Resource Priority Fallback System', () => {
                     'fs-server',
                     [
                         {
-                            uri:         'file:///{path}',
+                            uri:         'file:///{+path}',
                             name:        'File System Resource',
                             description: 'Access any file',
                             mimeType:    'text/plain',
@@ -198,7 +198,7 @@ describe('Resource Priority Fallback System', () => {
             expect(resources.length).toBeGreaterThanOrEqual(2);
 
             // Check that templates are preserved
-            const templateResource = _.find(resources, { uri: 'file:///{path}' });
+            const templateResource = _.find(resources, { uri: 'file:///{+path}' });
             expect(templateResource).toBeDefined();
             expect(templateResource?.name).toBe('File System Resource');
         });
@@ -278,7 +278,7 @@ describe('Resource Priority Fallback System', () => {
                                 serverName: 'api-gateway',
                             },
                             {
-                                uri:        'http://api.{service}.com/v1/{path}',
+                                uri:        'http://api.{service}.com/v1/{+path}',
                                 serverName: 'microservice',
                             },
                             {
@@ -303,9 +303,9 @@ describe('Resource Priority Fallback System', () => {
             const templateOverlaps = _.filter(conflicts, { type: 'template-overlap' });
             expect(templateOverlaps.length).toBeGreaterThan(0);
 
-            // Should detect exact covered by template
-            const exactCovered = _.find(conflicts, { type: 'exact-covered-by-template' });
-            expect(exactCovered).toBeDefined();
+            // Should detect exact covered by template (templates come first, so template-covers-exact)
+            const templateCoversExact = _.find(conflicts, { type: 'template-covers-exact' });
+            expect(templateCoversExact).toBeDefined();
         });
 
         it('should generate example URIs for conflict reporting', () => {
@@ -331,7 +331,7 @@ describe('Resource Priority Fallback System', () => {
                         resources: [
                             // Different types of resources
                             {
-                                uri:        'file:///{path}',
+                                uri:        'file:///{+path}',
                                 serverName: 'fs-server',
                             },
                             {
@@ -378,7 +378,7 @@ describe('Resource Priority Fallback System', () => {
                 _.startsWith(c.exampleUri, 'https://api.github.com')
             );
 
-            // file:///{path} should conflict with file:///etc/passwd
+            // file:///{+path} should conflict with file:///etc/passwd
             expect(fileConflicts.length).toBeGreaterThan(0);
 
             // GitHub API template should conflict with exact VSCode repo URI
@@ -394,7 +394,7 @@ describe('Resource Priority Fallback System', () => {
         it('should correctly deduplicate in resources/list', () => {
             const mockBackendResources = new Map<string, Resource[]>([
                 ['fs-server', [
-                    { uri: 'file:///{path}', name: 'File System', mimeType: 'text/plain' },
+                    { uri: 'file:///{+path}', name: 'File System', mimeType: 'text/plain' },
                 ]],
                 ['github-api', [
                     { uri: 'https://api.github.com/repos/{owner}/{repo}', name: 'GitHub Repo', mimeType: 'application/json' },
@@ -416,7 +416,7 @@ describe('Resource Priority Fallback System', () => {
             expect(resources.length).toBe(5);
 
             // Verify each unique resource is present
-            expect(_.find(resources, { uri: 'file:///{path}' })).toBeDefined();
+            expect(_.find(resources, { uri: 'file:///{+path}' })).toBeDefined();
             expect(_.find(resources, { uri: 'https://api.github.com/repos/{owner}/{repo}' })).toBeDefined();
             expect(_.find(resources, { uri: 'sqlite:///data/app.db' })).toBeDefined();
             expect(_.find(resources, { uri: 'file:///etc/passwd' })).toBeDefined();

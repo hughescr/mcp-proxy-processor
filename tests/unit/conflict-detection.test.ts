@@ -69,7 +69,7 @@ describe('Conflict Detection', () => {
         describe('Template Covers Exact Detection', () => {
             it('should detect when template covers exact URI', () => {
                 const resources: ResourceRef[] = [
-                    { uri: 'file:///{path}', serverName: 'fs-server' },
+                    { uri: 'file:///{+path}', serverName: 'fs-server' },
                     { uri: 'file:///etc/hosts', serverName: 'config-server' },
                 ];
 
@@ -112,7 +112,7 @@ describe('Conflict Detection', () => {
             it('should detect when exact URI is covered by template', () => {
                 const resources: ResourceRef[] = [
                     { uri: 'file:///etc/hosts', serverName: 'config-server' },
-                    { uri: 'file:///{path}', serverName: 'fs-server' },
+                    { uri: 'file:///{+path}', serverName: 'fs-server' },
                 ];
 
                 const conflicts = detectResourceConflicts(resources);
@@ -140,8 +140,8 @@ describe('Conflict Detection', () => {
         describe('Template Overlap Detection', () => {
             it('should detect overlapping templates with same static parts', () => {
                 const resources: ResourceRef[] = [
-                    { uri: 'file:///{path}', serverName: 'fs1' },
-                    { uri: 'file:///{filename}', serverName: 'fs2' },
+                    { uri: 'file:///{+path}', serverName: 'fs1' },
+                    { uri: 'file:///{+filename}', serverName: 'fs2' },
                 ];
 
                 const conflicts = detectResourceConflicts(resources);
@@ -179,7 +179,7 @@ describe('Conflict Detection', () => {
             it('should handle complex template overlaps', () => {
                 const resources: ResourceRef[] = [
                     { uri: 'https://api.{region}.{service}.com/{endpoint}', serverName: 'multi-region' },
-                    { uri: 'https://api.{zone}.{app}.com/{path}', serverName: 'multi-zone' },
+                    { uri: 'https://api.{zone}.{app}.com/{+path}', serverName: 'multi-zone' },
                     { uri: 'https://api.us.storage.com/files', serverName: 'storage-api' },
                 ];
 
@@ -189,16 +189,16 @@ describe('Conflict Detection', () => {
                 const templateOverlaps = _.filter(conflicts, { type: 'template-overlap' });
                 expect(templateOverlaps).toHaveLength(1);
 
-                // Exact should be covered by templates
-                const exactCovered = _.filter(conflicts, { type: 'exact-covered-by-template' });
-                expect(exactCovered).toHaveLength(2);
+                // Exact should be covered by templates (templates come first, so template-covers-exact)
+                const templateCoversExact = _.filter(conflicts, { type: 'template-covers-exact' });
+                expect(templateCoversExact).toHaveLength(2);
             });
         });
 
         describe('Mixed Conflict Types', () => {
             it('should detect all conflict types in a mixed list', () => {
                 const resources: ResourceRef[] = [
-                    { uri: 'file:///{path}', serverName: 'fs1' },
+                    { uri: 'file:///{+path}', serverName: 'fs1' },
                     { uri: 'file:///etc/hosts', serverName: 'config1' },
                     { uri: 'file:///{dir}/{file}', serverName: 'fs2' },
                     { uri: 'file:///etc/hosts', serverName: 'config2' },

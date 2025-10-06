@@ -47,12 +47,12 @@ describe('Tool Mapping', () => {
                         ],
                         resources: [
                             {
-                                originalUri: 'resource1',
-                                serverName:  'server-a',
+                                uri:        'resource1',
+                                serverName: 'server-a',
                             },
                             {
-                                originalUri: 'resource2',
-                                serverName:  'server-b',
+                                uri:        'resource2',
+                                serverName: 'server-b',
                             },
                         ],
                     },
@@ -105,8 +105,8 @@ describe('Tool Mapping', () => {
                         tools:     [],
                         resources: [
                             {
-                                originalUri: 'resource1',
-                                serverName:  'server1',
+                                uri:        'resource1',
+                                serverName: 'server1',
                             },
                         ],
                     },
@@ -214,7 +214,7 @@ describe('Tool Mapping', () => {
             const resources = groupManager.getResourcesForGroup('test-group', mockBackendResources);
 
             expect(resources).toHaveLength(1);
-            expect(resources[0].name).toBe('Custom Resource Name');
+            expect(resources[0].name).toBe('Original Resource');
             expect(resources[0].uri).toBe('test://resource1');
         });
 
@@ -231,12 +231,12 @@ describe('Tool Mapping', () => {
                         tools:     [],
                         resources: [
                             {
-                                originalUri: 'test://resource1',
-                                serverName:  'test-server-1',
+                                uri:        'test://resource1',
+                                serverName: 'test-server-1',
                             },
                             {
-                                originalUri: 'test://resource3',
-                                serverName:  'test-server-2',
+                                uri:        'test://resource3',
+                                serverName: 'test-server-2',
                             },
                         ],
                     },
@@ -267,8 +267,8 @@ describe('Tool Mapping', () => {
                         tools:     [],
                         resources: [
                             {
-                                originalUri: 'test://non-existent',
-                                serverName:  'test-server-1',
+                                uri:        'test://non-existent',
+                                serverName: 'test-server-1',
                             },
                         ],
                     },
@@ -285,7 +285,7 @@ describe('Tool Mapping', () => {
             expect(resources).toEqual([]);
         });
 
-        it('should handle duplicate resource URIs in group', async () => {
+        it('should deduplicate resources with same URI from same server', async () => {
             const dupResourceGroup = {
                 groups: {
                     'dup-resources': {
@@ -293,14 +293,12 @@ describe('Tool Mapping', () => {
                         tools:     [],
                         resources: [
                             {
-                                originalUri: 'test://resource1',
-                                serverName:  'test-server-1',
-                                name:        'First Reference',
+                                uri:        'test://resource1',
+                                serverName: 'test-server-1',
                             },
                             {
-                                originalUri: 'test://resource1',
-                                serverName:  'test-server-1',
-                                name:        'Second Reference',
+                                uri:        'test://resource1',
+                                serverName: 'test-server-1',
                             },
                         ],
                     },
@@ -313,12 +311,11 @@ describe('Tool Mapping', () => {
 
             const resources = dupManager.getResourcesForGroup('dup-resources', mockBackendResources);
 
-            // Both references should be included with different names
-            expect(resources).toHaveLength(2);
-            expect(resources[0].name).toBe('First Reference');
-            expect(resources[1].name).toBe('Second Reference');
+            // Should deduplicate to 1 resource (same URI)
+            expect(resources).toHaveLength(1);
+            // Name should come from backend, not config
+            expect(resources[0].name).toBe('Original Resource');
             expect(resources[0].uri).toBe('test://resource1');
-            expect(resources[1].uri).toBe('test://resource1');
         });
 
         it('should preserve resource order from configuration', () => {

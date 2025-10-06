@@ -43,7 +43,7 @@ export function matchesTemplate(uri: string, pattern: string): { matches: boolea
         const result = template.fromUri(uri);
 
         // fromUri returns null if no match, or an object with extracted variables
-        if(result === null) {
+        if(!result) {
             return { matches: false };
         }
 
@@ -75,12 +75,15 @@ export function extractTemplateVariables(template: string): string[] {
         return [];
     }
 
-    return _.map(matches, (match) => {
-        // Remove braces and any modifiers (*, +, #, etc.)
-        const variable = _.replace(match.slice(1, -1), /^[*+#./;?&]/, '');
-        // Handle explode operator (*)
-        return _.replace(variable, /\*$/, '');
-    });
+    return _(matches)
+        .map((match) => {
+            // Remove braces and any modifiers (*, +, #, etc.)
+            const variable = _.replace(match.slice(1, -1), /^[*+#./;?&]/, '');
+            // Handle explode operator (*)
+            return _.replace(variable, /\*$/, '');
+        })
+        .compact()
+        .value();
 }
 
 /**
@@ -88,6 +91,11 @@ export function extractTemplateVariables(template: string): string[] {
  * (overlap detection for conflict checking)
  */
 export function templatesCanOverlap(template1: string, template2: string): boolean {
+    // Handle empty strings first
+    if(_.isEmpty(template1) || _.isEmpty(template2)) {
+        return template1 === template2;
+    }
+
     const vars1 = extractTemplateVariables(template1);
     const vars2 = extractTemplateVariables(template2);
 
@@ -104,18 +112,24 @@ export function templatesCanOverlap(template1: string, template2: string): boole
         return matchesTemplate(template2, template1).matches;
     }
 
-    // Both are templates - they could overlap if their static parts are compatible
-    // This is a conservative check - we assume templates with different variable names
-    // can still overlap (they might be semantically different but match same URIs)
+    // Both are templates - use cross-template matching
+    // Generate example URIs from each template and test against the other
+    try {
+        const example1 = generateExampleUri(template1);
+        const example2 = generateExampleUri(template2);
 
-    // Remove all template variables to get static parts
-    const static1 = _.replace(template1, /\{[^}]+\}/g, '');
-    const static2 = _.replace(template2, /\{[^}]+\}/g, '');
+        // Test if example from template1 matches template2
+        const example1MatchesTemplate2 = matchesTemplate(example1, template2).matches;
 
-    // If static parts are different, they likely don't overlap
-    // But this is conservative - templates could still overlap with different static parts
-    // For now, we'll return true (conservative - flag as potential overlap)
-    return static1 === static2 || static1.includes(static2) || static2.includes(static1);
+        // Test if example from template2 matches template1
+        const example2MatchesTemplate1 = matchesTemplate(example2, template1).matches;
+
+        // If either example matches the other template, they can overlap
+        return example1MatchesTemplate2 || example2MatchesTemplate1;
+    } catch{
+        // If we can't generate examples, be conservative and assume overlap
+        return true;
+    }
 }
 
 /**

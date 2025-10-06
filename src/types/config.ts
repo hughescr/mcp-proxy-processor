@@ -145,24 +145,6 @@ export const ToolOverrideSchema = z.object({
 export type ToolOverride = z.infer<typeof ToolOverrideSchema>;
 
 /**
- * Resource override configuration
- */
-export const ResourceOverrideSchema = z.object({
-    /** Original resource URI from backend server */
-    originalUri: z.string(),
-    /** Backend server name this resource comes from */
-    serverName:  z.string(),
-    /** Optional: Override the resource name */
-    name:        z.string().optional(),
-    /** Optional: Override the resource description */
-    description: z.string().optional(),
-    /** Optional: Override the MIME type */
-    mimeType:    z.string().optional(),
-});
-
-export type ResourceOverride = z.infer<typeof ResourceOverrideSchema>;
-
-/**
  * Resource reference for priority-based fallback system
  * Resources are included/excluded with no overrides
  * Priority is determined by array order (first = highest priority)

@@ -248,8 +248,8 @@ describe('Error Handling', () => {
                         tools:     [],
                         resources: [
                             {
-                                originalUri: 'test://does-not-exist',
-                                serverName:  'test-server-1',
+                                uri:        'test://does-not-exist',
+                                serverName: 'test-server-1',
                             },
                         ],
                     },
@@ -274,16 +274,16 @@ describe('Error Handling', () => {
                         tools:     [],
                         resources: [
                             {
-                                originalUri: 'test://invalid1',
-                                serverName:  'test-server-1',
+                                uri:        'test://invalid1',
+                                serverName: 'test-server-1',
                             },
                             {
-                                originalUri: 'test://resource1',
-                                serverName:  'test-server-1',
+                                uri:        'test://resource1',
+                                serverName: 'test-server-1',
                             },
                             {
-                                originalUri: 'test://invalid2',
-                                serverName:  'test-server-1',
+                                uri:        'test://invalid2',
+                                serverName: 'test-server-1',
                             },
                         ],
                     },
@@ -411,12 +411,12 @@ describe('Error Handling', () => {
                         ],
                         resources: [
                             {
-                                originalUri: 'missing://resource1',
-                                serverName:  'server1',
+                                uri:        'missing://resource1',
+                                serverName: 'server1',
                             },
                             {
-                                originalUri: 'missing://resource2',
-                                serverName:  'server2',
+                                uri:        'missing://resource2',
+                                serverName: 'server2',
                             },
                         ],
                     },

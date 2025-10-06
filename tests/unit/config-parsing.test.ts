@@ -5,7 +5,7 @@
 import { describe, it, expect } from 'bun:test';
 import { keys as _keys } from 'lodash';
 import type { StdioServerConfig } from '../../src/types/config.js';
-import { BackendServersConfigSchema, GroupsConfigSchema, ToolOverrideSchema, ResourceOverrideSchema } from '../../src/types/config.js';
+import { BackendServersConfigSchema, GroupsConfigSchema, ToolOverrideSchema } from '../../src/types/config.js';
 
 import { validBackendConfig, validGroupConfig, invalidBackendConfig, invalidGroupConfig, emptyBackendConfig, emptyGroupConfig } from '../fixtures/mock-configs.js';
 
@@ -218,62 +218,6 @@ describe('Config Parsing', () => {
             };
             const result = ToolOverrideSchema.parse(complexSchema);
             expect(result.inputSchema).toEqual(complexSchema.inputSchema);
-        });
-    });
-
-    describe('ResourceOverrideSchema', () => {
-        it('should parse valid resource override with all fields', () => {
-            const resourceOverride = {
-                originalUri: 'test://resource',
-                serverName:  'test-server',
-                name:        'New Resource Name',
-                description: 'New description',
-                mimeType:    'application/json',
-            };
-            const result = ResourceOverrideSchema.parse(resourceOverride);
-            expect(result).toEqual(resourceOverride);
-        });
-
-        it('should parse minimal resource override with only required fields', () => {
-            const minimalOverride = {
-                originalUri: 'test://resource',
-                serverName:  'server',
-            };
-            const result = ResourceOverrideSchema.parse(minimalOverride);
-            expect(result.originalUri).toBe('test://resource');
-            expect(result.serverName).toBe('server');
-            expect(result.name).toBeUndefined();
-            expect(result.description).toBeUndefined();
-            expect(result.mimeType).toBeUndefined();
-        });
-
-        it('should reject resource override missing required fields', () => {
-            const missingRequired = {
-                name: 'new_name',
-                // Missing originalUri and serverName
-            };
-            expect(() => {
-                ResourceOverrideSchema.parse(missingRequired);
-            }).toThrow();
-        });
-
-        it('should accept various URI formats', () => {
-            const uriFormats = [
-                'http://example.com/resource',
-                'https://api.example.com/data',
-                'file:///path/to/resource',
-                'custom://protocol/resource',
-                'resource/path',
-            ];
-
-            for(const uri of uriFormats) {
-                const override = {
-                    originalUri: uri,
-                    serverName:  'server',
-                };
-                const result = ResourceOverrideSchema.parse(override);
-                expect(result.originalUri).toBe(uri);
-            }
         });
     });
 
