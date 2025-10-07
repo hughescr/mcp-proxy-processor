@@ -82,9 +82,13 @@ export function SelectInput<T extends SelectInputItem = SelectInputItem>({
                 const isSelected = index === selectedIndex;
                 const indicator = isSelected && !item.disabled ? '❯' : ' ';
 
+                // Only use dimColor for separator lines (non-alphanumeric content)
+                // Headers and labels should use default color even when disabled
+                const isSeparator = item.disabled && /^[^a-z0-9]*$/i.test(item.label);
+
                 return (
                     <Box key={item.key ?? item.value}>
-                        <Text color={isSelected && !item.disabled ? 'cyan' : undefined} dimColor={item.disabled}>
+                        <Text color={isSelected && !item.disabled ? 'cyan' : undefined} dimColor={isSeparator}>
                             {indicator}
 {' '}
 {item.label}
