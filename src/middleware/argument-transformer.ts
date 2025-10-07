@@ -8,7 +8,7 @@
 
 import jsonata from 'jsonata';
 import { logger } from '@hughescr/logger';
-import { isError, isUndefined, has, isObject, isArray, trim } from 'lodash';
+import { isError, has, isObject, isArray, trim } from 'lodash';
 import type {
     ArgumentMapping,
     TemplateMapping,
@@ -49,6 +49,9 @@ export class ArgumentTransformer {
 
     /**
      * Transform arguments using template-based parameter mappings
+     *
+     * Default behavior: All client parameters pass through unchanged unless explicitly mapped.
+     * Mappings can override, rename, add constants, or omit parameters.
      */
     private transformTemplate(
         clientArgs: unknown,
@@ -59,22 +62,82 @@ export class ArgumentTransformer {
             ? clientArgs as Record<string, unknown>
             : {};
 
-        const result: Record<string, unknown> = {};
+        // Start with all client args (passthrough by default)
+        const result: Record<string, unknown> = { ...args };
 
-        // Process each backend parameter mapping
+        // Track which source parameters have been consumed (for rename/default)
+        const consumedSources = new Set<string>();
+
+        // Apply each backend parameter mapping
         for(const [backendParam, paramMapping] of Object.entries(mapping.mappings)) {
-            const value = this.applyParameterMapping(args, paramMapping);
+            this.applyMapping(args, result, backendParam, paramMapping, consumedSources);
+        }
 
-            // Only include the parameter if we got a value
-            // (undefined values are omitted to avoid sending null/undefined to backend)
-            if(!isUndefined(value)) {
-                result[backendParam] = value;
-            }
+        // Remove consumed source parameters (from rename/passthrough/default operations)
+        for(const source of consumedSources) {
+            delete result[source];
         }
 
         // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access -- logger is typed as any
         logger.debug({ clientArgs, backendArgs: result, mapping }, 'Template transformation completed');
         return result;
+    }
+
+    /**
+     * Apply a single parameter mapping to the result object
+     */
+    private applyMapping(
+        args: Record<string, unknown>,
+        result: Record<string, unknown>,
+        backendParam: string,
+        paramMapping: ParameterMapping,
+        consumedSources: Set<string>
+    ): void {
+        switch(paramMapping.type) {
+            case 'passthrough':
+                // Explicitly keep client param (already in result, but mark as consumed)
+                if(has(args, paramMapping.source)) {
+                    result[backendParam] = args[paramMapping.source];
+                    if(backendParam !== paramMapping.source) {
+                        consumedSources.add(paramMapping.source);
+                    }
+                }
+                break;
+
+            case 'rename':
+                // Copy from source to new name, remove original
+                if(has(args, paramMapping.source)) {
+                    result[backendParam] = args[paramMapping.source];
+                    consumedSources.add(paramMapping.source);
+                }
+                break;
+
+            case 'constant':
+                // Always use constant value (overrides any client input)
+                result[backendParam] = paramMapping.value;
+                break;
+
+            case 'default':
+                // Use client value if present, otherwise use default
+                if(has(args, paramMapping.source)) {
+                    result[backendParam] = args[paramMapping.source];
+                    if(backendParam !== paramMapping.source) {
+                        consumedSources.add(paramMapping.source);
+                    }
+                } else {
+                    result[backendParam] = paramMapping.default;
+                }
+                break;
+
+            case 'omit':
+                // Remove parameter from backend args
+                delete result[backendParam];
+                break;
+
+            default:
+                // TypeScript should prevent this
+                throw new Error(`Unknown parameter mapping type: ${(paramMapping as { type: string }).type}`);
+        }
     }
 
     /**
