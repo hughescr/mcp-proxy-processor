@@ -93,6 +93,7 @@ export function GroupEditor({ groupName, group, onSave, onDelete, onCancel }: Gr
         setCurrentGroup({ ...currentGroup, tools: newTools });
     };
 
+    // eslint-disable-next-line complexity -- Menu handler needs to route many different actions
     const handleMenuSelect = (item: { value: string }) => {
         if(item.value === 'save') {
             void handleSave();
@@ -115,10 +116,16 @@ export function GroupEditor({ groupName, group, onSave, onDelete, onCancel }: Gr
             const index = parseInt(_.replace(item.value, 'edit-tool-', ''), 10);
             setEditingToolIndex(index);
             setMode('edit-tool');
+        } else if(_.startsWith(item.value, 'view-resource-')) {
+            // Clicking on individual resource item navigates to resource browser
+            setMode('edit-resources');
         } else if(item.value === 'edit-resources') {
             setMode('edit-resources');
         } else if(item.value === 'priority-resources') {
             setMode('priority-resources');
+        } else if(_.startsWith(item.value, 'view-prompt-')) {
+            // Clicking on individual prompt item navigates to prompt browser
+            setMode('edit-prompts');
         } else if(item.value === 'edit-prompts') {
             setMode('edit-prompts');
         } else if(item.value === 'priority-prompts') {
@@ -322,10 +329,15 @@ export function GroupEditor({ groupName, group, onSave, onDelete, onCancel }: Gr
         })),
         { label: '⚙️  Activate/Deactivate Tools', value: 'add-tool' },
         menuSeparator(),
-        {
-            label: `Resources (${currentGroup.resources?.length ?? 0}):`,
-            value: 'edit-resources'
-        },
+        { label: `Resources (${currentGroup.resources?.length ?? 0}):`, value: 'resources-header', disabled: true },
+        ..._(currentGroup.resources ?? [])
+            .sortBy('uri')
+            .map((resource, index) => ({
+                label: `  ${resource.uri} (${resource.serverName})`,
+                value: `view-resource-${index}`,
+            }))
+            .value(),
+        { label: '⚙️  Activate/Deactivate Resources', value: 'edit-resources' },
         {
             label: currentGroup.resources && currentGroup.resources.length > 0
                 ? '📊 Set Resource Priority'
@@ -334,10 +346,15 @@ export function GroupEditor({ groupName, group, onSave, onDelete, onCancel }: Gr
             disabled: !currentGroup.resources || currentGroup.resources.length === 0
         },
         menuSeparator(),
-        {
-            label: `Prompts (${currentGroup.prompts?.length ?? 0}):`,
-            value: 'edit-prompts'
-        },
+        { label: `Prompts (${currentGroup.prompts?.length ?? 0}):`, value: 'prompts-header', disabled: true },
+        ..._(currentGroup.prompts ?? [])
+            .sortBy('name')
+            .map((prompt, index) => ({
+                label: `  ${prompt.name} (${prompt.serverName})`,
+                value: `view-prompt-${index}`,
+            }))
+            .value(),
+        { label: '⚙️  Activate/Deactivate Prompts', value: 'edit-prompts' },
         {
             label: currentGroup.prompts && currentGroup.prompts.length > 0
                 ? '📊 Set Prompt Priority'

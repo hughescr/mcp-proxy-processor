@@ -113,7 +113,6 @@ export function ParameterMappingEditor({
     onCancel,
 }: ParameterMappingEditorProps) {
     const [mode, setMode] = useState<EditorMode>('edit-mapping');
-    const [currentMapping, setCurrentMapping] = useState<ArgumentMapping | undefined>(mapping);
     const [editState, setEditState] = useState<MappingEditorState | null>(null);
     const [inputValue, setInputValue] = useState('');
     const [initialized, setInitialized] = useState(false);
@@ -130,8 +129,8 @@ export function ParameterMappingEditor({
         if(initialParamToEdit && !initialized) {
             setInitialized(true);
 
-            const templateMapping: TemplateMapping = currentMapping?.type === 'template'
-                ? currentMapping
+            const templateMapping: TemplateMapping = mapping?.type === 'template'
+                ? mapping
                 : { type: 'template', mappings: {} };
 
             const paramMapping = templateMapping.mappings[initialParamToEdit] ?? {
@@ -142,7 +141,7 @@ export function ParameterMappingEditor({
             setEditState({ paramName: initialParamToEdit, paramMapping });
             setMode('edit-mapping');
         }
-    }, [initialParamToEdit, initialized, currentMapping]);
+    }, [initialParamToEdit, initialized, mapping]);
 
     const getClientParams = (): string[] => {
         if(!clientSchema?.properties) {
@@ -226,15 +225,8 @@ export function ParameterMappingEditor({
 
         const updatedMapping = updateMappingValue(editState.paramMapping, parsedValue);
 
-        // Save to current mapping
-        const templateMapping: TemplateMapping = currentMapping?.type === 'template'
-            ? currentMapping
-            : { type: 'template', mappings: {} };
-
-        templateMapping.mappings[editState.paramName] = updatedMapping;
-        setCurrentMapping(templateMapping);
-        setEditState(null);
-        onCancel();
+        setEditState({ ...editState, paramMapping: updatedMapping });
+        setMode('edit-mapping');
     };
 
     const handleNameSubmit = (value: string) => {
@@ -249,13 +241,6 @@ export function ParameterMappingEditor({
             updatedMapping = { ...paramMapping, name: value || undefined };
         }
 
-        // Save to current mapping
-        const templateMapping: TemplateMapping = currentMapping?.type === 'template'
-            ? currentMapping
-            : { type: 'template', mappings: {} };
-
-        templateMapping.mappings[editState.paramName] = updatedMapping;
-        setCurrentMapping(templateMapping);
         setEditState({ ...editState, paramMapping: updatedMapping });
         setMode('edit-mapping');
     };
@@ -272,13 +257,6 @@ export function ParameterMappingEditor({
             updatedMapping = { ...paramMapping, description: value || undefined };
         }
 
-        // Save to current mapping
-        const templateMapping: TemplateMapping = currentMapping?.type === 'template'
-            ? currentMapping
-            : { type: 'template', mappings: {} };
-
-        templateMapping.mappings[editState.paramName] = updatedMapping;
-        setCurrentMapping(templateMapping);
         setEditState({ ...editState, paramMapping: updatedMapping });
         setMode('edit-mapping');
     };
@@ -543,8 +521,8 @@ Examples: "text", 123, true,
         const menuItems = buildMappingEditorMenuItems(paramMapping);
 
         const handleSaveParam = () => {
-            const templateMapping: TemplateMapping = currentMapping?.type === 'template'
-                ? currentMapping
+            const templateMapping: TemplateMapping = mapping?.type === 'template'
+                ? mapping
                 : { type: 'template', mappings: {} };
 
             templateMapping.mappings[editState.paramName] = editState.paramMapping;
