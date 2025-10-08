@@ -4,10 +4,11 @@
  */
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Box, Text, useStdout } from 'ink';
-import { SelectInput, SelectInputItem } from '../SelectInput.js';
+import { Box, Text, useStdout, useInput } from 'ink';
+import { SelectInput, type SelectInputItem } from '../SelectInput.js';
 import { calculateAvailableHeight, calculateViewportBounds } from '../../design-system.js';
 import { useNotification } from './NotificationContext.js';
+import { findIndex } from 'lodash';
 
 interface VirtualScrollListProps<T extends SelectInputItem = SelectInputItem> {
     /** All items to display */
@@ -36,7 +37,12 @@ export function VirtualScrollList<T extends SelectInputItem = SelectInputItem>({
     const { stdout } = useStdout();
     const terminalHeight = stdout?.rows ?? 24;
     const [viewportStart, setViewportStart] = useState(0);
-    const [selectedIndex, setSelectedIndex] = useState(initialIndex);
+    const [selectedIndex, setSelectedIndex] = useState(() => {
+        // Find first non-disabled item for initial selection
+        const firstEnabledIndex = findIndex(items, item => !item.disabled);
+        const proposedIndex = initialIndex ?? 0;
+        return items[proposedIndex]?.disabled ? firstEnabledIndex : proposedIndex;
+    });
     const { notificationHeight } = useNotification();
 
     // Calculate available height for list (adjust for notification bar)
@@ -66,13 +72,47 @@ export function VirtualScrollList<T extends SelectInputItem = SelectInputItem>({
         return items.slice(viewport.start, viewport.end);
     }, [items, viewport.start, viewport.end]);
 
-    // Track which item in the full list is selected
-    const handleHighlight = (item: T) => {
-        const fullIndex = items.indexOf(item);
-        if(fullIndex !== -1) {
-            setSelectedIndex(fullIndex);
+    // IMPORTANT: Use functional setState for rapid input support
+    // Handle keyboard navigation in the full items array
+    useInput((input, key) => {
+        if(key.upArrow) {
+            setSelectedIndex((prevIndex) => {
+                let newIndex = prevIndex - 1;
+                // Skip disabled items
+                while(newIndex >= 0 && items[newIndex]?.disabled) {
+                    newIndex--;
+                }
+                return newIndex >= 0 ? newIndex : prevIndex;
+            });
+        } else if(key.downArrow) {
+            setSelectedIndex((prevIndex) => {
+                let newIndex = prevIndex + 1;
+                // Skip disabled items
+                while(newIndex < items.length && items[newIndex]?.disabled) {
+                    newIndex++;
+                }
+                return newIndex < items.length ? newIndex : prevIndex;
+            });
+        } else if(key.pageUp) {
+            setSelectedIndex((prevIndex) => {
+                let newIndex = Math.max(0, prevIndex - maxVisibleItems);
+                // Skip disabled items going backward
+                while(newIndex >= 0 && items[newIndex]?.disabled) {
+                    newIndex--;
+                }
+                return newIndex >= 0 ? newIndex : prevIndex;
+            });
+        } else if(key.pageDown) {
+            setSelectedIndex((prevIndex) => {
+                let newIndex = Math.min(items.length - 1, prevIndex + maxVisibleItems);
+                // Skip disabled items going forward
+                while(newIndex < items.length && items[newIndex]?.disabled) {
+                    newIndex++;
+                }
+                return newIndex < items.length ? newIndex : prevIndex;
+            });
         }
-    };
+    });
 
     return (
         <Box flexDirection="column">
@@ -88,8 +128,7 @@ more above)
             <SelectInput
               items={visibleItems}
               onSelect={onSelect}
-              onHighlight={handleHighlight}
-              initialIndex={selectedIndex - viewport.start}
+              selectedIndex={selectedIndex - viewport.start}
             />
 
             {showIndicators && viewport.end < items.length && (
