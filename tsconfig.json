@@ -4,7 +4,7 @@
             "ESNext"
         ],
         "target": "ESNext",
-        "module": "ESNext",
+        "module": "Preserve",
         "moduleResolution": "bundler",
         "jsx": "react",
         "jsxFactory": "React.createElement",
