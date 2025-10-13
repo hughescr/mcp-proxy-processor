@@ -1,5 +1,13 @@
 # MCP Proxy Processor
 
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+[![GitHub stars](https://img.shields.io/github/stars/hughescr/mcp-proxy-processor.svg)](https://github.com/hughescr/mcp-proxy-processor/stargazers)
+[![GitHub issues](https://img.shields.io/github/issues/hughescr/mcp-proxy-processor.svg)](https://github.com/hughescr/mcp-proxy-processor/issues)
+[![npm version](https://img.shields.io/npm/v/@hughescr/mcp-proxy-processor.svg)](https://www.npmjs.com/package/@hughescr/mcp-proxy-processor)
+[![npm downloads](https://img.shields.io/npm/dm/@hughescr/mcp-proxy-processor.svg)](https://www.npmjs.com/package/@hughescr/mcp-proxy-processor)
+[![MCP](https://img.shields.io/badge/MCP-Compatible-purple.svg)](https://modelcontextprotocol.io/)
+[![Built with Bun](https://img.shields.io/badge/Built%20with-Bun-f472b6.svg)](https://bun.sh/)
+
 An MCP (Model Context Protocol) proxy server that allows selective re-exposure of tools, resources, and prompts from backend MCP servers through configurable "groups". Keep your AI agents focused by exposing only the tools they need, with smart resource management and prompt prioritization.
 
 ## Why Use MCP Proxy Processor?
