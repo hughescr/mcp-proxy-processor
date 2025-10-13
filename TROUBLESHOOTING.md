@@ -614,11 +614,11 @@ Or use Claude Desktop's environment:
 
 **A:** Contributions are welcome! Please:
 1. Fork the repository
-2. Create a feature branch
+2. Create a feature branch from `develop`
 3. Make your changes with tests
-4. Submit a pull request
+4. Submit a pull request to `develop`
 
-See the README for development setup instructions.
+See [DEVELOPMENT.md](./DEVELOPMENT.md) for development setup instructions, testing procedures, and contribution guidelines.
 
 ### Q: Is there a web-based admin interface?
 

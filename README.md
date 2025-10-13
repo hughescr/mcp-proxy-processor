@@ -28,13 +28,13 @@ MCP Proxy Processor **completely excludes** unwanted tools from your agent's con
 - **Hide unnecessary parameters**: Remove rarely-used optional parameters from the agent-visible schema entirely. The agent sees only the 3 parameters that matter.
 - **Inject hidden parameters**: Add API keys, default values, and configuration as constants—agents never see or waste tokens on them.
 
-#### Resources (NEW!)
+#### Resources
 - **Selective resource exposure**: Choose which files, APIs, or data sources to expose from backend servers
 - **URI template matching**: Use RFC 6570 templates to match multiple resource URIs with patterns
 - **Priority-based fallback**: Configure multiple servers for the same resource with automatic failover
 - **Conflict detection**: Identify overlapping resource patterns and resolve conflicts
 
-#### Prompts (NEW!)
+#### Prompts
 - **Prompt curation**: Select specific prompts from backend servers to expose to agents
 - **Argument pass-through**: Preserve prompt arguments and requirements from backend definitions
 - **Priority ordering**: Set fallback chains for prompts across multiple backend servers
@@ -65,29 +65,27 @@ You can create multiple groups for different purposes:
 
 ## Installation
 
-### Prerequisites
+### Quick Install
 
-- [Bun](https://bun.sh/) (v1.0 or later)
-- Node.js 24.x or later
-
-### Install from Source
+**Run directly with npx (no installation needed):**
 
 ```bash
-# Clone the repository
-git clone https://github.com/hughescr/mcp-proxy-processor.git
-cd mcp-proxy-processor
-
-# Install dependencies
-bun install
-
-# Build the project
-bun run build
-
-# Make the CLI available globally (optional)
-bun link
+npx -y mcp-proxy-processor --help
 ```
 
-After linking, you can use `mcp-proxy` command from anywhere. Otherwise, use `bun run dev` for development.
+**Or install globally:**
+
+```bash
+npm install -g mcp-proxy-processor
+mcp-proxy --help
+```
+
+**Note:** Built with Bun, runs on Node.js 24+ and any Node-compatible runtime (npm, yarn, bun, pnpm).
+
+### Prerequisites
+
+- Node.js 24.x or later
+- Backend MCP servers you want to proxy (e.g., `@modelcontextprotocol/server-time`, `@modelcontextprotocol/server-calculator`)
 
 ## Quick Start
 
@@ -123,7 +121,7 @@ Edit `config/backend-servers.json` to define your backend MCP servers (uses Clau
 Launch the interactive admin interface to discover and configure tools:
 
 ```bash
-bun run dev admin
+npx mcp-proxy-processor admin
 # or if installed globally:
 mcp-proxy admin
 ```
@@ -172,7 +170,8 @@ Edit `config/groups.json` to define your tool groups:
           "description": "Solve algebraic equations for a variable. Provide the equation as a string with one variable (e.g., '2*x + 5 = 13' or 'y^2 - 4 = 0'). This override fixes the confusing original description."
         }
       ],
-      "resources": []
+      "resources": [],
+      "prompts": []
     }
   }
 }
@@ -186,12 +185,25 @@ Add the proxy to your Claude Desktop config (`~/Library/Application Support/Clau
 {
   "mcpServers": {
     "standard_tools": {
-      "command": "mcp-proxy",
-      "args": ["serve", "standard_tools"]
+      "command": "npx",
+      "args": ["-y", "mcp-proxy-processor", "serve", "standard_tools"]
     },
     "financial_tools": {
+      "command": "npx",
+      "args": ["-y", "mcp-proxy-processor", "serve", "financial_tools"]
+    }
+  }
+}
+```
+
+**If installed globally:**
+
+```json
+{
+  "mcpServers": {
+    "standard_tools": {
       "command": "mcp-proxy",
-      "args": ["serve", "financial_tools"]
+      "args": ["serve", "standard_tools"]
     }
   }
 }
@@ -200,10 +212,6 @@ Add the proxy to your Claude Desktop config (`~/Library/Application Support/Clau
 ### 4. Test It
 
 Restart Claude Desktop. Your agent now has access to the curated tool sets!
-
-## Documentation
-
-- [Resources and Prompts Guide](docs/RESOURCES_AND_PROMPTS.md) - Complete guide to using resources and prompts
 
 ## Configuration Reference
 
@@ -241,23 +249,20 @@ The `config/groups.json` file defines tool groups:
           "originalName": "original_tool_name",
           "name": "optional-override-name",
           "description": "Optional override description",
-          "inputSchema": {}
+          "inputSchema": {},
+          "argumentMapping": {}
         }
       ],
       "resources": [
         {
           "serverName": "backend-server-name",
           "uri": "resource://uri"
-        },
-        {
-          "serverName": "fs-server",
-          "uri": "file:///{path}"
         }
       ],
       "prompts": [
         {
-          "serverName": "ai-assistant",
-          "name": "code-review"
+          "serverName": "backend-server-name",
+          "name": "prompt-name"
         }
       ]
     }
@@ -289,48 +294,25 @@ Argument mapping allows you to transform tool call arguments from the AI agent f
 - Injecting authentication credentials or API keys
 - Renaming parameters between client and backend
 - Restructuring complex argument schemas
+- Hiding unnecessary parameters from the agent (saves context tokens)
 
-### Template Mappings
+### Quick Example: Adding Defaults
 
-Template mappings provide declarative parameter transformations for common use cases. They're easier to configure and validate than JSONata expressions.
-
-#### Passthrough
-
-Pass a parameter through unchanged:
+Make a required backend parameter optional for agents by providing a default:
 
 ```json
 {
-  "argumentMapping": {
-    "type": "template",
-    "mappings": {
-      "query": { "type": "passthrough", "source": "query" }
+  "serverName": "time",
+  "originalName": "get_current_time",
+  "description": "Get current time (defaults to America/Los_Angeles)",
+  "inputSchema": {
+    "properties": {
+      "timezone": {
+        "type": "string",
+        "description": "IANA timezone (optional)"
+      }
     }
-  }
-}
-```
-
-#### Constant
-
-Always use a fixed value (useful for API keys, modes, etc.):
-
-```json
-{
-  "argumentMapping": {
-    "type": "template",
-    "mappings": {
-      "apiKey": { "type": "constant", "value": "secret-key-123" },
-      "mode": { "type": "constant", "value": "production" }
-    }
-  }
-}
-```
-
-#### Default
-
-Use client value if provided, otherwise use a default:
-
-```json
-{
+  },
   "argumentMapping": {
     "type": "template",
     "mappings": {
@@ -344,92 +326,39 @@ Use client value if provided, otherwise use a default:
 }
 ```
 
-This is perfect for making required backend parameters optional for the AI agent.
-
-#### Rename
-
-Rename a parameter for the agent using the `name` field:
-
-```json
-{
-  "argumentMapping": {
-    "type": "template",
-    "mappings": {
-      "search_query": {
-        "type": "passthrough",
-        "source": "search_query",
-        "name": "query",
-        "description": "Your search query"
-      }
-    }
-  }
-}
-```
-
-### JSONata Expressions
-
-For complex transformations, use [JSONata](https://jsonata.org/) expressions:
-
-```json
-{
-  "argumentMapping": {
-    "type": "jsonata",
-    "expression": "{ \"search\": { \"q\": query, \"limit\": limit ? limit : 10 }, \"tz\": timezone ? timezone : \"UTC\" }"
-  }
-}
-```
-
-JSONata provides conditional logic, object restructuring, string manipulation, array operations, and more.
-
-### Complete Example
-
-Here's a complete tool override with argument mapping:
-
-```json
-{
-  "tools": [
-    {
-      "serverName": "time",
-      "originalName": "get_current_time",
-      "name": "get_time",
-      "description": "Get current time in a timezone",
-      "inputSchema": {
-        "properties": {
-          "timezone": {
-            "type": "string",
-            "description": "IANA timezone (optional, defaults to America/Los_Angeles)"
-          }
-        }
-      },
-      "argumentMapping": {
-        "type": "template",
-        "mappings": {
-          "timezone": {
-            "type": "default",
-            "source": "timezone",
-            "default": "America/Los_Angeles"
-          }
-        }
-      }
-    }
-  ]
-}
-```
-
 **How it works:**
-1. The `inputSchema` makes `timezone` optional for the AI agent
-2. The `argumentMapping` adds `America/Los_Angeles` as default if not provided
-3. The backend always receives a timezone parameter
+1. The agent sees `timezone` as optional
+2. If agent omits it, the mapping adds `"America/Los_Angeles"`
+3. Backend always receives a timezone parameter
 
-For detailed documentation and more examples, see [docs/argument-mapping.md](./docs/argument-mapping.md).
+### Mapping Types
 
-## Usage
+**Template Mappings** (declarative, recommended):
+- **passthrough**: Pass parameter through unchanged
+- **constant**: Always use a fixed value (hidden from agent)
+- **default**: Use client value if provided, otherwise use default
+- **omit**: Remove parameter from agent-visible schema
+- **rename**: Show different parameter name to agent
 
-### CLI Commands
+**JSONata Expressions** (for complex transformations):
+- Conditional logic based on parameter values
+- Restructuring nested objects
+- Array transformations
+- String manipulation
 
-The CLI uses Commander.js with automatic help generation. Run `mcp-proxy --help` to see all available commands.
+### Context Window Optimization
 
-#### Serve a Group
+Each hidden/omitted parameter saves 15-30 context tokens. For example:
+- Backend tool with 15 parameters, 200-word description
+- Agent only needs 3 parameters, 20-word description
+- **Savings: ~534 tokens per tool**
+- Across 10 tools: **~5,340 tokens saved**
+
+For complete documentation, see **[Argument Mapping Guide](docs/ARGUMENT_MAPS.md)**.
+
+## CLI Commands
+
+### Serve a Group
 
 Start the MCP proxy server for a specific group:
 
@@ -439,9 +368,7 @@ mcp-proxy serve standard_tools
 
 This starts an MCP server (stdio transport) exposing only the tools defined in the "standard_tools" group.
 
-**Note:** The legacy `--serve <groupname>` format is still supported for backward compatibility.
-
-#### Admin Interface
+### Admin Interface
 
 Launch the interactive admin interface:
 
@@ -454,9 +381,10 @@ Use this to:
 - Create and edit groups
 - Add/remove tools from groups
 - Override tool definitions
+- Configure argument mappings
 - Save configurations
 
-#### List Groups
+### List Groups
 
 List all configured groups:
 
@@ -464,9 +392,7 @@ List all configured groups:
 mcp-proxy list-groups
 ```
 
-Shows all groups with their descriptions and tool/resource counts.
-
-#### Describe Group
+### Describe Group
 
 Show detailed information about a specific group:
 
@@ -474,9 +400,7 @@ Show detailed information about a specific group:
 mcp-proxy describe-group standard_tools
 ```
 
-Displays all tools and resources in the group, including overrides.
-
-#### List Backend Servers
+### List Backend Servers
 
 List all configured backend servers:
 
@@ -484,9 +408,7 @@ List all configured backend servers:
 mcp-proxy list-backends
 ```
 
-Shows all backend servers with their commands and configuration.
-
-#### Validate Configuration
+### Validate Configuration
 
 Validate configuration files without starting servers:
 
@@ -494,51 +416,18 @@ Validate configuration files without starting servers:
 mcp-proxy validate
 ```
 
-Checks that both `backend-servers.json` and `groups.json` are valid.
-
 ## Real-World Usage Examples
 
-### Example 1: Financial Analysis Toolkit
+### Financial Analysis Toolkit
 
 Create a focused group for financial analysis that includes Excel, calculator, web search, and browser tools:
 
-**Backend servers needed:**
-```json
-{
-  "mcpServers": {
-    "calculator": {
-      "command": "uvx",
-      "args": ["--from", "calculator-mcp-server", "--", "calculator-mcp-server", "--stdio"]
-    },
-    "excel": {
-      "command": "bunx",
-      "args": ["--bun", "@negokaz/excel-mcp-server@latest"],
-      "env": {
-        "EXCEL_MCP_PAGING_CELLS_LIMIT": "4000"
-      }
-    },
-    "search": {
-      "command": "bunx",
-      "args": ["--bun", "mcp-omnisearch@latest"],
-      "env": {
-        "BRAVE_API_KEY": "your-api-key-here"
-      }
-    },
-    "browser": {
-      "command": "bunx",
-      "args": ["--bun", "@playwright/mcp@latest"]
-    }
-  }
-}
-```
-
-**Group configuration:**
 ```json
 {
   "groups": {
     "financial_tools": {
       "name": "financial_tools",
-      "description": "Tools for financial analysis including Excel, calculator, web search, and browser automation",
+      "description": "Tools for financial analysis",
       "tools": [
         {
           "serverName": "calculator",
@@ -553,13 +442,9 @@ Create a focused group for financial analysis that includes Excel, calculator, w
           "originalName": "read_workbook"
         },
         {
-          "serverName": "excel",
-          "originalName": "write_workbook"
-        },
-        {
           "serverName": "search",
           "originalName": "brave_web_search",
-          "description": "Search the web for financial information, SEC filings, market data, and company information. Returns titles, URLs, and snippets."
+          "description": "Search for financial information, SEC filings, market data, and company information."
         },
         {
           "serverName": "browser",
@@ -569,28 +454,15 @@ Create a focused group for financial analysis that includes Excel, calculator, w
           "serverName": "browser",
           "originalName": "browser_snapshot"
         }
-      ],
-      "resources": []
+      ]
     }
   }
 }
 ```
 
-**Usage in Claude Desktop:**
-```json
-{
-  "mcpServers": {
-    "financial_tools": {
-      "command": "mcp-proxy",
-      "args": ["serve", "financial_tools"]
-    }
-  }
-}
-```
+Now when Claude analyzes financial data, it only sees 6 focused tools instead of 30+ tools from all four backend servers.
 
-Now when Claude analyzes financial data, it only sees 7 focused tools instead of 30+ tools from all four backend servers.
-
-### Example 2: Research Assistant
+### Research Assistant
 
 Create a research-focused group with web search and browser automation:
 
@@ -599,7 +471,7 @@ Create a research-focused group with web search and browser automation:
   "groups": {
     "research_tools": {
       "name": "research_tools",
-      "description": "Tools for web research, AI-powered search, and browser automation",
+      "description": "Tools for web research and browser automation",
       "tools": [
         {
           "serverName": "search",
@@ -608,7 +480,7 @@ Create a research-focused group with web search and browser automation:
         {
           "serverName": "search",
           "originalName": "perplexity_search",
-          "description": "AI-powered search with reasoning. Use this for complex research questions that require synthesis across multiple sources."
+          "description": "AI-powered search with reasoning. Use for complex research questions requiring synthesis."
         },
         {
           "serverName": "browser",
@@ -619,43 +491,17 @@ Create a research-focused group with web search and browser automation:
           "originalName": "browser_snapshot"
         },
         {
-          "serverName": "browser",
-          "originalName": "browser_click"
-        },
-        {
           "serverName": "time",
           "originalName": "get_current_time",
-          "description": "Get the current time in any timezone. Useful for timestamping research findings."
+          "description": "Get current time for timestamping research findings."
         }
-      ],
-      "resources": []
+      ]
     }
   }
 }
 ```
 
-### Example 3: Fixing Confusing Tool Descriptions
-
-Some backend servers have unclear tool descriptions. Override them to help your AI agent:
-
-**Original tool (confusing):**
-```json
-{
-  "name": "solve",
-  "description": "Solves equations"
-}
-```
-
-**Overridden tool (clear):**
-```json
-{
-  "serverName": "calculator",
-  "originalName": "solve",
-  "description": "Solve algebraic equations for a variable. Provide the equation as a string with one variable (e.g., '2*x + 5 = 13' or 'y^2 - 4 = 0'). Returns the solution(s) for the variable."
-}
-```
-
-### Example 4: Multiple Groups for Different Tasks
+### Multiple Groups for Different Tasks
 
 Configure multiple groups in Claude Desktop for different workflows:
 
@@ -663,56 +509,22 @@ Configure multiple groups in Claude Desktop for different workflows:
 {
   "mcpServers": {
     "quick_tools": {
-      "command": "mcp-proxy",
-      "args": ["serve", "standard_tools"]
+      "command": "npx",
+      "args": ["-y", "mcp-proxy-processor", "serve", "standard_tools"]
     },
     "financial_analysis": {
-      "command": "mcp-proxy",
-      "args": ["serve", "financial_tools"]
+      "command": "npx",
+      "args": ["-y", "mcp-proxy-processor", "serve", "financial_tools"]
     },
     "research": {
-      "command": "mcp-proxy",
-      "args": ["serve", "research_tools"]
-    },
-    "coding": {
-      "command": "mcp-proxy",
-      "args": ["serve", "coding_tools"]
+      "command": "npx",
+      "args": ["-y", "mcp-proxy-processor", "serve", "research_tools"]
     }
   }
 }
 ```
 
-Claude Desktop will show all four groups. You can enable/disable groups based on your current task, keeping context windows clean.
-
-### Example 5: Testing a Group Before Adding to Claude
-
-Test your group configuration before adding it to Claude Desktop:
-
-```bash
-# Validate configuration files
-mcp-proxy validate
-
-# List all configured groups
-mcp-proxy list-groups
-
-# Show details about a specific group
-mcp-proxy describe-group financial_tools
-
-# Start the proxy server for your group
-mcp-proxy serve financial_tools
-
-# In another terminal, use the MCP Inspector
-npx @modelcontextprotocol/inspector mcp-proxy serve financial_tools
-
-# Or test with curl (requires jq for pretty-printing)
-echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | mcp-proxy serve financial_tools | jq
-```
-
-This lets you verify that:
-- The proxy starts without errors
-- Backend servers connect successfully
-- Tools are exposed correctly
-- Overrides are applied properly
+Claude Desktop will show all groups. You can enable/disable groups based on your current task, keeping context windows clean.
 
 ## Architecture
 
@@ -742,6 +554,13 @@ This lets you verify that:
 └─────────────────────────┘
 ```
 
+## Documentation
+
+- **[Argument Mapping Guide](docs/ARGUMENT_MAPS.md)** - Transform tool parameters and optimize context usage
+- **[Resources & Prompts Guide](docs/RESOURCES_AND_PROMPTS.md)** - Configure resources and prompts with priority fallback
+- **[Troubleshooting](TROUBLESHOOTING.md)** - Common issues, debugging tips, and FAQ
+- **[Development Guide](DEVELOPMENT.md)** - Build from source, run tests, contribute to the project
+
 ## Troubleshooting
 
 For common issues, debugging tips, and frequently asked questions, see [TROUBLESHOOTING.md](./TROUBLESHOOTING.md).
@@ -752,58 +571,17 @@ Quick tips:
 - **Claude Desktop issues:** Check config file syntax and restart Claude Desktop
 - **Protocol errors:** Ensure backend servers use stdio transport correctly
 
-## Development
+## Contributing
 
-```bash
-# Install dependencies
-bun install
+Contributions are welcome! To contribute:
 
-# Run in development mode
-bun run dev serve standard_tools
-bun run dev admin
-bun run dev list-groups
-bun run dev describe-group standard_tools
-bun run dev list-backends
-bun run dev validate
+1. Fork the repository
+2. Create a feature branch from `develop`
+3. Make your changes with tests
+4. Run `bun run full-test` to validate
+5. Submit a pull request to `develop`
 
-# Run tests
-bun test
-
-# Lint
-bun run lint
-
-# Type check
-tsc
-
-# Full validation
-bun run full-test
-```
-
-## Roadmap
-
-### Completed ✓
-- [x] Basic proxy functionality
-- [x] Group configuration
-- [x] Tool overrides (name, description, inputSchema)
-- [x] Resource overrides (name, description, mimeType)
-- [x] Argument mapping (template & JSONata transformations)
-- [x] Admin UI for argument mapping configuration
-- [x] Admin CLI interface (Ink-based TUI)
-- [x] Backend server management
-- [x] MCP client connections to backends
-- [x] Tool/resource discovery from backends
-- [x] Frontend MCP server with stdio transport
-- [x] Request proxying to backend servers
-- [x] Group-based tool filtering
-
-### Future Enhancements
-- [ ] Response transformation (JSONata-based post-processing)
-- [ ] Custom JSONata functions via plugin system (using `registerFunction` API)
-- [ ] SSE transport support for remote connections
-- [ ] Web-based admin UI
-- [ ] Group inheritance/composition
-- [ ] Rate limiting per backend server
-- [ ] Metrics and monitoring dashboard
+See **[DEVELOPMENT.md](DEVELOPMENT.md)** for detailed setup instructions, testing procedures, and development guidelines.
 
 ## License
 
