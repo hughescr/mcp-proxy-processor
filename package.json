@@ -1,5 +1,5 @@
 {
-  "name": "mcp-proxy-processor",
+  "name": "@hughescr/mcp-proxy-processor",
   "version": "1.1.2",
   "description": "An MCP proxy server that allows selective re-exposure of tools from backend MCP servers through configurable groups",
   "keywords": [
@@ -76,6 +76,9 @@
   },
   "engines": {
     "node": ">=24.x"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "trustedDependencies": [
     "esbuild"

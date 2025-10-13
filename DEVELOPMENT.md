@@ -400,7 +400,7 @@ From `package.json`:
 
 ```json
 {
-  "name": "mcp-proxy-processor",
+  "name": "@hughescr/mcp-proxy-processor",
   "bin": {
     "mcp-proxy": "./dist/cli.js"
   },
@@ -414,6 +414,9 @@ From `package.json`:
   ],
   "engines": {
     "node": ">=24.x"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }
 ```
