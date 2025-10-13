@@ -9,12 +9,13 @@
  * - Returning responses to the MCP client
  */
 
-import { join, dirname } from 'node:path';
+import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readFile } from 'node:fs/promises';
 import _ from 'lodash';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { getBackendServersConfigPath, getGroupsConfigPath } from '../utils/config-paths.js';
 import {
     ListToolsRequestSchema,
     CallToolRequestSchema,
@@ -43,10 +44,13 @@ const __dirname = dirname(__filename);
 export async function startServer(groupName: string): Promise<void> {
     logger.info({ groupName }, 'Starting MCP proxy server');
 
+    // Migrate config files from old location if needed
+    const { migrateConfigFiles } = await import('../utils/config-migration.js');
+    await migrateConfigFiles();
+
     // Configuration paths
-    const configDir = join(__dirname, '../../config');
-    const backendConfigPath = join(configDir, 'backend-servers.json');
-    const groupsConfigPath = join(configDir, 'groups.json');
+    const backendConfigPath = getBackendServersConfigPath();
+    const groupsConfigPath = getGroupsConfigPath();
 
     try {
         // 1. Load group configuration

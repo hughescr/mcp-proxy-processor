@@ -149,7 +149,9 @@ The project follows a three-tier architecture:
 
 ## Configuration Files
 
-### Backend Servers (`config/backend-servers.json`)
+Configuration files are stored in a platform-specific user directory. Use `mcp-proxy config-path` to find the location on your system.
+
+### Backend Servers (`backend-servers.json`)
 
 Defines backend MCP servers to connect to. Format matches Claude Desktop's `mcp.json`:
 
@@ -167,7 +169,7 @@ Defines backend MCP servers to connect to. Format matches Claude Desktop's `mcp.
 }
 ```
 
-### Groups (`config/groups.json`)
+### Groups (`groups.json`)
 
 Defines groups of tools/resources with optional overrides:
 

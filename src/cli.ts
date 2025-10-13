@@ -8,6 +8,7 @@
  * - describe-group <name>: Show details about a specific group
  * - list-backends: List all configured backend servers
  * - validate: Validate configuration files
+ * - config-path: Show the configuration directory path
  */
 
 import { Command } from 'commander';
@@ -209,6 +210,32 @@ program
             // eslint-disable-next-line no-console -- CLI error message to stderr is appropriate
             console.error('\nValidation failed:', isError(error) ? error.message : String(error));
             throw error;
+        }
+    });
+
+// Config-path command - show where config files are located
+program
+    .command('config-path')
+    .description('Show the configuration directory path')
+    .option('-v, --verbose', 'Show detailed paths for all config files')
+    .action(async (options: { verbose?: boolean }) => {
+        const { getConfigDir, getGroupsConfigPath, getBackendServersConfigPath } = await import('./utils/config-paths.js');
+
+        if(options.verbose) {
+            // eslint-disable-next-line no-console -- CLI output to stdout is appropriate
+            console.log('\nConfiguration paths:');
+            // eslint-disable-next-line no-console -- CLI output to stdout is appropriate
+            console.log(`  Config directory: ${getConfigDir()}`);
+            // eslint-disable-next-line no-console -- CLI output to stdout is appropriate
+            console.log(`  Groups config:    ${getGroupsConfigPath()}`);
+            // eslint-disable-next-line no-console -- CLI output to stdout is appropriate
+            console.log(`  Backend config:   ${getBackendServersConfigPath()}`);
+            // eslint-disable-next-line no-console -- CLI output to stdout is appropriate
+            console.log();
+        } else {
+            // Just output the directory path for easy scripting
+            // eslint-disable-next-line no-console -- CLI output to stdout is appropriate
+            console.log(getConfigDir());
         }
     });
 
