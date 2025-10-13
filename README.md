@@ -1,5 +1,13 @@
 # MCP Proxy Processor
 
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+[![GitHub stars](https://img.shields.io/github/stars/hughescr/mcp-proxy-processor.svg)](https://github.com/hughescr/mcp-proxy-processor/stargazers)
+[![GitHub issues](https://img.shields.io/github/issues/hughescr/mcp-proxy-processor.svg)](https://github.com/hughescr/mcp-proxy-processor/issues)
+[![npm version](https://img.shields.io/npm/v/@hughescr/mcp-proxy-processor.svg)](https://www.npmjs.com/package/@hughescr/mcp-proxy-processor)
+[![npm downloads](https://img.shields.io/npm/dm/@hughescr/mcp-proxy-processor.svg)](https://www.npmjs.com/package/@hughescr/mcp-proxy-processor)
+[![MCP](https://img.shields.io/badge/MCP-Compatible-purple.svg)](https://modelcontextprotocol.io/)
+[![Built with Bun](https://img.shields.io/badge/Built%20with-Bun-f472b6.svg)](https://bun.sh/)
+
 An MCP (Model Context Protocol) proxy server that allows selective re-exposure of tools, resources, and prompts from backend MCP servers through configurable "groups". Keep your AI agents focused by exposing only the tools they need, with smart resource management and prompt prioritization.
 
 ## Why Use MCP Proxy Processor?
@@ -70,13 +78,13 @@ You can create multiple groups for different purposes:
 **Run directly with npx (no installation needed):**
 
 ```bash
-npx -y mcp-proxy-processor --help
+npx -y @hughescr/mcp-proxy-processor@latest --help
 ```
 
 **Or install globally:**
 
 ```bash
-npm install -g mcp-proxy-processor
+npm install -g @hughescr/mcp-proxy-processor
 mcp-proxy --help
 ```
 
@@ -121,7 +129,7 @@ Edit `config/backend-servers.json` to define your backend MCP servers (uses Clau
 Launch the interactive admin interface to discover and configure tools:
 
 ```bash
-npx mcp-proxy-processor admin
+npx @hughescr/mcp-proxy-processor@latest admin
 # or if installed globally:
 mcp-proxy admin
 ```
@@ -186,11 +194,11 @@ Add the proxy to your Claude Desktop config (`~/Library/Application Support/Clau
   "mcpServers": {
     "standard_tools": {
       "command": "npx",
-      "args": ["-y", "mcp-proxy-processor", "serve", "standard_tools"]
+      "args": ["-y", "@hughescr/mcp-proxy-processor@latest", "serve", "standard_tools"]
     },
     "financial_tools": {
       "command": "npx",
-      "args": ["-y", "mcp-proxy-processor", "serve", "financial_tools"]
+      "args": ["-y", "@hughescr/mcp-proxy-processor@latest", "serve", "financial_tools"]
     }
   }
 }
@@ -510,15 +518,15 @@ Configure multiple groups in Claude Desktop for different workflows:
   "mcpServers": {
     "quick_tools": {
       "command": "npx",
-      "args": ["-y", "mcp-proxy-processor", "serve", "standard_tools"]
+      "args": ["-y", "@hughescr/mcp-proxy-processor@latest", "serve", "standard_tools"]
     },
     "financial_analysis": {
       "command": "npx",
-      "args": ["-y", "mcp-proxy-processor", "serve", "financial_tools"]
+      "args": ["-y", "@hughescr/mcp-proxy-processor@latest", "serve", "financial_tools"]
     },
     "research": {
       "command": "npx",
-      "args": ["-y", "mcp-proxy-processor", "serve", "research_tools"]
+      "args": ["-y", "@hughescr/mcp-proxy-processor@latest", "serve", "research_tools"]
     }
   }
 }
