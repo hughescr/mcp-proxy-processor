@@ -5,6 +5,7 @@ This guide covers common issues, debugging techniques, and frequently asked ques
 ## Table of Contents
 
 - [Common Issues](#common-issues)
+  - [Where Are My Config Files?](#where-are-my-config-files)
   - [Backend Server Won't Start](#backend-server-wont-start)
   - [Tool Not Found Errors](#tool-not-found-errors)
   - [Group Configuration Errors](#group-configuration-errors)
@@ -19,6 +20,40 @@ This guide covers common issues, debugging techniques, and frequently asked ques
 - [Known Limitations](#known-limitations)
 
 ## Common Issues
+
+### Where Are My Config Files?
+
+**Question:** Where does MCP Proxy Processor store configuration files?
+
+**Answer:**
+
+Configuration files are stored in a platform-specific user config directory:
+
+```bash
+# Find your config directory
+mcp-proxy config-path
+
+# With detailed paths
+mcp-proxy config-path --verbose
+```
+
+**Platform-specific locations:**
+- **macOS**: `~/Library/Preferences/@hughescr-mcp-proxy-processor/`
+- **Linux**: `~/.config/@hughescr-mcp-proxy-processor/`
+- **Windows**: `%APPDATA%\@hughescr-mcp-proxy-processor\Config\`
+
+**Files in the config directory:**
+- `backend-servers.json` - Backend MCP server configurations
+- `groups.json` - Tool group definitions
+
+**Quick access:**
+```bash
+# Open config directory in Finder/Explorer
+cd "$(mcp-proxy config-path)" && open .
+
+# Edit groups config
+code "$(mcp-proxy config-path)/groups.json"
+```
 
 ### Backend Server Won't Start
 

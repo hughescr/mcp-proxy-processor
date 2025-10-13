@@ -97,15 +97,24 @@ mcp-proxy --help
 
 ## Quick Start
 
-### 1. Configure Backend Servers
+### 1. Locate Your Config Directory
 
-Copy the example configuration and edit it:
+Find where MCP Proxy Processor stores configuration files:
 
 ```bash
-cp config/backend-servers.example.json config/backend-servers.json
+npx @hughescr/mcp-proxy-processor@latest config-path
+# or if installed globally:
+mcp-proxy config-path
 ```
 
-Edit `config/backend-servers.json` to define your backend MCP servers (uses Claude Desktop's `mcp.json` format):
+This will print the config directory path for your platform:
+- **macOS**: `~/Library/Preferences/@hughescr-mcp-proxy-processor/`
+- **Linux**: `~/.config/@hughescr-mcp-proxy-processor/`
+- **Windows**: `%APPDATA%\@hughescr-mcp-proxy-processor\Config\`
+
+### 2. Configure Backend Servers
+
+Create a `backend-servers.json` file in your config directory to define your backend MCP servers (uses Claude Desktop's `mcp.json` format):
 
 ```json
 {
@@ -122,7 +131,7 @@ Edit `config/backend-servers.json` to define your backend MCP servers (uses Clau
 }
 ```
 
-### 2. Configure Groups
+### 3. Configure Groups
 
 #### Option A: Using the Admin Interface (Recommended)
 
@@ -139,7 +148,7 @@ The admin interface lets you:
 2. **Create Groups**: Create new groups for different purposes
 3. **Add Tools**: Add tools to groups by selecting from available backend tools
 4. **Override Definitions**: Improve tool names and descriptions
-5. **Save**: Write configuration to `config/groups.json`
+5. **Save**: Automatically writes configuration to your config directory
 
 **Admin Interface Workflow:**
 - Use arrow keys to navigate menus
@@ -149,13 +158,9 @@ The admin interface lets you:
 
 #### Option B: Manual Configuration
 
-Copy and edit the example:
+Create a `groups.json` file in your config directory (use `mcp-proxy config-path` to find the location).
 
-```bash
-cp config/groups.example.json config/groups.json
-```
-
-Edit `config/groups.json` to define your tool groups:
+Define your tool groups:
 
 ```json
 {
@@ -185,7 +190,7 @@ Edit `config/groups.json` to define your tool groups:
 }
 ```
 
-### 3. Configure Claude Desktop
+### 4. Configure Claude Desktop
 
 Add the proxy to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
 
@@ -225,7 +230,9 @@ Restart Claude Desktop. Your agent now has access to the curated tool sets!
 
 ### Backend Servers
 
-The `config/backend-servers.json` file uses the same format as Claude Desktop's `mcp.json`:
+Configuration files are stored in a platform-specific directory. Use `mcp-proxy config-path` to find the location.
+
+The `backend-servers.json` file uses the same format as Claude Desktop's `mcp.json`:
 
 ```json
 {
@@ -423,6 +430,22 @@ Validate configuration files without starting servers:
 ```bash
 mcp-proxy validate
 ```
+
+### Show Config Path
+
+Display the configuration directory location:
+
+```bash
+mcp-proxy config-path
+
+# With verbose output showing all config file paths:
+mcp-proxy config-path --verbose
+```
+
+This is useful for:
+- Finding where to create/edit config files manually
+- Scripting: `cd $(mcp-proxy config-path)`
+- Troubleshooting configuration issues
 
 ## Real-World Usage Examples
 

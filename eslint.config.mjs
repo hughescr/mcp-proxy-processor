@@ -4,7 +4,7 @@ import defaultConfig from '@hughescr/eslint-config-default';
 export default defineConfig(
     {
         name:    'local-project-ignores',
-        ignores: ['coverage', '*.md', 'dist/**'],
+        ignores: ['coverage', '**/*.md', 'dist/**'],
     },
 
     defaultConfig,

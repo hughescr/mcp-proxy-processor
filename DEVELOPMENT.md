@@ -159,13 +159,16 @@ Defines test groups for different scenarios:
 To test with the test fixtures:
 
 ```bash
-# Option 1: Copy test configs to config directory
-cp tests/fixtures/backend-servers-test.json config/backend-servers.json
-cp tests/fixtures/groups-test.json config/groups.json
+# First, find your config directory
+CONFIG_DIR=$(mcp-proxy config-path)
+
+# Option 1: Copy test configs to user config directory
+cp tests/fixtures/backend-servers-test.json "$CONFIG_DIR/backend-servers.json"
+cp tests/fixtures/groups-test.json "$CONFIG_DIR/groups.json"
 
 # Option 2: Use symlinks (recommended for development)
-ln -sf ../tests/fixtures/backend-servers-test.json config/backend-servers.json
-ln -sf ../tests/fixtures/groups-test.json config/groups.json
+ln -sf "$(pwd)/tests/fixtures/backend-servers-test.json" "$CONFIG_DIR/backend-servers.json"
+ln -sf "$(pwd)/tests/fixtures/groups-test.json" "$CONFIG_DIR/groups.json"
 ```
 
 ### Manual Testing Procedures

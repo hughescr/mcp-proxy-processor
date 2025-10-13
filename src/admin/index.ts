@@ -19,6 +19,10 @@ import { App } from './App.js';
  * Run the admin interface
  */
 export async function runAdmin(): Promise<void> {
+    // Migrate config files from old location if needed
+    const { migrateConfigFiles } = await import('../utils/config-migration.js');
+    await migrateConfigFiles();
+
     // Silence stderr to prevent backend server logs from polluting the UI
     const originalStderrWrite = process.stderr.write.bind(process.stderr);
     // Override stderr.write to suppress logs during admin UI

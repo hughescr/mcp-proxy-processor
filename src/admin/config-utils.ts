@@ -4,24 +4,19 @@
  */
 
 import { readFile, writeFile } from 'node:fs/promises';
-import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { keys, isError } from 'lodash';
 import type * as LoggerModule from '@hughescr/logger';
 import { logger as realLogger } from '@hughescr/logger';
 import { logger as silentLogger } from '../utils/silent-logger.js';
 import { GroupsConfigSchema, BackendServersConfigSchema, type GroupsConfig, type BackendServersConfig } from '../types/config.js';
+import { getGroupsConfigPath, getBackendServersConfigPath } from '../utils/config-paths.js';
 
 // Use silent logger in admin mode
 const logger: LoggerModule.Logger = process.env.LOG_LEVEL === 'silent' ? silentLogger : realLogger;
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
 // Config file paths
-const CONFIG_DIR = join(__dirname, '..', '..', 'config');
-export const GROUPS_CONFIG_PATH = join(CONFIG_DIR, 'groups.json');
-export const BACKEND_SERVERS_CONFIG_PATH = join(CONFIG_DIR, 'backend-servers.json');
+export const GROUPS_CONFIG_PATH = getGroupsConfigPath();
+export const BACKEND_SERVERS_CONFIG_PATH = getBackendServersConfigPath();
 
 /**
  * Load groups configuration from disk
