@@ -4,7 +4,7 @@ import defaultConfig from '@hughescr/eslint-config-default';
 export default defineConfig(
     {
         name:    'local-project-ignores',
-        ignores: ['coverage', '*.md'],
+        ignores: ['coverage', '*.md', 'dist/**'],
     },
 
     defaultConfig,
@@ -43,6 +43,9 @@ export default defineConfig(
         rules: {
             // Allow link: protocol for local package linking
             'package-json/valid-dependencies': 'off',
+            // Allow explicit files field even if files are included by default
+            // This is needed to prevent publishing source code
+            'package-json/no-redundant-files': 'off',
         },
     }
 );
