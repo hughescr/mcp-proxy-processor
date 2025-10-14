@@ -1,0 +1,75 @@
+{
+  "mcpServers": {
+    "search": {
+      "command": "/opt/homebrew/bin/bunx",
+      "args": [
+        "--bun",
+        "mcp-omnisearch@latest"
+      ],
+      "env": {
+        "BRAVE_API_KEY": "<YOUR_BRAVE_KEY_HERE>",
+        "PERPLEXITY_API_KEY": "<YOUR_PERPLEXITY_KEY_HERE>"
+      }
+    },
+    "documentation": {
+      "command": "/opt/homebrew/bin/bunx",
+      "args": [
+        "--bun",
+        "@upstash/context7-mcp@latest"
+      ],
+      "env": {}
+    },
+    "calculator": {
+      "command": "/opt/homebrew/bin/uvx",
+      "args": [
+        "--from",
+        "calculator-mcp-server@git+https://github.com/hughescr/calculator-mcp-server.git",
+        "--",
+        "calculator-mcp-server",
+        "--stdio"
+      ]
+    },
+    "tmux": {
+      "command": "/opt/homebrew/bin/bunx",
+      "args": [
+        "--bun",
+        "@hughescr/tmux-mcp-server@latest"
+      ]
+    },
+    "serena": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/oraios/serena",
+        "serena",
+        "start-mcp-server",
+        "--context",
+        "ide-assistant",
+        "--project",
+        ".",
+        "--enable-web-dashboard",
+        "false",
+        "--log-level",
+        "WARNING"
+      ],
+      "env": {}
+    },
+    "package-registry": {
+      "command": "bunx",
+      "args": [
+        "--bun",
+        "package-registry-mcp@latest"
+      ],
+      "env": {}
+    },
+    "Typescript Language Server": {
+      "command": "bunx",
+      "args": [
+        "@mizchi/lsmcp@latest",
+        "-p",
+        "tsgo"
+      ],
+      "env": {}
+    }
+  }
+}

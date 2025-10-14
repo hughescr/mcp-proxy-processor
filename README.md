@@ -589,6 +589,7 @@ Claude Desktop will show all groups. You can enable/disable groups based on your
 
 - **[Argument Mapping Guide](docs/ARGUMENT_MAPS.md)** - Transform tool parameters and optimize context usage
 - **[Resources & Prompts Guide](docs/RESOURCES_AND_PROMPTS.md)** - Configure resources and prompts with priority fallback
+- **[Project Configuration Example](docs/PROJECT_MCP_CONFIG.md)** - Real-world configuration used to develop this project
 - **[Troubleshooting](TROUBLESHOOTING.md)** - Common issues, debugging tips, and FAQ
 - **[Development Guide](DEVELOPMENT.md)** - Build from source, run tests, contribute to the project
 
