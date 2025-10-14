@@ -2,12 +2,48 @@
 
 ## Tooling Expectations
 
-- **Tools before terminal:** prefer Claude's MCP tools (e.g., `Glob`, `Grep`, `Read`, `LS`) before falling back to shell commands.
-- **Editing:** use `mcp__language-server__edit_file` for TypeScript and `MultiEdit` for other file types to benefit from live diagnostics.
+- **Tools before terminal:** prefer Claude's MCP tools (e.g., `Glob`, `Grep`, `Read`) before falling back to shell commands.
+- **Editing:** use `insert_{before|after}_symbol` and `replace_symbol_body` when possible for TypeScript, and `Edit` for other file types or for more complex edits - basing the edits off symbols can help keep files well-organized.
 - **Bun-first workflow:** invoke project scripts via `bun`/`bunx`; avoid `npm`/`npx`.
-- **Watchers via MCP:** manage development watchers with the tmux MCP server (`mcp__tmux__list_workspaces`, `mcp__tmux__run_command`, `mcp__tmux__get_output`). Do not run `tsc`, `astro check`, or `bun test` directly.
+- **Watchers via MCP:** manage development watchers with the Tmux MCP server (`list_windows`, `run_command`, `get_output` tools). Do not run `tsc`, or `bun test`, etc. directly in the Bash tool.
+- **TypeScript workflow:** For multi-file edits, start `tsc --watch` in a tmux window, make edits, then check watcher output. For single-file iteration, use `typescript_diagnostics` for quick feedback.
 - **Lint enforcement:** the Claude settings run ESLint automatically after each edit—review output and fix issues immediately.
 - **CRITICAL: Zero tolerance for lint issues:** ALL ESLint output must be fixed, including warnings. "Style preferences" are NOT optional. The goal is always 0 errors, 0 warnings. Never dismiss warnings as "just style preferences."
+
+## MCP DevTools
+
+Powerful code navigation and analysis tools via the DevTools MCP server:
+
+### Code Navigation & Understanding
+- **`get_symbols_overview`**: Get high-level file structure before diving into details
+- **`find_symbol`**: Find symbols by name pattern with LSP kind filtering (classes, functions, etc.)
+- **`find_referencing_symbols`**: Find all references to a symbol
+- **`typescript_diagnostics`**: Check TypeScript errors/warnings for a specific file
+
+### Code Editing
+- **`insert_before_symbol`**: Insert code before a symbol definition
+- **`insert_after_symbol`**: Insert code after a symbol definition
+- **`replace_symbol_body`**: Replace a symbol's body (function, class, etc.)
+
+### Library Documentation
+- **`resolve-library-id`**: Resolve library name to Context7-compatible ID
+- **`get-library-docs`**: Fetch up-to-date documentation for libraries
+
+### NPM Package Tools
+- **`search-npm-packages`**: Search NPM registry
+- **`get-npm-package-details`**: Get package metadata and details
+- **`list-npm-package-versions`**: List all available versions
+
+**Recommended workflow**: `get_symbols_overview` → `find_symbol` → edit/read → `typescript_diagnostics`
+
+## MCP Search Tools
+
+Web search capabilities via the Search MCP server:
+
+- **`ai_search`**: Perplexity AI-powered search with reasoning and citations - ideal for current information, documentation lookups, and research questions
+- **`web_search`**: Brave web search with query operators (`site:`, `filetype:`, `lang:`, etc.) - ideal for targeted web searches
+
+Use these tools for up-to-date information beyond Claude's knowledge cutoff, library documentation, best practices, and technical research.
 
 ## Admin UI Design System
 
@@ -91,7 +127,7 @@ The component automatically:
 
 ## Watcher Windows
 
-- Long-lived tmux windows: `sst-dev`, `tsc-watch`, `astro-watch`, `test-watch`. Do not close them once started.
+- Long-lived tmux windows: `tsc-watch`, `test-watch`. Do not close them once started.
 - Check for existing windows before launching new watchers.
 - Temporary windows you create must be cleaned up (Ctrl+C, exit shell).
 

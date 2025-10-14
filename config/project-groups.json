@@ -1,0 +1,195 @@
+{
+  "groups": {
+    "DevTools": {
+      "name": "DevTools",
+      "description": "3rd party libraries and docs, plus symbolic code tools",
+      "tools": [
+        {
+          "originalName": "get-library-docs",
+          "serverName": "documentation"
+        },
+        {
+          "originalName": "resolve-library-id",
+          "serverName": "documentation"
+        },
+        {
+          "originalName": "get-npm-package-details",
+          "serverName": "package-registry"
+        },
+        {
+          "originalName": "list-npm-package-versions",
+          "serverName": "package-registry"
+        },
+        {
+          "originalName": "search-npm-packages",
+          "serverName": "package-registry"
+        },
+        {
+          "originalName": "find_referencing_symbols",
+          "serverName": "serena"
+        },
+        {
+          "originalName": "find_symbol",
+          "serverName": "serena"
+        },
+        {
+          "originalName": "get_symbols_overview",
+          "serverName": "serena"
+        },
+        {
+          "originalName": "insert_after_symbol",
+          "serverName": "serena"
+        },
+        {
+          "originalName": "insert_before_symbol",
+          "serverName": "serena"
+        },
+        {
+          "originalName": "replace_symbol_body",
+          "serverName": "serena"
+        },
+        {
+          "originalName": "lsp_get_diagnostics",
+          "serverName": "Typescript Language Server",
+          "name": "typescript_diagnostics",
+          "argumentMapping": {
+            "type": "template",
+            "mappings": {
+              "root": {
+                "type": "constant",
+                "value": "."
+              },
+              "forceRefresh": {
+                "type": "passthrough",
+                "source": "forceRefresh"
+              },
+              "timeout": {
+                "type": "omit"
+              },
+              "relativePath": {
+                "type": "passthrough",
+                "source": "relativePath",
+                "description": "File path to check for diagnostics (relative to project root)"
+              }
+            }
+          }
+        }
+      ],
+      "resources": [],
+      "prompts": []
+    },
+    "Tmux": {
+      "name": "Tmux",
+      "description": "Control processes running in tmux windows to allow AI assistants to use TUIs interactively",
+      "tools": [
+        {
+          "originalName": "get_output",
+          "serverName": "tmux",
+          "description": "Capture tmux window output. Use either lines mode OR search mode, not both.",
+          "argumentMapping": {
+            "type": "template",
+            "mappings": {
+              "window_name": {
+                "type": "passthrough",
+                "source": "window_name",
+                "description": "tmux window to capture"
+              },
+              "lines": {
+                "type": "passthrough",
+                "source": "lines"
+              },
+              "search": {
+                "type": "passthrough",
+                "source": "search"
+              }
+            }
+          }
+        },
+        {
+          "originalName": "list_workspaces",
+          "serverName": "tmux",
+          "name": "list_windows"
+        },
+        {
+          "originalName": "run_command",
+          "serverName": "tmux"
+        },
+        {
+          "originalName": "scrollback_size",
+          "serverName": "tmux"
+        },
+        {
+          "originalName": "send_input",
+          "serverName": "tmux"
+        },
+        {
+          "originalName": "send_keys",
+          "serverName": "tmux"
+        }
+      ],
+      "resources": [
+        {
+          "serverName": "tmux",
+          "uri": "tmux://common-patterns"
+        },
+        {
+          "serverName": "tmux",
+          "uri": "tmux://keys-reference"
+        }
+      ],
+      "prompts": []
+    },
+    "Search": {
+      "name": "Search",
+      "description": "Search the internet for information",
+      "tools": [
+        {
+          "originalName": "ai_search",
+          "serverName": "search",
+          "description": "AI-powered search with reasoning by Perplexity.",
+          "argumentMapping": {
+            "type": "template",
+            "mappings": {
+              "provider": {
+                "type": "constant",
+                "value": "perplexity"
+              }
+            }
+          }
+        },
+        {
+          "originalName": "web_search",
+          "serverName": "search",
+          "description": "Search the web using the Brave search engine. Supports query operators like site:, filetype:, lang:, etc.",
+          "argumentMapping": {
+            "type": "template",
+            "mappings": {
+              "provider": {
+                "type": "constant",
+                "value": "brave"
+              },
+              "include_domains": {
+                "type": "omit"
+              },
+              "limit": {
+                "type": "passthrough",
+                "source": "limit"
+              }
+            }
+          }
+        }
+      ],
+      "resources": [
+        {
+          "serverName": "search",
+          "uri": "omnisearch://providers/status"
+        },
+        {
+          "serverName": "search",
+          "uri": "omnisearch://search/{provider}/info"
+        }
+      ],
+      "prompts": []
+    }
+  }
+}

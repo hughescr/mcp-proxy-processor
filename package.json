@@ -1,6 +1,6 @@
 {
   "name": "@hughescr/mcp-proxy-processor",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "An MCP proxy server that allows selective re-exposure of tools from backend MCP servers through configurable groups",
   "keywords": [
     "mcp",
@@ -35,7 +35,7 @@
   ],
   "scripts": {
     "build": "bun build --production --target=node --outfile=dist/cli.js.tmp src/cli.ts && echo '#!/usr/bin/env node' | cat - dist/cli.js.tmp > dist/cli.js && rm dist/cli.js.tmp && chmod +x dist/cli.js",
-    "claude": "tmux -CC new -A -n Claude -s apartment-manager bunx --bun @anthropic-ai/claude-code@latest --mcp-config ~/.claude/mcp.json",
+    "claude": "tmux -CC new -A -n Claude -s apartment-manager bunx @anthropic-ai/claude-code@latest",
     "codex": "tmux -CC new -A -n Codex -s apartment-manager bunx --bun @openai/codex@latest --search",
     "dev": "bun --preserve-symlinks run src/cli.ts",
     "full-test": "eslint --fix && tsc && bun test",

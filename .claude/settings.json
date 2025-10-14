@@ -2,12 +2,11 @@
   "permissions": {
     "allow": [
       "Bash(bun test:*)",
-      "mcp__eslint",
-      "mcp__language-server",
-      "mcp__tmux",
-      "Bash(tsc --pretty false --watch)",
-	  "WebSearch",
-	  "WebFetch"
+      "WebSearch",
+      "WebFetch",
+      "mcp__DevTools",
+      "mcp__Tmux",
+      "mcp__Search"
     ],
     "deny": []
   },
@@ -15,7 +14,7 @@
   "hooks": {
     "PostToolUse": [
       {
-        "matcher": "Write|Edit|MultiEdit|Update|mcp__language-server__edit_file",
+        "matcher": "Write|Edit|MultiEdit|Update|mcp__DevTools__insert_after_symbol|mcp__DevTools__insert_before_symbol|mcp__DevTools__replace_symbol_body",
         "hooks": [
           {
             "type": "command",
