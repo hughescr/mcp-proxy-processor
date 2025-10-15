@@ -122,24 +122,20 @@ export function EnvVarEditor({ env, onSave, onCancel }: EnvVarEditorProps) {
 
     const handleKeySubmit = (value: string) => {
         if(selectedIndex !== null) {
-            const newVars = [...variables];
-            const currentVar = newVars[selectedIndex];
-            if(currentVar) {
-                currentVar.key = value;
-                setVariables(newVars);
-            }
+            const newVars = _.map(variables, (v, i) =>
+                (i === selectedIndex ? { ...v, key: value } : v)
+            );
+            setVariables(newVars);
             setMode('var-menu');
         }
     };
 
     const handleValueSubmit = (value: string) => {
         if(selectedIndex !== null) {
-            const newVars = [...variables];
-            const currentVar = newVars[selectedIndex];
-            if(currentVar) {
-                currentVar.value = value;
-                setVariables(newVars);
-            }
+            const newVars = _.map(variables, (v, i) =>
+                (i === selectedIndex ? { ...v, value } : v)
+            );
+            setVariables(newVars);
             setMode('var-menu');
         }
     };

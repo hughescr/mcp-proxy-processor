@@ -129,8 +129,9 @@ export function ParameterMappingEditor({
         if(initialParamToEdit && !initialized) {
             setInitialized(true);
 
+            // Create new template mapping for consistency (prevents future mutation bugs)
             const templateMapping: TemplateMapping = mapping?.type === 'template'
-                ? mapping
+                ? { ...mapping, mappings: { ...mapping.mappings } }
                 : { type: 'template', mappings: {} };
 
             const paramMapping = templateMapping.mappings[initialParamToEdit] ?? {
@@ -521,11 +522,21 @@ Examples: "text", 123, true,
         const menuItems = buildMappingEditorMenuItems(paramMapping);
 
         const handleSaveParam = () => {
+            // Create new TemplateMapping with immutable update pattern
             const templateMapping: TemplateMapping = mapping?.type === 'template'
-                ? mapping
-                : { type: 'template', mappings: {} };
-
-            templateMapping.mappings[editState.paramName] = editState.paramMapping;
+                ? {
+                      ...mapping,
+                      mappings: {
+                          ...mapping.mappings,
+                          [editState.paramName]: editState.paramMapping,
+                      },
+                  }
+                : {
+                      type:     'template',
+                      mappings: {
+                          [editState.paramName]: editState.paramMapping,
+                      },
+                  };
 
             // Always in direct parameter edit mode - save and exit to parent
             onSave(templateMapping);
