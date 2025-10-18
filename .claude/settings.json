@@ -18,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "jq -r '.tool_input?.filePath // .tool_input?.file_path // error(\"Missing filePath or file_path in tool_input\")' | xargs bunx eslint --cache --format=unix --fix --max-warnings=0 --no-warn-ignored 1>&2 || exit 2"
+            "command": "jq -r '.tool_input?.filePath // .tool_input?.file_path // .tool_input?.relative_path // error(\"Missing filePath or file_path in tool_input\")' | xargs bunx eslint --cache --format=unix --fix --max-warnings=0 --no-warn-ignored 1>&2 || exit 2"
           }
         ]
       }
