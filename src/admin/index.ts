@@ -12,7 +12,6 @@
 
 import React from 'react';
 import { render } from 'ink';
-import { constant } from 'lodash';
 import { App } from './App.js';
 
 /**
@@ -23,10 +22,9 @@ export async function runAdmin(): Promise<void> {
     const { migrateConfigFiles } = await import('../utils/config-migration.js');
     await migrateConfigFiles();
 
-    // Silence stderr to prevent backend server logs from polluting the UI
-    const originalStderrWrite = process.stderr.write.bind(process.stderr);
-    // Override stderr.write to suppress logs during admin UI
-    process.stderr.write = constant(true) as typeof process.stderr.write;
+    // Set ADMIN_MODE environment variable to suppress backend server logs
+    // This is read by the dynamic logger in silent-logger.ts
+    process.env.ADMIN_MODE = 'true';
 
     // Render the Ink app
     const { waitUntilExit } = render(React.createElement(App));
@@ -34,6 +32,6 @@ export async function runAdmin(): Promise<void> {
     // Wait for the app to exit
     await waitUntilExit();
 
-    // Restore stderr
-    process.stderr.write = originalStderrWrite;
+    // Clean up environment variable
+    delete process.env.ADMIN_MODE;
 }

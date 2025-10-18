@@ -8,7 +8,7 @@
  * - Applying name/description overrides to parameters
  */
 
-import { logger } from '@hughescr/logger';
+import { dynamicLogger as logger } from '../utils/silent-logger.js';
 import { cloneDeep, isObject, isArray, keys } from 'lodash';
 import type { TemplateMapping, ParameterMapping } from '../types/config.js';
 
@@ -48,7 +48,6 @@ export class SchemaGenerator {
     ): Record<string, unknown> {
         // If no backend schema, return a basic object schema
         if(!backendSchema || !isObject(backendSchema) || isArray(backendSchema)) {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access -- logger is typed as any
             logger.debug('No valid backend schema provided, generating minimal schema');
             return { type: 'object', properties: {}, required: [] };
         }
@@ -74,7 +73,6 @@ export class SchemaGenerator {
             clientSchema
         );
 
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access -- logger is typed as any
         logger.debug(
             {
                 backendParamCount: keys(backendProperties).length,
@@ -121,7 +119,7 @@ export class SchemaGenerator {
 
             if(!backendProperty) {
                 // Backend parameter doesn't exist in schema, skip it
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access -- logger is typed as any
+
                 logger.warn(
                     { backendParam, mapping },
                     'Parameter mapping references non-existent backend parameter'
@@ -203,7 +201,7 @@ export class SchemaGenerator {
 
             default:
                 // TypeScript should prevent this
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access -- logger is typed as any
+
                 logger.error(
                     { mapping },
                     `Unknown parameter mapping type: ${(mapping as { type: string }).type}`

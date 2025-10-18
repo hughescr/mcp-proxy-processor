@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access -- Logger type not properly inferred */
 /**
  * Backend Server Proxy Service
  *
@@ -10,10 +9,11 @@
  * - Returns properly typed MCP protocol responses
  */
 
-import { logger } from '@hughescr/logger';
+import { dynamicLogger as logger } from '../utils/silent-logger.js';
 import _ from 'lodash';
 import type { CallToolResult, ReadResourceResult, GetPromptResult } from '@modelcontextprotocol/sdk/types';
 import type { ClientManager } from './client-manager.js';
+import { withTimeout } from '../utils/index.js';
 
 /**
  * Configuration for proxy operations
@@ -49,28 +49,16 @@ export class ProxyService {
 
         logger.info({ serverName, toolName, timeout }, 'Proxying tool call to backend server');
 
-        const client = this.clientManager.getClient(serverName);
-        if(!client) {
-            throw new Error(`Not connected to backend server: ${serverName}`);
-        }
-
         try {
-            // Create timeout promise
-            const timeoutPromise = new Promise<never>((_resolve, reject) => {
-                setTimeout(() => {
-                    reject(new Error(`Tool call timed out after ${timeout}ms`));
-                }, timeout);
-            });
-
-            // Race between tool call and timeout
-
-            const result = await Promise.race([
+            const client = await this.clientManager.ensureConnected(serverName);
+            const result = await withTimeout(
                 client.callTool({
                     name:      toolName,
                     arguments: args as Record<string, unknown>,
                 }),
-                timeoutPromise,
-            ]) as CallToolResult;
+                timeout,
+                `Tool call timed out after ${timeout}ms`
+            ) as CallToolResult;
 
             const duration = Date.now() - startTime;
             logger.info(
@@ -111,24 +99,13 @@ export class ProxyService {
 
         logger.info({ serverName, uri, timeout }, 'Proxying resource read to backend server');
 
-        const client = this.clientManager.getClient(serverName);
-        if(!client) {
-            throw new Error(`Not connected to backend server: ${serverName}`);
-        }
-
         try {
-            // Create timeout promise
-            const timeoutPromise = new Promise<never>((_resolve, reject) => {
-                setTimeout(() => {
-                    reject(new Error(`Resource read timed out after ${timeout}ms`));
-                }, timeout);
-            });
-
-            // Race between resource read and timeout
-            const result = await Promise.race([
+            const client = await this.clientManager.ensureConnected(serverName);
+            const result = await withTimeout(
                 client.readResource({ uri }),
-                timeoutPromise,
-            ]);
+                timeout,
+                `Resource read timed out after ${timeout}ms`
+            );
 
             const duration = Date.now() - startTime;
             logger.info(
@@ -170,24 +147,13 @@ export class ProxyService {
 
         logger.info({ serverName, name, timeout }, 'Proxying prompt get to backend server');
 
-        const client = this.clientManager.getClient(serverName);
-        if(!client) {
-            throw new Error(`Not connected to backend server: ${serverName}`);
-        }
-
         try {
-            // Create timeout promise
-            const timeoutPromise = new Promise<never>((_resolve, reject) => {
-                setTimeout(() => {
-                    reject(new Error(`Prompt get timed out after ${timeout}ms`));
-                }, timeout);
-            });
-
-            // Race between prompt get and timeout
-            const result = await Promise.race([
+            const client = await this.clientManager.ensureConnected(serverName);
+            const result = await withTimeout(
                 client.getPrompt({ name, arguments: args }),
-                timeoutPromise,
-            ]);
+                timeout,
+                `Prompt get timed out after ${timeout}ms`
+            );
 
             const duration = Date.now() - startTime;
             logger.info(

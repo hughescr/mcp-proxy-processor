@@ -1,18 +1,12 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment -- Logger type from ternary expression not properly inferred by TypeScript */
 /**
  * Configuration utilities for the admin interface
  */
 
 import { readFile, writeFile } from 'node:fs/promises';
 import { keys, isError } from 'lodash';
-import type * as LoggerModule from '@hughescr/logger';
-import { logger as realLogger } from '@hughescr/logger';
-import { logger as silentLogger } from '../utils/silent-logger.js';
+import { dynamicLogger as logger } from '../utils/silent-logger.js';
 import { GroupsConfigSchema, BackendServersConfigSchema, type GroupsConfig, type BackendServersConfig } from '../types/config.js';
 import { getGroupsConfigPath, getBackendServersConfigPath } from '../utils/config-paths.js';
-
-// Use silent logger in admin mode
-const logger: LoggerModule.Logger = process.env.LOG_LEVEL === 'silent' ? silentLogger : realLogger;
 
 // Config file paths
 export const GROUPS_CONFIG_PATH = getGroupsConfigPath();

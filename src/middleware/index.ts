@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access -- Logger type not properly inferred */
 /**
  * Middleware - Group Mapping and Tool Override Logic
  *
@@ -10,9 +9,9 @@
  */
 
 import { readFile } from 'node:fs/promises';
-import { logger } from '@hughescr/logger';
+import { dynamicLogger as logger } from '../utils/silent-logger.js';
 import { uniq, keys, isError, map, find } from 'lodash';
-import { deduplicatePrompts, deduplicateResources } from './resource-prompt-utils.js';
+import { deduplicatePrompts, deduplicateResources } from '../utils/conflict-detection.js';
 import type { Tool, Resource, Prompt } from '@modelcontextprotocol/sdk/types.js';
 import { GroupsConfigSchema, type GroupConfig, type GroupsConfig, type ToolOverride } from '../types/config.js';
 import { SchemaGenerator } from './schema-generator.js';

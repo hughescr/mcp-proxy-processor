@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach } from 'bun:test';
-import { detectResourceConflicts } from '../../src/middleware/resource-prompt-utils.js';
+import { detectResourceConflicts } from '../../src/utils/conflict-detection.js';
 import type { ResourceConflict } from '../../src/types/config.js';
 import { GroupManager } from '../../src/middleware/index.js';
 import { createTempConfigFile } from '../fixtures/mock-configs.js';

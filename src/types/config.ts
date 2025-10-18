@@ -6,44 +6,53 @@ import { z } from 'zod';
 
 /**
  * Backend MCP server configuration (compatible with Claude Desktop's mcp.json format)
- * Supports multiple transport types: stdio, streamable-http, and sse (legacy)
+ * Currently only supports stdio transport.
+ *
+ * Future transports (not yet implemented):
+ * - streamable-http: HTTP-based transport
+ * - sse: Server-Sent Events transport (deprecated)
  */
 
-// STDIO transport configuration (default/legacy format)
+// STDIO transport configuration (only supported transport)
 export const StdioServerConfigSchema = z.object({
-    command: z.string(),
+    command: z.string().min(1, 'Command cannot be empty'),
     args:    z.array(z.string()).optional(),
     env:     z.record(z.string(), z.string()).optional(),
     cwd:     z.string().optional(),
 });
 
-// Streamable HTTP transport configuration
-export const StreamableHttpServerConfigSchema = z.object({
-    type:    z.literal('streamable-http'),
-    url:     z.string().url(),
-    headers: z.record(z.string(), z.string()).optional(),
-});
-
-// SSE (Server-Sent Events) transport configuration - legacy, deprecated
-export const SseServerConfigSchema = z.object({
-    type:    z.literal('sse'),
-    url:     z.string().url(),
-    headers: z.record(z.string(), z.string()).optional(),
-});
-
-// Union of all transport types
-export const BackendServerConfigSchema = z.discriminatedUnion('type', [
-    StreamableHttpServerConfigSchema,
-    SseServerConfigSchema,
-]).or(StdioServerConfigSchema); // stdio is default if no type field
+// Backend server config validates stdio and rejects unsupported transport types
+export const BackendServerConfigSchema = StdioServerConfigSchema
+    .passthrough() // Allow extra fields for validation
+    .superRefine((config, ctx) => {
+        if('type' in config) {
+            const typeValue = (config as Record<string, unknown>).type;
+            ctx.addIssue({
+                code:    z.ZodIssueCode.custom,
+                message: `Only stdio transport is currently supported. The "type" field should not be present. Future transports (streamable-http, sse) are not yet implemented. Received type: "${String(typeValue)}"`,
+            });
+        }
+    })
+    .transform((config) => {
+        // Strip any extra fields and return only stdio config fields
+        const result: StdioServerConfig = { command: config.command };
+        if(config.args !== undefined) {
+            result.args = config.args;
+        }
+        if(config.env !== undefined) {
+            result.env = config.env;
+        }
+        if(config.cwd !== undefined) {
+            result.cwd = config.cwd;
+        }
+        return result;
+    });
 
 export const BackendServersConfigSchema = z.object({
     mcpServers: z.record(z.string(), BackendServerConfigSchema),
 });
 
 export type StdioServerConfig = z.infer<typeof StdioServerConfigSchema>;
-export type StreamableHttpServerConfig = z.infer<typeof StreamableHttpServerConfigSchema>;
-export type SseServerConfig = z.infer<typeof SseServerConfigSchema>;
 export type BackendServerConfig = z.infer<typeof BackendServerConfigSchema>;
 export type BackendServersConfig = z.infer<typeof BackendServersConfigSchema>;
 

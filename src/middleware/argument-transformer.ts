@@ -7,7 +7,7 @@
  */
 
 import jsonata from 'jsonata';
-import { logger } from '@hughescr/logger';
+import { dynamicLogger as logger } from '../utils/silent-logger.js';
 import { isError, has, isObject, isArray, trim } from 'lodash';
 import type {
     ArgumentMapping,
@@ -39,7 +39,6 @@ export class ArgumentTransformer {
             // TypeScript should ensure we never get here, but just in case
             throw new Error(`Unknown mapping type: ${(mapping as { type: string }).type}`);
         } catch (error) {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access -- logger is typed as any
             logger.error({ error, mapping }, 'Argument transformation failed');
             throw new Error(
                 `Argument transformation failed: ${isError(error) ? error.message : String(error)}`
@@ -78,7 +77,6 @@ export class ArgumentTransformer {
             delete result[source];
         }
 
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access -- logger is typed as any
         logger.debug({ clientArgs, backendArgs: result, mapping }, 'Template transformation completed');
         return result;
     }
@@ -190,7 +188,6 @@ export class ArgumentTransformer {
                 );
             }
 
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access -- logger is typed as any
             logger.debug(
                 { clientArgs, backendArgs: result, expression: mapping.expression },
                 'JSONata transformation completed'
@@ -198,7 +195,6 @@ export class ArgumentTransformer {
 
             return result as Record<string, unknown>;
         } catch (error) {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access -- logger is typed as any
             logger.error(
                 { error, expression: mapping.expression, clientArgs },
                 'JSONata transformation failed'

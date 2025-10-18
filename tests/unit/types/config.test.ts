@@ -65,6 +65,63 @@ describe('Configuration Schemas', () => {
             const result = BackendServerConfigSchema.safeParse(invalid);
             expect(result.success).toBe(false);
         });
+
+        it('should reject empty command', () => {
+            const invalid = {
+                command: '',
+            };
+
+            const result = BackendServerConfigSchema.safeParse(invalid);
+            expect(result.success).toBe(false);
+            if(!result.success) {
+                expect(result.error.issues[0]?.message).toContain('Command cannot be empty');
+            }
+        });
+
+        it('should reject streamable-http transport type', () => {
+            const invalid = {
+                command: 'dummy', // Required field, but we're testing transport type rejection
+                type:    'streamable-http',
+                url:     'https://example.com',
+                headers: {},
+            };
+
+            const result = BackendServerConfigSchema.safeParse(invalid);
+            expect(result.success).toBe(false);
+            if(!result.success) {
+                expect(result.error.issues[0]?.message).toContain('Only stdio transport is currently supported');
+                expect(result.error.issues[0]?.message).toContain('streamable-http');
+            }
+        });
+
+        it('should reject sse transport type', () => {
+            const invalid = {
+                command: 'dummy', // Required field, but we're testing transport type rejection
+                type:    'sse',
+                url:     'https://example.com/events',
+            };
+
+            const result = BackendServerConfigSchema.safeParse(invalid);
+            expect(result.success).toBe(false);
+            if(!result.success) {
+                expect(result.error.issues[0]?.message).toContain('Only stdio transport is currently supported');
+                expect(result.error.issues[0]?.message).toContain('sse');
+            }
+        });
+
+        it('should reject config with type field even if it has stdio properties', () => {
+            const invalid = {
+                type:    'stdio',
+                command: 'uvx',
+                args:    ['mcp-server-time'],
+            };
+
+            const result = BackendServerConfigSchema.safeParse(invalid);
+            expect(result.success).toBe(false);
+            if(!result.success) {
+                expect(result.error.issues[0]?.message).toContain('type" field should not be present');
+            }
+        });
     });
 
     describe('BackendServersConfigSchema', () => {

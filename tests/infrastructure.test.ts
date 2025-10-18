@@ -4,7 +4,6 @@
 
 import _ from 'lodash';
 import { describe, it, expect } from 'bun:test';
-import type { StdioServerConfig } from '../src/types/config.js';
 import {
     loadBackendServersFixture,
     loadGroupsFixture,
@@ -44,7 +43,7 @@ describe('Test Infrastructure', () => {
             const server = await getTestBackendServer('time');
             expect(server).toBeDefined();
             // All test fixtures use stdio transport
-            const stdioServer = server as StdioServerConfig;
+            const stdioServer = server;
             expect(stdioServer.command).toBeDefined();
         });
 
@@ -146,14 +145,14 @@ describe('Test Infrastructure', () => {
 
         it('should have time server in backend config', async () => {
             const server = await getTestBackendServer('time');
-            const stdioServer = server as StdioServerConfig;
+            const stdioServer = server;
             expect(stdioServer.command).toBe('uvx');
             expect(stdioServer.args).toContain('mcp-server-time@latest');
         });
 
         it('should have calculator server in backend config', async () => {
             const server = await getTestBackendServer('calculator');
-            const stdioServer = server as StdioServerConfig;
+            const stdioServer = server;
             expect(stdioServer.command).toBe('uvx');
             expect(stdioServer.args).toBeDefined();
         });

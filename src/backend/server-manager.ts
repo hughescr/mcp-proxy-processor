@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access -- Logger type not properly inferred */
 /**
  * Backend MCP Server Manager
  *
@@ -14,7 +13,7 @@ import { access, readFile, writeFile } from 'node:fs/promises';
 import { constants } from 'node:fs';
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { logger } from '@hughescr/logger';
+import { dynamicLogger as logger } from '../utils/silent-logger.js';
 import _ from 'lodash';
 import { ZodError } from 'zod';
 import { BackendServersConfigSchema, type BackendServersConfig, type BackendServerConfig } from '../types/config.js';
@@ -103,7 +102,8 @@ export class ServerManager {
         for(const [serverName, serverConfig] of Object.entries(config.mcpServers)) {
             // Only stdio transport is currently supported
             if('type' in serverConfig) {
-                throw new Error(`Transport type "${serverConfig.type}" is not yet supported for server "${serverName}". Only stdio transport is currently implemented.`);
+                const transportType = (serverConfig as { type?: unknown }).type;
+                throw new Error(`Transport type "${String(transportType)}" is not yet supported for server "${serverName}". Only stdio transport is currently implemented.`);
             }
 
             // Substitute in command
@@ -149,7 +149,8 @@ export class ServerManager {
 
         // Only stdio transport is currently supported
         if('type' in config) {
-            throw new Error(`Transport type "${config.type}" is not yet supported for server "${serverName}". Only stdio transport is currently implemented.`);
+            const transportType = (config as { type?: unknown }).type;
+            throw new Error(`Transport type "${String(transportType)}" is not yet supported for server "${serverName}". Only stdio transport is currently implemented.`);
         }
 
         logger.info({ serverName, command: config.command, args: config.args }, 'Launching backend server');
@@ -182,16 +183,14 @@ export class ServerManager {
 
             this.servers.set(serverName, state);
 
-            // Pipe stderr to our stderr with server name prefix
-            // Pipe stderr to our stderr with server name prefix
+            // Pipe stderr to logger (respects ADMIN_MODE for suppression)
             childProcess.stderr?.on('data', (data: Buffer) => {
                 const lines = _.split(_.trim(data.toString()), '\n');
                 for(const line of lines) {
                     const trimmedLine = _.trim(line);
                     if(trimmedLine) {
-                        // Using console.error is appropriate here for piping stderr -- we need to output backend server stderr
-                        // eslint-disable-next-line no-console -- console.error is the correct way to pipe stderr from backend servers
-                        console.error(`[${serverName}]: ${trimmedLine}`);
+                        // Log backend server stderr at debug level (suppressed in admin mode)
+                        logger.debug({ serverName }, trimmedLine);
                     }
                 }
             });

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access -- logger is typed as any */
 /**
  * Frontend MCP Server Implementation
  *
@@ -24,10 +23,10 @@ import {
     ListPromptsRequestSchema,
     GetPromptRequestSchema
 } from '@modelcontextprotocol/sdk/types.js';
-import { logger } from '@hughescr/logger';
+import { dynamicLogger as logger } from '../utils/silent-logger.js';
 import { GroupManager } from '../middleware/index.js';
 import { ArgumentTransformer } from '../middleware/argument-transformer.js';
-import { deduplicateResources, deduplicatePrompts, findMatchingResourceRefs, findMatchingPromptRefs } from '../middleware/resource-prompt-utils.js';
+import { deduplicateResources, deduplicatePrompts, findMatchingResourceRefs, findMatchingPromptRefs } from '../utils/conflict-detection.js';
 import { ClientManager } from '../backend/client-manager.js';
 import { DiscoveryService } from '../backend/discovery.js';
 import { ProxyService } from '../backend/proxy.js';

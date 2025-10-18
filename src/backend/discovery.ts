@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access -- Logger type from ternary expression not properly inferred by TypeScript */
 /**
  * Backend Server Discovery Service
  *
@@ -9,14 +8,10 @@
  * - Provides efficient batch discovery across all servers
  */
 
-import { logger as realLogger } from '@hughescr/logger';
-import { logger as silentLogger } from '../utils/silent-logger.js';
+import { dynamicLogger as logger } from '../utils/silent-logger.js';
 import _ from 'lodash';
 import type { Tool, Resource, Prompt } from '@modelcontextprotocol/sdk/types.js';
 import type { ClientManager } from './client-manager.js';
-
-// Use silent logger in admin mode
-const logger = process.env.LOG_LEVEL === 'silent' ? silentLogger : realLogger;
 
 interface DiscoveryCache {
     tools?:          Tool[]
@@ -50,12 +45,8 @@ export class DiscoveryService {
 
         logger.info({ serverName }, 'Discovering tools from backend server');
 
-        const client = this.clientManager.getClient(serverName);
-        if(!client) {
-            throw new Error(`Not connected to backend server: ${serverName}`);
-        }
-
         try {
+            const client = await this.clientManager.ensureConnected(serverName);
             const response = await client.listTools();
             const tools = response.tools || [];
 
@@ -137,12 +128,8 @@ export class DiscoveryService {
 
         logger.info({ serverName }, 'Discovering resources from backend server');
 
-        const client = this.clientManager.getClient(serverName);
-        if(!client) {
-            throw new Error(`Not connected to backend server: ${serverName}`);
-        }
-
         try {
+            const client = await this.clientManager.ensureConnected(serverName);
             const response = await client.listResources();
             const resources = response.resources || [];
 
@@ -224,12 +211,8 @@ export class DiscoveryService {
 
         logger.info({ serverName }, 'Discovering prompts from backend server');
 
-        const client = this.clientManager.getClient(serverName);
-        if(!client) {
-            throw new Error(`Not connected to backend server: ${serverName}`);
-        }
-
         try {
+            const client = await this.clientManager.ensureConnected(serverName);
             const response = await client.listPrompts();
             const prompts = response.prompts || [];
 

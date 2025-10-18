@@ -7,7 +7,7 @@ import React, { useState, useMemo } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { map, repeat } from 'lodash';
 import type { PromptRef } from '../../types/config.js';
-import { detectPromptConflicts } from '../../middleware/conflict-detection.js';
+import { detectPromptConflicts } from '../../utils/conflict-detection.js';
 import { ScreenHeader } from './ui/ScreenHeader.js';
 
 interface PromptPriorityScreenProps {

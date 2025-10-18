@@ -162,22 +162,13 @@ program
             console.log(`  ${name}`);
 
             // Check if this is a stdio server config (has command property)
-            if('command' in server) {
-                const args = server.args ?? [];
+            // All servers use stdio transport
+            const args = server.args ?? [];
+            // eslint-disable-next-line no-console -- CLI output to stdout is appropriate
+            console.log(`    Command: ${trim(`${server.command} ${args.join(' ')}`)}`);
+            if(server.env && keys(server.env).length > 0) {
                 // eslint-disable-next-line no-console -- CLI output to stdout is appropriate
-                console.log(`    Command: ${trim(`${server.command} ${args.join(' ')}`)}`);
-                if(server.env && keys(server.env).length > 0) {
-                    // eslint-disable-next-line no-console -- CLI output to stdout is appropriate
-                    console.log(`    Env vars: ${keys(server.env).join(', ')}`);
-                }
-            } else {
-                // HTTP/SSE transport
-                // eslint-disable-next-line no-console -- CLI output to stdout is appropriate
-                console.log(`    URL: ${server.url}`);
-                if(server.headers && keys(server.headers).length > 0) {
-                    // eslint-disable-next-line no-console -- CLI output to stdout is appropriate
-                    console.log(`    Headers: ${keys(server.headers).join(', ')}`);
-                }
+                console.log(`    Env vars: ${keys(server.env).join(', ')}`);
             }
 
             // eslint-disable-next-line no-console -- CLI output to stdout is appropriate

@@ -7,7 +7,7 @@ import React, { useState, useMemo } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { map, repeat } from 'lodash';
 import type { ResourceRef } from '../../types/config.js';
-import { detectResourceConflicts } from '../../middleware/conflict-detection.js';
+import { detectResourceConflicts } from '../../utils/conflict-detection.js';
 import { ScreenHeader } from './ui/ScreenHeader.js';
 
 interface ResourcePriorityScreenProps {

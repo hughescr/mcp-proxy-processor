@@ -7,7 +7,7 @@ import { Box, Text, useInput } from 'ink';
 import { SelectInput } from './components/SelectInput.js';
 import _ from 'lodash';
 import { CancellableTextInput } from './components/CancellableTextInput.js';
-import type { BackendServerConfig, StdioServerConfig, StreamableHttpServerConfig, SseServerConfig } from '../types/config.js';
+import type { BackendServerConfig } from '../types/config.js';
 import { BackendServerConfigSchema } from '../types/config.js';
 import { EnvVarEditor } from './EnvVarEditor.js';
 import { ScreenHeader } from './components/ui/ScreenHeader.js';
@@ -25,26 +25,11 @@ interface ServerEditorProps {
 type EditMode
     = | 'menu'
       | 'edit-name'
-      | 'edit-transport'
       | 'edit-command-line'
       | 'edit-env'
       | 'edit-cwd'
-      | 'edit-url'
-      | 'edit-headers'
       | 'edit-json'
       | 'success';
-
-type TransportType = 'stdio' | 'streamable-http' | 'sse';
-
-/**
- * Get transport type from server config
- */
-function getTransportType(config: BackendServerConfig): TransportType {
-    if('type' in config) {
-        return config.type;
-    }
-    return 'stdio';
-}
 
 /**
  * Server editor screen with support for form-based and JSON-based editing
@@ -59,7 +44,6 @@ export function ServerEditor({ serverName, server, onSave, onDelete, onCancel }:
     const [error, setError] = useState<string | null>(null);
 
     const isNewServer = serverName === '';
-    const transportType = getTransportType(currentServer);
 
     // Handle Esc for navigation - only in menu mode
     // Note: Input modes handle ESC via CancellableTextInput or their own handlers (edit-env)
@@ -112,7 +96,6 @@ export function ServerEditor({ serverName, server, onSave, onDelete, onCancel }:
         }
     };
 
-    // eslint-disable-next-line complexity -- Menu selection handler with many options
     const handleMenuSelect = (item: { value: string }) => {
         const { value } = item;
 
@@ -134,8 +117,6 @@ export function ServerEditor({ serverName, server, onSave, onDelete, onCancel }:
         if(value === 'edit-name') {
             setInputValue(currentServerName);
             setMode('edit-name');
-        } else if(value === 'edit-transport') {
-            setMode('edit-transport');
         } else if(value === 'edit-command-line') {
             // Combine command and args into a single shell-style command line
             if('command' in currentServer) {
@@ -159,14 +140,6 @@ export function ServerEditor({ serverName, server, onSave, onDelete, onCancel }:
         } else if(value === 'edit-cwd') {
             setInputValue('cwd' in currentServer && currentServer.cwd ? currentServer.cwd : '');
             setMode('edit-cwd');
-        } else if(value === 'edit-url') {
-            setInputValue('url' in currentServer ? currentServer.url : '');
-            setMode('edit-url');
-        } else if(value === 'edit-headers') {
-            const headers = 'headers' in currentServer && currentServer.headers ? currentServer.headers : {};
-            setInputValue(_(headers).toPairs().map(([k, v]) => `${k}: ${v}`)
-                .join('\n'));
-            setMode('edit-headers');
         } else if(value === 'edit-json') {
             // Convert current config to JSON for editing
             setInputValue(JSON.stringify({ [currentServerName || 'server-name']: currentServer }, null, 2));
@@ -176,32 +149,6 @@ export function ServerEditor({ serverName, server, onSave, onDelete, onCancel }:
 
     const handleNameSubmit = (value: string) => {
         setCurrentServerName(value);
-        setMode('menu');
-    };
-
-    const handleTransportSelect = (item: { value: string }) => {
-        const newType = item.value as TransportType;
-
-        if(newType === 'stdio') {
-            setCurrentServer({
-                command: '',
-                args:    [],
-                env:     {},
-            } satisfies StdioServerConfig);
-        } else if(newType === 'streamable-http') {
-            setCurrentServer({
-                type:    'streamable-http',
-                url:     '',
-                headers: {},
-            } satisfies StreamableHttpServerConfig);
-        } else if(newType === 'sse') {
-            setCurrentServer({
-                type:    'sse',
-                url:     '',
-                headers: {},
-            } satisfies SseServerConfig);
-        }
-
         setMode('menu');
     };
 
@@ -286,35 +233,7 @@ export function ServerEditor({ serverName, server, onSave, onDelete, onCancel }:
     };
 
     const handleCwdSubmit = (value: string) => {
-        if('cwd' in currentServer || !('type' in currentServer)) {
-            setCurrentServer({ ...currentServer, cwd: value || undefined });
-        }
-        setMode('menu');
-    };
-
-    const handleUrlSubmit = (value: string) => {
-        if('url' in currentServer) {
-            setCurrentServer({ ...currentServer, url: value });
-        }
-        setMode('menu');
-    };
-
-    const handleHeadersSubmit = (value: string) => {
-        const headers: Record<string, string> = {};
-        const trimmed = _.trim(value);
-        if(trimmed) {
-            _.forEach(_.split(trimmed, '\n'), (line) => {
-                const parts = _.split(line, ':');
-                const key = _.head(parts);
-                const valueParts = _.tail(parts);
-                if(key && valueParts.length > 0) {
-                    headers[_.trim(key)] = _.trim(_.join(valueParts, ':'));
-                }
-            });
-        }
-        if('headers' in currentServer) {
-            setCurrentServer({ ...currentServer, headers });
-        }
+        setCurrentServer({ ...currentServer, cwd: value || undefined });
         setMode('menu');
     };
 
@@ -347,22 +266,6 @@ export function ServerEditor({ serverName, server, onSave, onDelete, onCancel }:
             setError(`Invalid JSON: ${_.isError(err) ? err.message : String(err)}`);
         }
     };
-
-    // Transport type selector
-    if(mode === 'edit-transport') {
-        const transportItems = [
-            { label: 'stdio (Standard Input/Output)', value: 'stdio' },
-            { label: 'streamable-http (Streamable HTTP)', value: 'streamable-http' },
-            { label: 'sse (Server-Sent Events - legacy)', value: 'sse' },
-        ];
-
-        return (
-            <Box flexDirection="column" padding={1}>
-                <ScreenHeader title="Select Transport Type" />
-                <SelectInput items={transportItems} onSelect={handleTransportSelect} />
-            </Box>
-        );
-    }
 
     // Name input
     if(mode === 'edit-name') {
@@ -437,44 +340,6 @@ export function ServerEditor({ serverName, server, onSave, onDelete, onCancel }:
         );
     }
 
-    // URL input (http/sse)
-    if(mode === 'edit-url') {
-        return (
-            <Box flexDirection="column" padding={1}>
-                <ScreenHeader title="Edit URL" />
-                <Box marginTop={1}>
-                    <Text>URL: </Text>
-                    <CancellableTextInput
-                      value={inputValue}
-                      onChange={setInputValue}
-                      onSubmit={handleUrlSubmit}
-                      onCancel={() => setMode('menu')}
-                    />
-                </Box>
-                <Text>Press Enter to save, Esc to cancel</Text>
-            </Box>
-        );
-    }
-
-    // Headers input (http/sse)
-    if(mode === 'edit-headers') {
-        return (
-            <Box flexDirection="column" padding={1}>
-                <ScreenHeader title="Edit Headers" />
-                <Box marginTop={1}>
-                    <Text>Headers (Header: Value, one per line): </Text>
-                    <CancellableTextInput
-                      value={inputValue}
-                      onChange={setInputValue}
-                      onSubmit={handleHeadersSubmit}
-                      onCancel={() => setMode('menu')}
-                    />
-                </Box>
-                <Text>Press Enter to save, Esc to cancel</Text>
-            </Box>
-        );
-    }
-
     // JSON input
     if(mode === 'edit-json') {
         return (
@@ -517,49 +382,31 @@ export function ServerEditor({ serverName, server, onSave, onDelete, onCancel }:
         );
     }
 
-    // Build menu items based on transport type
+    // Build menu items - stdio only
+    // Build command line preview
+    const command = currentServer.command || '(not set)';
+    const args = currentServer.args ?? [];
+    const quotedArgs = _.map(args, (arg) => {
+        if(/[\s"'\\]/.test(arg)) {
+            return `"${_.replace(_.replace(arg, /\\/g, '\\\\'), /"/g, '\\"')}"`;
+        }
+        return arg;
+    });
+    const commandLine = command === '(not set)'
+        ? '(not set)'
+        : _.join([command, ...quotedArgs], ' ');
+
     const menuItems: { label: string, value: string, disabled?: boolean }[] = [
         { label: `Server Name: ${currentServerName || '(not set)'}`, value: 'edit-name' },
-        { label: `Transport Type: ${transportType}`, value: 'edit-transport' },
+        { label: `Command: ${commandLine}`, value: 'edit-command-line' },
+        {
+            label: `Environment: ${currentServer.env && _.keys(currentServer.env).length > 0
+                ? `${_.keys(currentServer.env).length} var(s)`
+                : '(none)'}`,
+            value: 'edit-env',
+        },
+        { label: `Working Directory: ${currentServer.cwd ?? '(default)'}`, value: 'edit-cwd' },
     ];
-
-    if(transportType === 'stdio') {
-        const stdioConfig = currentServer as StdioServerConfig;
-        // Build command line preview
-        const command = stdioConfig.command || '(not set)';
-        const args = stdioConfig.args ?? [];
-        const quotedArgs = _.map(args, (arg) => {
-            if(/[\s"'\\]/.test(arg)) {
-                return `"${_.replace(_.replace(arg, /\\/g, '\\\\'), /"/g, '\\"')}"`;
-            }
-            return arg;
-        });
-        const commandLine = command === '(not set)'
-            ? '(not set)'
-            : _.join([command, ...quotedArgs], ' ');
-
-        menuItems.push(
-            { label: `Command: ${commandLine}`, value: 'edit-command-line' },
-            {
-                label: `Environment: ${stdioConfig.env && _.keys(stdioConfig.env).length > 0
-                    ? `${_.keys(stdioConfig.env).length} var(s)`
-                    : '(none)'}`,
-                value: 'edit-env',
-            },
-            { label: `Working Directory: ${stdioConfig.cwd ?? '(default)'}`, value: 'edit-cwd' }
-        );
-    } else {
-        const httpConfig = currentServer as StreamableHttpServerConfig | SseServerConfig;
-        menuItems.push(
-            { label: `URL: ${httpConfig.url || '(not set)'}`, value: 'edit-url' },
-            {
-                label: `Headers: ${httpConfig.headers && _.keys(httpConfig.headers).length > 0
-                    ? `${_.keys(httpConfig.headers).length} header(s)`
-                    : '(none)'}`,
-                value: 'edit-headers',
-            }
-        );
-    }
 
     menuItems.push(
         menuSeparator(),

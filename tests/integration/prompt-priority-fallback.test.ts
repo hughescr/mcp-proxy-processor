@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach } from 'bun:test';
-import { detectPromptConflicts } from '../../src/middleware/resource-prompt-utils.js';
+import { detectPromptConflicts } from '../../src/utils/conflict-detection.js';
 import type { PromptConflict } from '../../src/types/config.js';
 import { GroupManager } from '../../src/middleware/index.js';
 import { createTempConfigFile } from '../fixtures/mock-configs.js';

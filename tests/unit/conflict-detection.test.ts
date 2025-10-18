@@ -6,7 +6,7 @@ import { describe, it, expect } from 'bun:test';
 import {
     detectResourceConflicts,
     detectPromptConflicts
-} from '../../src/middleware/conflict-detection.js';
+} from '../../src/utils/conflict-detection.js';
 import type { ResourceRef, PromptRef, ResourceConflict as _ResourceConflict, PromptConflict as _PromptConflict } from '../../src/types/config.js';
 import _ from 'lodash';
 

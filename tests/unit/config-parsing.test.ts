@@ -4,7 +4,6 @@
 
 import { describe, it, expect } from 'bun:test';
 import { keys as _keys } from 'lodash';
-import type { StdioServerConfig } from '../../src/types/config.js';
 import { BackendServersConfigSchema, GroupsConfigSchema, ToolOverrideSchema } from '../../src/types/config.js';
 
 import { validBackendConfig, validGroupConfig, invalidBackendConfig, invalidGroupConfig, emptyBackendConfig, emptyGroupConfig } from '../fixtures/mock-configs.js';
@@ -15,7 +14,7 @@ describe('Config Parsing', () => {
             const result = BackendServersConfigSchema.parse(validBackendConfig);
             expect(result).toEqual(validBackendConfig);
             // All test configs use stdio transport
-            const stdioServer = result.mcpServers['test-server-1'] as StdioServerConfig;
+            const stdioServer = result.mcpServers['test-server-1'];
             expect(stdioServer.command).toBe('node');
             expect(stdioServer.args).toEqual(['server1.js']);
             expect(stdioServer.env).toEqual({ API_KEY: 'test-key-1' });
@@ -30,7 +29,7 @@ describe('Config Parsing', () => {
                 },
             };
             const result = BackendServersConfigSchema.parse(minimalConfig);
-            const stdioServer = result.mcpServers.minimal as StdioServerConfig;
+            const stdioServer = result.mcpServers.minimal;
             expect(stdioServer.command).toBe('python');
             expect(stdioServer.args).toBeUndefined();
             expect(stdioServer.env).toBeUndefined();
@@ -248,7 +247,7 @@ describe('Config Parsing', () => {
                 },
             };
             const result = BackendServersConfigSchema.parse(configWithUndefined);
-            const stdioServer = result.mcpServers.test as StdioServerConfig;
+            const stdioServer = result.mcpServers.test;
             expect(stdioServer.command).toBe('node');
             expect(stdioServer.args).toBeUndefined();
             expect(stdioServer.env).toBeUndefined();
@@ -266,7 +265,7 @@ describe('Config Parsing', () => {
             };
             // Zod by default strips unknown keys
             const result = BackendServersConfigSchema.parse(configWithExtras);
-            const stdioServer = result.mcpServers.test as StdioServerConfig;
+            const stdioServer = result.mcpServers.test;
             expect(stdioServer.command).toBe('node');
             expect('extraField' in result.mcpServers.test).toBe(false);
             expect('anotherExtra' in result).toBe(false);

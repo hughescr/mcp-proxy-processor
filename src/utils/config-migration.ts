@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access -- logger is typed as any */
 /**
  * Configuration migration utilities
  * Handles migration from old project-relative config paths to new user config directory
@@ -7,7 +6,7 @@
 import { readFile, writeFile, access, constants } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { logger } from '@hughescr/logger';
+import { dynamicLogger as logger } from './silent-logger.js';
 import { getConfigDir, getGroupsConfigPath, getBackendServersConfigPath, ensureConfigDir } from './config-paths.js';
 
 const __filename = fileURLToPath(import.meta.url);

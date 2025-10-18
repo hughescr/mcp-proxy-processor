@@ -81,6 +81,16 @@ export function BackendProvider({ children }: BackendProviderProps) {
     const discoveryServiceRef = useRef<DiscoveryService | null>(null);
     const serverConfigRef = useRef<BackendServersConfig | null>(null);
 
+    // Ref to track current server status (for polling callbacks)
+    const serverStatusRef = useRef<Map<string, ServerConnectionState>>(new Map());
+
+    /**
+     * Keep ref synchronized with state for polling callbacks
+     */
+    useEffect(() => {
+        serverStatusRef.current = serverStatus;
+    }, [serverStatus]);
+
     /**
      * Update status for a single server
      */
@@ -175,7 +185,8 @@ export function BackendProvider({ children }: BackendProviderProps) {
         const startTime = Date.now();
 
         while(Date.now() - startTime < maxWaitMs) {
-            const currentStatus = serverStatus.get(serverName);
+            // Read from ref to get current state (not stale closure)
+            const currentStatus = serverStatusRef.current.get(serverName);
 
             if(currentStatus?.status === 'connected') {
                 return;
@@ -190,7 +201,7 @@ export function BackendProvider({ children }: BackendProviderProps) {
         }
 
         throw new Error(`Timeout waiting for server ${serverName} to connect`);
-    }, [serverStatus]);
+    }, []); // Empty deps - relies on ref
 
     /**
      * Attempt to connect to a server
@@ -231,7 +242,8 @@ export function BackendProvider({ children }: BackendProviderProps) {
             throw new Error('Backend not initialized');
         }
 
-        const status = serverStatus.get(serverName);
+        // Read from ref to get current state (not stale closure)
+        const status = serverStatusRef.current.get(serverName);
 
         // If already connected, return immediately
         if(status?.status === 'connected') {
@@ -255,7 +267,7 @@ export function BackendProvider({ children }: BackendProviderProps) {
 
         // Server not found in status map - try to connect
         await connectToServer(serverName);
-    }, [serverStatus, waitForConnection, connectToServer]);
+    }, [waitForConnection, connectToServer]); // Removed serverStatus from deps
 
     /**
      * Discover all tools from all connected servers
