@@ -24,6 +24,101 @@ export interface ProxyConfig {
 }
 
 /**
+ * Generic retry wrapper for any async operation
+ */
+async function retryOperation<T>(
+    operation: () => Promise<T>,
+    options: {
+        maxRetries?:   number
+        retryDelayMs?: number
+        onRetry?:      (attempt: number, error: Error) => void
+        onFailure?:    (finalError: Error) => void
+    } = {}
+): Promise<T> {
+    const maxRetries = options.maxRetries ?? 2;
+    const retryDelayMs = options.retryDelayMs ?? 1000;
+    let lastError: Error | undefined;
+
+    for(let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+            if(attempt > 0) {
+                if(options.onRetry) {
+                    options.onRetry(attempt, lastError!);
+                }
+                // Linear backoff: delay increases linearly with each attempt
+                // Future improvement: Consider exponential backoff with jitter for better load distribution
+                await new Promise(resolve => setTimeout(resolve, retryDelayMs * attempt));
+            }
+
+            return await operation();
+        } catch (error) {
+            lastError = _.isError(error) ? error : new Error(String(error));
+
+            if(attempt === maxRetries) {
+                if(options.onFailure) {
+                    options.onFailure(lastError);
+                }
+                break;
+            }
+        }
+    }
+
+    throw lastError ?? new Error('Operation failed with unknown error');
+}
+
+/**
+ * Generic helper for executing backend operations with consistent logging and error handling
+ */
+async function executeBackendOperation<T>(
+    serverName: string,
+    identifier: string,
+    identifierKey: string,
+    operationType: string,
+    timeout: number,
+    clientManager: ClientManager,
+    execute: (client: Awaited<ReturnType<typeof clientManager.ensureConnected>>) => Promise<T>
+): Promise<T> {
+    const startTime = Date.now();
+
+    logger.info(
+        { serverName, [identifierKey]: identifier, timeout },
+        `Proxying ${operationType} to backend server`
+    );
+
+    try {
+        const client = await clientManager.ensureConnected(serverName);
+        const result = await execute(client);
+
+        const duration = Date.now() - startTime;
+        logger.info(
+            { serverName, [identifierKey]: identifier, durationMs: duration },
+            `${operationType} completed successfully`
+        );
+
+        return result;
+    } catch (error) {
+        const duration = Date.now() - startTime;
+        logger.error(
+            {
+                serverName,
+                [identifierKey]: identifier,
+                durationMs:      duration,
+                error:           _.isError(error) ? error.message : String(error),
+            },
+            `${operationType} failed`
+        );
+
+        // Re-throw with more context
+        const contextMessage = identifierKey === 'toolName'
+            ? `${serverName}.${identifier}`
+            : `${serverName} (${identifier})`;
+        throw new Error(
+            `${operationType} ${contextMessage} failed: ${_.isError(error) ? error.message : String(error)}`
+        );
+    }
+}
+
+/**
  * Service for proxying tool calls and resource reads to backend servers
  */
 export class ProxyService {
@@ -44,46 +139,24 @@ export class ProxyService {
         args: unknown,
         timeoutMs?: number
     ): Promise<CallToolResult> {
-        const startTime = Date.now();
         const timeout = timeoutMs ?? this.defaultTimeoutMs;
 
-        logger.info({ serverName, toolName, timeout }, 'Proxying tool call to backend server');
-
-        try {
-            const client = await this.clientManager.ensureConnected(serverName);
-            const result = await withTimeout(
+        return executeBackendOperation(
+            serverName,
+            toolName,
+            'toolName',
+            'Tool call',
+            timeout,
+            this.clientManager,
+            client => withTimeout(
                 client.callTool({
                     name:      toolName,
                     arguments: args as Record<string, unknown>,
                 }),
                 timeout,
                 `Tool call timed out after ${timeout}ms`
-            ) as CallToolResult;
-
-            const duration = Date.now() - startTime;
-            logger.info(
-                { serverName, toolName, durationMs: duration },
-                'Tool call completed successfully'
-            );
-
-            return result;
-        } catch (error) {
-            const duration = Date.now() - startTime;
-            logger.error(
-                {
-                    serverName,
-                    toolName,
-                    durationMs: duration,
-                    error:      _.isError(error) ? error.message : String(error),
-                },
-                'Tool call failed'
-            );
-
-            // Re-throw with more context
-            throw new Error(
-                `Tool call to ${serverName}.${toolName} failed: ${_.isError(error) ? error.message : String(error)}`
-            );
-        }
+            ) as Promise<CallToolResult>
+        );
     }
 
     /**
@@ -94,43 +167,21 @@ export class ProxyService {
         uri: string,
         timeoutMs?: number
     ): Promise<ReadResourceResult> {
-        const startTime = Date.now();
         const timeout = timeoutMs ?? this.defaultTimeoutMs;
 
-        logger.info({ serverName, uri, timeout }, 'Proxying resource read to backend server');
-
-        try {
-            const client = await this.clientManager.ensureConnected(serverName);
-            const result = await withTimeout(
+        return executeBackendOperation(
+            serverName,
+            uri,
+            'uri',
+            'Resource read',
+            timeout,
+            this.clientManager,
+            client => withTimeout(
                 client.readResource({ uri }),
                 timeout,
                 `Resource read timed out after ${timeout}ms`
-            );
-
-            const duration = Date.now() - startTime;
-            logger.info(
-                { serverName, uri, durationMs: duration },
-                'Resource read completed successfully'
-            );
-
-            return result;
-        } catch (error) {
-            const duration = Date.now() - startTime;
-            logger.error(
-                {
-                    serverName,
-                    uri,
-                    durationMs: duration,
-                    error:      _.isError(error) ? error.message : String(error),
-                },
-                'Resource read failed'
-            );
-
-            // Re-throw with more context
-            throw new Error(
-                `Resource read from ${serverName} (${uri}) failed: ${_.isError(error) ? error.message : String(error)}`
-            );
-        }
+            )
+        );
     }
 
     /**
@@ -142,43 +193,21 @@ export class ProxyService {
         args?: Record<string, string>,
         timeoutMs?: number
     ): Promise<GetPromptResult> {
-        const startTime = Date.now();
         const timeout = timeoutMs ?? this.defaultTimeoutMs;
 
-        logger.info({ serverName, name, timeout }, 'Proxying prompt get to backend server');
-
-        try {
-            const client = await this.clientManager.ensureConnected(serverName);
-            const result = await withTimeout(
+        return executeBackendOperation(
+            serverName,
+            name,
+            'name',
+            'Prompt get',
+            timeout,
+            this.clientManager,
+            client => withTimeout(
                 client.getPrompt({ name, arguments: args }),
                 timeout,
                 `Prompt get timed out after ${timeout}ms`
-            );
-
-            const duration = Date.now() - startTime;
-            logger.info(
-                { serverName, name, durationMs: duration },
-                'Prompt get completed successfully'
-            );
-
-            return result;
-        } catch (error) {
-            const duration = Date.now() - startTime;
-            logger.error(
-                {
-                    serverName,
-                    name,
-                    durationMs: duration,
-                    error:      _.isError(error) ? error.message : String(error),
-                },
-                'Prompt get failed'
-            );
-
-            // Re-throw with more context
-            throw new Error(
-                `Prompt get from ${serverName} (${name}) failed: ${_.isError(error) ? error.message : String(error)}`
-            );
-        }
+            )
+        );
     }
 
     /**
@@ -194,40 +223,25 @@ export class ProxyService {
             timeoutMs?:    number
         } = {}
     ): Promise<CallToolResult> {
-        const maxRetries = options.maxRetries ?? 2;
-        const retryDelayMs = options.retryDelayMs ?? 1000;
-        let lastError: Error | undefined;
-
-        for(let attempt = 0; attempt <= maxRetries; attempt++) {
-            try {
-                if(attempt > 0) {
-                    logger.info(
-                        { serverName, toolName, attempt, maxRetries },
-                        'Retrying tool call'
+        return retryOperation(
+            () => this.callTool(serverName, toolName, args, options.timeoutMs),
+            {
+                maxRetries:   options.maxRetries,
+                retryDelayMs: options.retryDelayMs,
+                onRetry:      (attempt, error) => {
+                    logger.warn(
+                        { serverName, toolName, attempt, maxRetries: options.maxRetries ?? 2, error: error.message },
+                        'Tool call failed, will retry'
                     );
-                    await new Promise(resolve => setTimeout(resolve, retryDelayMs * attempt));
-                }
-
-                return await this.callTool(serverName, toolName, args, options.timeoutMs);
-            } catch (error) {
-                lastError = _.isError(error) ? error : new Error(String(error));
-
-                if(attempt === maxRetries) {
+                },
+                onFailure: () => {
                     logger.error(
-                        { serverName, toolName, attempt, maxRetries },
+                        { serverName, toolName, maxRetries: options.maxRetries ?? 2 },
                         'Tool call failed after all retries'
                     );
-                    break;
-                }
-
-                logger.warn(
-                    { serverName, toolName, attempt, maxRetries, error: lastError.message },
-                    'Tool call failed, will retry'
-                );
+                },
             }
-        }
-
-        throw lastError ?? new Error('Tool call failed with unknown error');
+        );
     }
 
     /**
@@ -242,40 +256,25 @@ export class ProxyService {
             timeoutMs?:    number
         } = {}
     ): Promise<ReadResourceResult> {
-        const maxRetries = options.maxRetries ?? 2;
-        const retryDelayMs = options.retryDelayMs ?? 1000;
-        let lastError: Error | undefined;
-
-        for(let attempt = 0; attempt <= maxRetries; attempt++) {
-            try {
-                if(attempt > 0) {
-                    logger.info(
-                        { serverName, uri, attempt, maxRetries },
-                        'Retrying resource read'
+        return retryOperation(
+            () => this.readResource(serverName, uri, options.timeoutMs),
+            {
+                maxRetries:   options.maxRetries,
+                retryDelayMs: options.retryDelayMs,
+                onRetry:      (attempt, error) => {
+                    logger.warn(
+                        { serverName, uri, attempt, maxRetries: options.maxRetries ?? 2, error: error.message },
+                        'Resource read failed, will retry'
                     );
-                    await new Promise(resolve => setTimeout(resolve, retryDelayMs * attempt));
-                }
-
-                return await this.readResource(serverName, uri, options.timeoutMs);
-            } catch (error) {
-                lastError = _.isError(error) ? error : new Error(String(error));
-
-                if(attempt === maxRetries) {
+                },
+                onFailure: () => {
                     logger.error(
-                        { serverName, uri, attempt, maxRetries },
+                        { serverName, uri, maxRetries: options.maxRetries ?? 2 },
                         'Resource read failed after all retries'
                     );
-                    break;
-                }
-
-                logger.warn(
-                    { serverName, uri, attempt, maxRetries, error: lastError.message },
-                    'Resource read failed, will retry'
-                );
+                },
             }
-        }
-
-        throw lastError ?? new Error('Resource read failed with unknown error');
+        );
     }
 
     /**
@@ -291,40 +290,25 @@ export class ProxyService {
             timeoutMs?:    number
         } = {}
     ): Promise<GetPromptResult> {
-        const maxRetries = options.maxRetries ?? 2;
-        const retryDelayMs = options.retryDelayMs ?? 1000;
-        let lastError: Error | undefined;
-
-        for(let attempt = 0; attempt <= maxRetries; attempt++) {
-            try {
-                if(attempt > 0) {
-                    logger.info(
-                        { serverName, name, attempt, maxRetries },
-                        'Retrying prompt get'
+        return retryOperation(
+            () => this.getPrompt(serverName, name, args, options.timeoutMs),
+            {
+                maxRetries:   options.maxRetries,
+                retryDelayMs: options.retryDelayMs,
+                onRetry:      (attempt, error) => {
+                    logger.warn(
+                        { serverName, name, attempt, maxRetries: options.maxRetries ?? 2, error: error.message },
+                        'Prompt get failed, will retry'
                     );
-                    await new Promise(resolve => setTimeout(resolve, retryDelayMs * attempt));
-                }
-
-                return await this.getPrompt(serverName, name, args, options.timeoutMs);
-            } catch (error) {
-                lastError = _.isError(error) ? error : new Error(String(error));
-
-                if(attempt === maxRetries) {
+                },
+                onFailure: () => {
                     logger.error(
-                        { serverName, name, attempt, maxRetries },
+                        { serverName, name, maxRetries: options.maxRetries ?? 2 },
                         'Prompt get failed after all retries'
                     );
-                    break;
-                }
-
-                logger.warn(
-                    { serverName, name, attempt, maxRetries, error: lastError.message },
-                    'Prompt get failed, will retry'
-                );
+                },
             }
-        }
-
-        throw lastError ?? new Error('Prompt get failed with unknown error');
+        );
     }
 
     /**

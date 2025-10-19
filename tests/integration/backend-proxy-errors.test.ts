@@ -231,7 +231,7 @@ describe('Backend Proxy Error Handling', () => {
             ).rejects.toThrow('Persistent error');
         });
 
-        it('should use exponential backoff for retries', async () => {
+        it('should use linear backoff for retries', async () => {
             let attempts = 0;
 
             mockClient.callToolHandler = async () => {
@@ -413,6 +413,142 @@ describe('Backend Proxy Error Handling', () => {
             return expect(
                 proxyService.callTool('test-server', 'tool', {}, 50)
             ).rejects.toThrow('timed out');
+        });
+    });
+
+    describe('readResource operations', () => {
+        it('should successfully read a resource', async () => {
+            mockClient.readResourceHandler = async (uri: string) => ({
+                contents: [{ type: 'text' as const, text: `Content for ${uri}` }],
+            });
+
+            const result = await proxyService.readResource('test-server', 'test://resource');
+            expect(result.contents).toHaveLength(1);
+        });
+
+        it('should timeout slow resource reads', async () => {
+            mockClient.readResourceHandler = async () => {
+                await new Promise(resolve => setTimeout(resolve, 200));
+                return { contents: [] };
+            };
+
+            return expect(
+                proxyService.readResource('test-server', 'test://slow', 50)
+            ).rejects.toThrow('timed out');
+        });
+
+        it('should propagate resource read errors', async () => {
+            mockClient.readResourceHandler = async () => {
+                throw new Error('Resource not found');
+            };
+
+            return expect(
+                proxyService.readResource('test-server', 'test://missing')
+            ).rejects.toThrow(/test-server.*test:\/\/missing.*Resource not found/);
+        });
+
+        it('should retry failed resource reads', async () => {
+            let attempts = 0;
+            mockClient.readResourceHandler = async () => {
+                attempts++;
+                if(attempts < 3) {
+                    throw new Error('Transient failure');
+                }
+                return { contents: [{ type: 'text' as const, text: 'success' }] };
+            };
+
+            const result = await proxyService.readResourceWithRetry(
+                'test-server',
+                'test://retry',
+                { maxRetries: 3, retryDelayMs: 10 }
+            );
+
+            expect(result.contents).toBeDefined();
+            expect(attempts).toBe(3);
+        });
+
+        it('should handle batch resource reads', async () => {
+            mockClient.readResourceHandler = async (uri: string) => {
+                if(uri === 'test://fail') {
+                    throw new Error('Read failed');
+                }
+                return { contents: [{ type: 'text' as const, text: `Content for ${uri}` }] };
+            };
+
+            const results = await proxyService.readResourcesBatch([
+                { serverName: 'test-server', uri: 'test://resource1' },
+                { serverName: 'test-server', uri: 'test://fail' },
+                { serverName: 'test-server', uri: 'test://resource2' },
+            ]);
+
+            expect(results[0]?.success).toBe(true);
+            expect(results[1]?.success).toBe(false);
+            expect(results[2]?.success).toBe(true);
+        });
+    });
+
+    describe('getPrompt operations', () => {
+        it('should successfully get a prompt', async () => {
+            mockClient.getPromptHandler = async (name: string) => ({
+                messages: [{ role: 'user' as const, content: { type: 'text' as const, text: `Prompt ${name}` } }],
+            });
+
+            const result = await proxyService.getPrompt('test-server', 'test-prompt');
+            expect(result.messages).toHaveLength(1);
+        });
+
+        it('should timeout slow prompt gets', async () => {
+            mockClient.getPromptHandler = async () => {
+                await new Promise(resolve => setTimeout(resolve, 200));
+                return { messages: [] };
+            };
+
+            return expect(
+                proxyService.getPrompt('test-server', 'slow-prompt', undefined, 50)
+            ).rejects.toThrow('timed out');
+        });
+
+        it('should propagate prompt errors', async () => {
+            mockClient.getPromptHandler = async () => {
+                throw new Error('Prompt not found');
+            };
+
+            return expect(
+                proxyService.getPrompt('test-server', 'missing-prompt')
+            ).rejects.toThrow(/test-server.*missing-prompt.*Prompt not found/);
+        });
+
+        it('should retry failed prompt gets', async () => {
+            let attempts = 0;
+            mockClient.getPromptHandler = async () => {
+                attempts++;
+                if(attempts < 2) {
+                    throw new Error('Transient failure');
+                }
+                return { messages: [{ role: 'user' as const, content: { type: 'text' as const, text: 'success' } }] };
+            };
+
+            const result = await proxyService.getPromptWithRetry(
+                'test-server',
+                'retry-prompt',
+                undefined,
+                { maxRetries: 2, retryDelayMs: 10 }
+            );
+
+            expect(result.messages).toBeDefined();
+            expect(attempts).toBe(2);
+        });
+
+        it('should pass prompt arguments correctly', async () => {
+            let receivedArgs: Record<string, string> | undefined;
+            mockClient.getPromptHandler = async (name: string, args?: Record<string, string>) => {
+                receivedArgs = args;
+                return { messages: [{ role: 'user' as const, content: { type: 'text' as const, text: 'success' } }] };
+            };
+
+            await proxyService.getPrompt('test-server', 'parameterized-prompt', { param1: 'value1', param2: 'value2' });
+
+            expect(receivedArgs).toEqual({ param1: 'value1', param2: 'value2' });
         });
     });
 });

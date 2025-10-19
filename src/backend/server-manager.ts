@@ -9,13 +9,10 @@
  */
 
 import { spawn, type ChildProcess } from 'node:child_process';
-import { access, readFile, writeFile } from 'node:fs/promises';
-import { constants } from 'node:fs';
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { dynamicLogger as logger } from '../utils/silent-logger.js';
 import _ from 'lodash';
-import { ZodError } from 'zod';
 import { BackendServersConfigSchema, type BackendServersConfig, type BackendServerConfig } from '../types/config.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -47,51 +44,20 @@ export class ServerManager {
      * Load and validate backend servers configuration
      */
     private async loadConfig(): Promise<BackendServersConfig> {
-        try {
-            // If config doesn't exist, copy from example
-            let configExists = true;
-            try {
-                await access(this.configPath, constants.F_OK);
-            } catch{
-                configExists = false;
-            }
+        const { loadJsonConfig } = await import('../utils/config-loader.js');
 
-            if(!configExists) {
-                const examplePath = _.replace(this.configPath, /\.json$/, '.example.json');
-                let exampleExists = true;
-                try {
-                    await access(examplePath, constants.F_OK);
-                } catch{
-                    exampleExists = false;
-                }
+        const examplePath = _.replace(this.configPath, /\.json$/, '.example.json');
 
-                if(exampleExists) {
-                    logger.warn({ configPath: this.configPath, examplePath }, 'Config file not found, creating from example');
-                    const exampleContent = await readFile(examplePath, 'utf-8');
-                    await writeFile(this.configPath, exampleContent, 'utf-8');
-                } else {
-                    throw new Error(`Config file not found and no example available: ${this.configPath}`);
-                }
-            }
+        const config = await loadJsonConfig({
+            path:        this.configPath,
+            schema:      BackendServersConfigSchema,
+            examplePath: examplePath,
+        });
 
-            const content = await readFile(this.configPath, 'utf-8');
-            const rawConfig: unknown = JSON.parse(content);
+        // Substitute environment variables in config
+        this.substituteEnvVars(config);
 
-            // Validate with Zod
-            const config = BackendServersConfigSchema.parse(rawConfig);
-
-            // Substitute environment variables in config
-            this.substituteEnvVars(config);
-
-            return config;
-        } catch (error) {
-            if(error instanceof ZodError) {
-                const zodError = error;
-                logger.error({ error: zodError.issues, configPath: this.configPath }, 'Invalid backend servers configuration');
-                throw new Error(`Invalid backend servers configuration: ${_.map(zodError.issues, (e: { path: (string | number)[], message: string }) => `${_.join(e.path, '.')}: ${e.message}`).join(', ')}`);
-            }
-            throw error;
-        }
+        return config;
     }
 
     /**

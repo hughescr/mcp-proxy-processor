@@ -6,7 +6,8 @@
       "WebFetch",
       "mcp__DevTools",
       "mcp__Tmux",
-      "mcp__Search"
+      "mcp__Search",
+	  "mcp__Codex"
     ],
     "deny": []
   },

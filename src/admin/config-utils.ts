@@ -2,7 +2,7 @@
  * Configuration utilities for the admin interface
  */
 
-import { readFile, writeFile } from 'node:fs/promises';
+import { writeFile } from 'node:fs/promises';
 import { keys, isError } from 'lodash';
 import { dynamicLogger as logger } from '../utils/silent-logger.js';
 import { GroupsConfigSchema, BackendServersConfigSchema, type GroupsConfig, type BackendServersConfig } from '../types/config.js';
@@ -16,10 +16,15 @@ export const BACKEND_SERVERS_CONFIG_PATH = getBackendServersConfigPath();
  * Load groups configuration from disk
  */
 export async function loadGroupsConfig(): Promise<GroupsConfig> {
+    const { loadJsonConfig } = await import('../utils/config-loader.js');
+
     try {
-        const content = await readFile(GROUPS_CONFIG_PATH, 'utf-8');
-        const rawConfig: unknown = JSON.parse(content);
-        const config = GroupsConfigSchema.parse(rawConfig);
+        const config = await loadJsonConfig({
+            path:              GROUPS_CONFIG_PATH,
+            schema:            GroupsConfigSchema,
+            fallbackOnMissing: true,
+            defaultValue:      { groups: {} },
+        });
         logger.debug({ groupCount: keys(config.groups).length }, 'Loaded groups configuration');
         return config;
     } catch (error) {
@@ -49,10 +54,13 @@ export async function saveGroupsConfig(config: GroupsConfig): Promise<void> {
  * Load backend servers configuration from disk
  */
 export async function loadBackendServersConfig(): Promise<BackendServersConfig> {
+    const { loadJsonConfig } = await import('../utils/config-loader.js');
+
     try {
-        const content = await readFile(BACKEND_SERVERS_CONFIG_PATH, 'utf-8');
-        const rawConfig: unknown = JSON.parse(content);
-        const config = BackendServersConfigSchema.parse(rawConfig);
+        const config = await loadJsonConfig({
+            path:   BACKEND_SERVERS_CONFIG_PATH,
+            schema: BackendServersConfigSchema,
+        });
         logger.debug({ serverCount: keys(config.mcpServers).length }, 'Loaded backend servers configuration');
         return config;
     } catch (error) {

@@ -10,7 +10,6 @@
 
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { readFile } from 'node:fs/promises';
 import _ from 'lodash';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
@@ -66,8 +65,11 @@ export async function startServer(groupName: string): Promise<void> {
 
         // 2. Load backend server configuration
         logger.info('Loading backend server configuration');
-        const backendConfigContent = await readFile(backendConfigPath, 'utf-8');
-        const backendConfig: BackendServersConfig = BackendServersConfigSchema.parse(JSON.parse(backendConfigContent));
+        const { loadJsonConfig } = await import('../utils/config-loader.js');
+        const backendConfig: BackendServersConfig = await loadJsonConfig({
+            path:   backendConfigPath,
+            schema: BackendServersConfigSchema,
+        });
 
         // 3. Determine required backend servers
         const requiredServers = groupManager.getRequiredServers(groupName);
