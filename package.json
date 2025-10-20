@@ -38,13 +38,14 @@
     "claude": "tmux -CC new -A -n Claude -s mcp-proxy-processor ~/.claude/claude-smart.sh",
     "codex": "tmux -CC new -A -n Codex -s apartment-manager bunx --bun @openai/codex@latest --search",
     "dev": "bun --preserve-symlinks run src/cli.ts",
-    "full-test": "eslint --fix && tsc && bun test",
+    "full-test": "eslint --fix && tsc && INTEGRATION_TESTS=true bun test",
     "lint": "eslint --cache --format=overview",
     "lint:fix": "eslint --cache --fix --format=pverview",
     "lint:tsc": "tsc",
     "package-check": "bunx npm-check@latest -i bun:test",
     "prepublishOnly": "bun run build",
     "test": "bun test",
+    "test:integration": "INTEGRATION_TESTS=true bun test",
     "postversion": "git commit -m \"Bump package version to $npm_package_version\" package.json; git flow release start $npm_package_version; git flow release finish -m $npm_package_version $npm_package_version; git checkout develop; git merge main"
   },
   "resolutions": {
