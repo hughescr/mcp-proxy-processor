@@ -137,7 +137,7 @@ describe('Silent Logger - Dynamic Logger Selection', () => {
         dynamicLogger.info('info message');
         dynamicLogger.warn('warn message');
         dynamicLogger.error('error message');
-        dynamicLogger.log('log message');
+        dynamicLogger.log('info', {}, 'log message');
 
         // Verify NO output
         expect(stderrSpy).not.toHaveBeenCalled();

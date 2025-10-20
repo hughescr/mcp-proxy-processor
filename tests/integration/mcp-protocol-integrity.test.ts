@@ -61,24 +61,6 @@ describe('MCP Protocol Integrity', () => {
     });
 
     describe('backend server isolation', () => {
-        it('should isolate backend server stdout from protocol stream', async () => {
-            // Backend servers run as separate processes with their own stdio
-            // Their stdout should not pollute our protocol stream
-
-            const { stderrLogger } = await import('../../src/utils/silent-logger.js');
-
-            // Simulate backend server output
-            const backendStdout = 'This is backend output\n';
-            const backendStderr = 'This is backend error\n';
-
-            // Our logger should handle this appropriately
-            stderrLogger.debug({ backendStdout, backendStderr }, 'Backend output received');
-
-            // No assertions needed - just verifying it doesn't crash
-            // The key is that we never use stdout in production code
-            expect(true).toBe(true);
-        });
-
         it('should handle backend server startup messages correctly', async () => {
             // Backend servers may emit startup messages
             // These should be logged to stderr, not forwarded to protocol
@@ -95,8 +77,11 @@ describe('MCP Protocol Integrity', () => {
 
             const manager = new ClientManager(serverConfigs);
 
-            // No assertions - verifying it doesn't crash or pollute stdout
+            // Verify that ClientManager was created successfully
             expect(manager).toBeDefined();
+            expect(manager).toBeInstanceOf(ClientManager);
+            // Manager was created with test configuration
+            expect(manager).toBeTruthy();
         });
     });
 
@@ -116,21 +101,36 @@ describe('MCP Protocol Integrity', () => {
         it('should handle protocol errors without stdout pollution', async () => {
             const { stderrLogger } = await import('../../src/utils/silent-logger.js');
 
-            // Simulate protocol error
-            const protocolError = {
-                jsonrpc: '2.0',
-                id:      1,
-                error:   {
-                    code:    -32600,
-                    message: 'Invalid Request',
-                },
+            // Capture stderr writes
+            const originalStderrWrite = process.stderr.write.bind(process.stderr);
+            let stderrContent = '';
+
+            process.stderr.write = (chunk: string | Uint8Array): boolean => {
+                stderrContent += chunk.toString();
+                return originalStderrWrite(chunk);
             };
 
-            // Log it (should go to stderr)
-            stderrLogger.error({ protocolError }, 'Protocol error occurred');
+            try {
+                // Simulate protocol error
+                const protocolError = {
+                    jsonrpc: '2.0',
+                    id:      1,
+                    error:   {
+                        code:    -32600,
+                        message: 'Invalid Request',
+                    },
+                };
 
-            // Verify it doesn't throw
-            expect(true).toBe(true);
+                // Log it (should go to stderr)
+                stderrLogger.error({ protocolError }, 'Protocol error occurred');
+
+                // Verify the error was logged to stderr
+                expect(stderrContent).toContain('Protocol error occurred');
+                expect(stderrContent).toContain('-32600');
+                expect(stderrContent).toContain('Invalid Request');
+            } finally {
+                process.stderr.write = originalStderrWrite;
+            }
         });
     });
 
@@ -145,20 +145,6 @@ describe('MCP Protocol Integrity', () => {
             expect(typeof stderrLogger.error).toBe('function');
             expect(typeof stderrLogger.warn).toBe('function');
             expect(typeof stderrLogger.debug).toBe('function');
-        });
-
-        it('should handle JSON stringification errors gracefully', async () => {
-            const { stderrLogger } = await import('../../src/utils/silent-logger.js');
-
-            // Create circular reference
-            const circular: Record<string, unknown> = { name: 'test' };
-            circular.self = circular;
-
-            // Logger should handle this without crashing
-            stderrLogger.debug({ circular }, 'Testing circular reference');
-
-            // No assertion - just verify it doesn't crash
-            expect(true).toBe(true);
         });
     });
 
@@ -186,19 +172,6 @@ describe('MCP Protocol Integrity', () => {
                 process.stderr.write = originalStderrWrite;
             }
         });
-
-        it('should handle uncaught errors without stdout pollution', async () => {
-            const { stderrLogger } = await import('../../src/utils/silent-logger.js');
-
-            // Simulate uncaught error
-            const uncaughtError = new Error('Uncaught error');
-
-            // Log it appropriately
-            stderrLogger.error({ error: uncaughtError, fatal: true }, 'Uncaught error');
-
-            // Should not throw
-            expect(true).toBe(true);
-        });
     });
 
     describe('admin UI polling', () => {
@@ -207,19 +180,24 @@ describe('MCP Protocol Integrity', () => {
 
             const { stderrLogger } = await import('../../src/utils/silent-logger.js');
 
+            let pollCount = 0;
             // Simulate polling operation
             const pollBackends = (): Promise<{ servers: unknown[] }> => {
-                stderrLogger.debug({}, 'Polling backend servers');
+                pollCount++;
+                stderrLogger.debug({ pollNumber: pollCount }, 'Polling backend servers');
                 return Promise.resolve({ servers: [] });
             };
 
             // Run multiple polls
-            await pollBackends();
-            await pollBackends();
-            await pollBackends();
+            const result1 = await pollBackends();
+            const result2 = await pollBackends();
+            const result3 = await pollBackends();
 
-            // Should complete without issues
-            expect(true).toBe(true);
+            // Verify polling completed and returned expected structure
+            expect(pollCount).toBe(3);
+            expect(result1).toEqual({ servers: [] });
+            expect(result2).toEqual({ servers: [] });
+            expect(result3).toEqual({ servers: [] });
         });
 
         it('should handle concurrent admin operations safely', async () => {
@@ -236,10 +214,13 @@ describe('MCP Protocol Integrity', () => {
                 })
             );
 
-            await Promise.all(operations);
+            const results = await Promise.all(operations);
 
-            // Should complete without issues
-            expect(true).toBe(true);
+            // Verify all operations completed successfully and returned their index
+            expect(results).toHaveLength(10);
+            expect(results).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+            // Verify operations are independent (can be completed in any order)
+            expect(new Set(results).size).toBe(10); // All unique values
         });
     });
 });

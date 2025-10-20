@@ -32,7 +32,7 @@ async function fileExists(path: string): Promise<boolean> {
 /**
  * Migrate a single config file from old location to new location
  */
-async function migrateConfigFile(oldPath: string, newPath: string, fileName: string): Promise<boolean> {
+export async function migrateConfigFile(oldPath: string, newPath: string, fileName: string): Promise<boolean> {
     // Check if old file exists
     const oldExists = await fileExists(oldPath);
     if(!oldExists) {
@@ -51,8 +51,9 @@ async function migrateConfigFile(oldPath: string, newPath: string, fileName: str
         // Read old config
         const content = await readFile(oldPath, 'utf-8');
 
-        // Write to new location
-        await writeFile(newPath, content, 'utf-8');
+        // Write to new location atomically (fail if file already exists)
+        // This prevents race conditions in concurrent migration attempts
+        await writeFile(newPath, content, { encoding: 'utf-8', flag: 'wx' });
 
         logger.info({ fileName, oldPath, newPath }, 'Migrated config file');
         return true;

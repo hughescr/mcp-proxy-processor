@@ -108,7 +108,8 @@ export class ServerManager {
      */
     private async launchServer(serverName: string, config: BackendServerConfig): Promise<void> {
         const existingState = this.servers.get(serverName);
-        if(existingState && !existingState.shuttingDown) {
+        // Only skip if there's an existing RUNNING process (not just state from failed server)
+        if(existingState && !existingState.shuttingDown && existingState.process.pid) {
             logger.warn({ serverName }, 'Server already running, skipping launch');
             return;
         }
@@ -185,14 +186,17 @@ export class ServerManager {
     private handleServerExit(serverName: string, code: number | null, signal: NodeJS.Signals | null, state: ServerState): void {
         logger.warn({ serverName, code, signal }, 'Backend server exited');
 
-        // Remove from active servers
-        this.servers.delete(serverName);
-
         // Don't restart if we're shutting down or if it was an intentional shutdown
         if(this.isShuttingDown || state.shuttingDown) {
+            // Remove from active servers on intentional shutdown
+            this.servers.delete(serverName);
             logger.info({ serverName }, 'Server shutdown was intentional, not restarting');
             return;
         }
+
+        // Mark process as dead by clearing pid (so launchServer doesn't skip)
+        // but keep the state in the map to preserve restart count
+        (state.process as { pid?: number }).pid = undefined;
 
         // Auto-restart with exponential backoff
         void this.autoRestartServer(serverName, state);
@@ -217,8 +221,10 @@ export class ServerManager {
         setTimeout(() => {
             void (async () => {
                 try {
-                    // Update restart count
+                    // Update restart count in the state object
                     state.restartCount = newRestartCount;
+                    // Update the state in the map so launchServer can see the restart count
+                    this.servers.set(serverName, state);
                     await this.launchServer(serverName, state.config);
                 } catch (error) {
                     logger.error({ serverName, error: _.isError(error) ? error.message : String(error) }, 'Failed to restart server');

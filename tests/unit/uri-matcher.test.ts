@@ -45,29 +45,37 @@ describe('URI Matcher Utilities', () => {
         it('should parse valid URI templates', () => {
             const template1 = parseTemplate('file:///{+path}');
             expect(template1).toBeDefined();
+            expect(typeof template1.fill).toBe('function'); // Verify it has fill method
 
             const template2 = parseTemplate('http://api.{domain}/v1/{endpoint}');
             expect(template2).toBeDefined();
+            expect(typeof template2.fill).toBe('function');
 
             const template3 = parseTemplate('/users/{id}/posts/{postId}');
             expect(template3).toBeDefined();
+            expect(typeof template3.fill).toBe('function');
         });
 
         it('should parse templates with RFC 6570 operators', () => {
             const reserved = parseTemplate('{+reserved}');
             expect(reserved).toBeDefined();
+            expect(typeof reserved.fill).toBe('function');
 
             const fragment = parseTemplate('{#section}');
             expect(fragment).toBeDefined();
+            expect(typeof fragment.fill).toBe('function');
 
             const query = parseTemplate('{?page,limit}');
             expect(query).toBeDefined();
+            expect(typeof query.fill).toBe('function');
 
             const continuation = parseTemplate('{&sort,order}');
             expect(continuation).toBeDefined();
+            expect(typeof continuation.fill).toBe('function');
 
             const explode = parseTemplate('{/path*}');
             expect(explode).toBeDefined();
+            expect(typeof explode.fill).toBe('function');
         });
 
         it('should handle malformed templates gracefully', () => {
@@ -75,13 +83,24 @@ describe('URI Matcher Utilities', () => {
             // It treats them as valid templates with extracted variable names
             const template1 = parseTemplate('{{invalid}}');
             expect(template1).toBeDefined();
+            expect(typeof template1.fill).toBe('function');
+            // Verify it can still fill (even if in an unexpected way)
+            // Using expandTemplate wrapper to avoid ESLint false positive about _.fill
+            const expanded1 = expandTemplate('{{invalid}}', { invalid: 'test' });
+            expect(expanded1).toBe('test}');
 
             const template2 = parseTemplate('{unclosed');
             expect(template2).toBeDefined();
+            expect(typeof template2.fill).toBe('function');
+            const expanded2 = expandTemplate('{unclosed', { unclosed: 'value' });
+            expect(expanded2).toBe('value');
 
             // Even unmatched braces are accepted
             const template3 = parseTemplate('unmatched}');
             expect(template3).toBeDefined();
+            expect(typeof template3.fill).toBe('function');
+            const expanded3 = expandTemplate('unmatched}', {});
+            expect(expanded3).toBe('unmatched}');
         });
     });
 
