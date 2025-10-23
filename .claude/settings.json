@@ -7,7 +7,7 @@
       "mcp__DevTools",
       "mcp__Tmux",
       "mcp__Search",
-	  "mcp__Codex"
+      "mcp__Codex"
     ],
     "deny": []
   },
