@@ -69,9 +69,10 @@ export class GroupManager {
             return [];
         }
 
-        const toolServers = map(group.tools, 'serverName');
+        const toolServers = map(group.tools ?? [], 'serverName');
         const resourceServers = map(group.resources ?? [], 'serverName');
-        const allServers = [...toolServers, ...resourceServers];
+        const promptServers = map(group.prompts ?? [], 'serverName');
+        const allServers = [...toolServers, ...resourceServers, ...promptServers];
 
         return uniq(allServers);
     }

@@ -64,9 +64,9 @@ export async function startServer(groupNames: string[]): Promise<void> {
         }
 
         // Collect all tool overrides, resources, and prompts from all groups
-        const allToolOverrides = _.flatMap(groups, 'tools') as ToolOverride[];
-        const allResourceRefs: ResourceRef[] = _.flatMap(groups, g => g.resources ?? []);
-        const allPromptRefs: PromptRef[] = _.flatMap(groups, g => g.prompts ?? []);
+        const allToolOverrides: ToolOverride[] = groups.flatMap(g => g.tools ?? []);
+        const allResourceRefs: ResourceRef[] = groups.flatMap(g => g.resources ?? []);
+        const allPromptRefs: PromptRef[] = groups.flatMap(g => g.prompts ?? []);
 
         logger.info({
             groupNames,
