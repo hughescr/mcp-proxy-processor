@@ -11,7 +11,7 @@
 import { readFile } from 'node:fs/promises';
 import { dynamicLogger as logger } from '../utils/silent-logger.js';
 import { uniq, keys, isError, map, find } from 'lodash';
-import { deduplicatePrompts, deduplicateResources } from '../utils/conflict-detection.js';
+import { deduplicatePrompts, deduplicateResources, deduplicateTools } from '../utils/conflict-detection.js';
 import type { Tool, Resource, Prompt } from '@modelcontextprotocol/sdk/types.js';
 import { GroupsConfigSchema, type GroupConfig, type GroupsConfig, type ToolOverride } from '../types/config.js';
 import { SchemaGenerator } from './schema-generator.js';
@@ -73,6 +73,38 @@ export class GroupManager {
         const resourceServers = map(group.resources ?? [], 'serverName');
         const allServers = [...toolServers, ...resourceServers];
 
+        return uniq(allServers);
+    }
+
+    /**
+     * Get a list of groups by names
+     * @param names - Array of group names to retrieve
+     * @returns Array of group configurations (skips groups that don't exist)
+     */
+    getGroups(names: string[]): GroupConfig[] {
+        const groups: GroupConfig[] = [];
+        for(const name of names) {
+            const group = this.getGroup(name);
+            if(group) {
+                groups.push(group);
+            } else {
+                logger.warn({ groupName: name }, 'Group not found');
+            }
+        }
+        return groups;
+    }
+
+    /**
+     * Get the list of backend server names required for multiple groups
+     * @param groupNames - Array of group names
+     * @returns Array of unique backend server names
+     */
+    getRequiredServersForGroups(groupNames: string[]): string[] {
+        const allServers: string[] = [];
+        for(const groupName of groupNames) {
+            const servers = this.getRequiredServers(groupName);
+            allServers.push(...servers);
+        }
         return uniq(allServers);
     }
 
@@ -191,6 +223,72 @@ export class GroupManager {
         const deduplicated = deduplicatePrompts(result);
 
         logger.debug({ groupName, promptCount: deduplicated.length }, 'Built prompts for group');
+        return deduplicated;
+    }
+
+    /**
+     * Get tools for multiple groups with overrides applied
+     * Tools from earlier groups in the array take priority over later groups.
+     * @param groupNames - Array of group names
+     * @param backendTools - Map of backend server name to list of tools from that server
+     * @returns Array of tools with overrides applied, deduplicated by name
+     */
+    getToolsForGroups(groupNames: string[], backendTools: Map<string, Tool[]>): Tool[] {
+        const allTools: Tool[] = [];
+
+        for(const groupName of groupNames) {
+            const groupTools = this.getToolsForGroup(groupName, backendTools);
+            allTools.push(...groupTools);
+        }
+
+        // Deduplicate by name - first occurrence wins (highest priority)
+        const deduplicated = deduplicateTools(allTools);
+
+        logger.debug({ groupNames, toolCount: deduplicated.length }, 'Built tools for multiple groups');
+        return deduplicated;
+    }
+
+    /**
+     * Get resources for multiple groups with overrides applied
+     * Resources from earlier groups in the array take priority over later groups.
+     * @param groupNames - Array of group names
+     * @param backendResources - Map of backend server name to list of resources from that server
+     * @returns Array of resources with overrides applied, deduplicated by URI
+     */
+    getResourcesForGroups(groupNames: string[], backendResources: Map<string, Resource[]>): Resource[] {
+        const allResources: Resource[] = [];
+
+        for(const groupName of groupNames) {
+            const groupResources = this.getResourcesForGroup(groupName, backendResources);
+            allResources.push(...groupResources);
+        }
+
+        // Deduplicate by URI - first occurrence wins (highest priority)
+        const deduplicated = deduplicateResources(allResources);
+
+        logger.debug({ groupNames, resourceCount: deduplicated.length }, 'Built resources for multiple groups');
+        return deduplicated;
+    }
+
+    /**
+     * Get prompts for multiple groups
+     * Prompts from earlier groups in the array take priority over later groups.
+     * @param groupNames - Array of group names
+     * @param backendPrompts - Map of backend server name to list of prompts from that server
+     * @returns Array of prompts, deduplicated by name
+     */
+    getPromptsForGroups(groupNames: string[], backendPrompts: Map<string, Prompt[]>): Prompt[] {
+        const allPrompts: Prompt[] = [];
+
+        for(const groupName of groupNames) {
+            const groupPrompts = this.getPromptsForGroup(groupName, backendPrompts);
+            allPrompts.push(...groupPrompts);
+        }
+
+        // Deduplicate by name - first occurrence wins (highest priority)
+        const deduplicated = deduplicatePrompts(allPrompts);
+
+        logger.debug({ groupNames, promptCount: deduplicated.length }, 'Built prompts for multiple groups');
         return deduplicated;
     }
 

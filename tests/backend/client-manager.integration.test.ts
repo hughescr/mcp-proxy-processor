@@ -7,6 +7,7 @@
 
 import { describe, it, expect, beforeAll, afterAll } from 'bun:test';
 import { resolve } from 'path';
+import _ from 'lodash';
 import ClientManager from '../../src/backend/client-manager.js';
 import type { BackendServerConfig } from '../../src/types/config.js';
 
@@ -82,14 +83,27 @@ describeIntegration('ClientManager integration (real MCP subprocess)', () => {
         });
 
         expect(result.content).toBeDefined();
+
+        // Type guard to ensure content is an array
+        if(!_.isArray(result.content)) {
+            throw new Error('Expected content to be an array');
+        }
+
         expect(result.content.length).toBeGreaterThan(0);
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- MCP SDK types are dynamic
-        const firstContent = result.content[0];
+
+        const firstContent: unknown = result.content[0];
         expect(firstContent).toBeDefined();
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- MCP SDK types are dynamic
-        expect(firstContent.type).toBe('text');
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- MCP SDK types are dynamic
-        expect(firstContent.text).toContain('Echo: Hello, MCP!');
+
+        // Type guard for content item structure
+        if(!_.isObject(firstContent) || !('type' in firstContent)) {
+            throw new Error('Expected content item to have type property');
+        }
+
+        expect((firstContent as { type: unknown }).type).toBe('text');
+
+        if('text' in firstContent) {
+            expect((firstContent as { text: unknown }).text).toContain('Echo: Hello, MCP!');
+        }
     }, { timeout: 5000 });
 
     it('validates environment variable propagation to subprocess', async () => {

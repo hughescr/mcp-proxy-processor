@@ -2,7 +2,7 @@
  * MCP Proxy Processor CLI Entry Point
  *
  * Modes:
- * - serve <groupname>: Start MCP proxy server for specified group
+ * - serve <groupnames...>: Start MCP proxy server for specified group(s)
  * - admin: Launch interactive admin UI for managing groups
  * - list-groups: List all configured groups
  * - describe-group <name>: Show details about a specific group
@@ -30,14 +30,14 @@ program
     .description(packageJson.description)
     .version(packageJson.version);
 
-// Serve command - start MCP server for a group
+// Serve command - start MCP server for one or more groups
 program
     .command('serve')
-    .description('Start MCP proxy server for specified group')
-    .argument('<groupname>', 'Name of the group to serve')
-    .action(async (groupname: string) => {
+    .description('Start MCP proxy server for specified group(s)')
+    .argument('<groupnames...>', 'Name(s) of the group(s) to serve')
+    .action(async (groupnames: string[]) => {
         const { startServer } = await import('./frontend/index.js');
-        await startServer(groupname);
+        await startServer(groupnames);
     });
 
 // Admin command - launch interactive UI

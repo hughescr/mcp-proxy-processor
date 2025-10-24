@@ -57,13 +57,14 @@ describe('CLI Source Code Structure', () => {
     });
 
     describe('Command Definitions', () => {
-        it('should define serve command', async () => {
+        it('should define serve command with support for multiple groups', async () => {
             const cliPath = join(import.meta.dir, '..', 'src', 'cli.ts');
             const source = await readFile(cliPath, 'utf-8');
 
             expect(source).toContain(".command('serve')");
             expect(source).toContain('Start MCP proxy server');
-            expect(source).toContain("argument('<groupname>'");
+            expect(source).toContain(".argument('<groupnames...>'");
+            expect(source).toContain('group(s)');
         });
 
         it('should define admin command', async () => {
@@ -282,7 +283,7 @@ describe('CLI Documentation', () => {
         // Check for header comment with mode descriptions
         expect(source).toContain('/**');
         expect(source).toContain('MCP Proxy Processor CLI Entry Point');
-        expect(source).toContain('serve <groupname>');
+        expect(source).toContain('serve <groupnames...>');
         expect(source).toContain('admin:');
     });
 });
