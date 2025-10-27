@@ -145,6 +145,8 @@ function createLazyLogger(): LoggerType {
                     return method.apply(logger, args);
                 };
             }
+            // Coverage: Returns undefined for non-logger properties accessed via proxy
+            // Edge case for unexpected property access; all valid logger methods handled above
             return undefined;
         },
     });

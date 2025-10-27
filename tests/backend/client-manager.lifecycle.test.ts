@@ -81,6 +81,12 @@ class TestClientManager extends ClientManager {
     }
 
     protected override async attemptConnection(serverName: string, serverConfig: BackendServerConfig): Promise<Client> {
+        // First check transport type (matching parent class behavior)
+        if('type' in serverConfig) {
+            const unknownType = (serverConfig as { type: unknown }).type;
+            throw new Error(`Transport type "${String(unknownType)}" is not yet supported for server "${serverName}". Only stdio transport is currently implemented.`);
+        }
+
         // Track attempt count per server
         this.attemptCounts.set(serverName, (this.attemptCounts.get(serverName) ?? 0) + 1);
 
@@ -519,5 +525,218 @@ describe('ClientManager lifecycle - error handler callback', () => {
         expect(client1).toBe(reconnectedClient.client);
         expect(client2).toBe(reconnectedClient.client);
         expect(manager.isConnected('test-server')).toBe(true);
+    });
+});
+
+describe('ClientManager lifecycle - unsupported transport', () => {
+    it('should throw error when attempting to use non-stdio transport', async () => {
+        // Config with 'type' at top level (not nested in 'transport')
+        const httpConfig = {
+            type: 'http',
+            url:  'http://example.com',
+        } as unknown as BackendServerConfig;
+
+        // Use the REAL ClientManager class to test the real implementation
+        const manager = new ClientManager(new Map([['http-server', httpConfig]]));
+
+        // Should throw when attempting to connect (async method)
+        try {
+            await manager.connect('http-server');
+            throw new Error('Expected connect to throw but it did not');
+        } catch (error) {
+            expect(error).toBeInstanceOf(Error);
+            // Error is wrapped by retry logic, so check it contains the transport error
+            expect((error as Error).message).toMatch(/Transport type "http" is not yet supported for server "http-server"\. Only stdio transport is currently implemented\./);
+        }
+
+        // Verify server is not connected
+        expect(manager.isConnected('http-server')).toBe(false);
+    });
+
+    it('should throw error for SSE transport type', async () => {
+        const sseConfig = {
+            type: 'sse',
+            url:  'http://example.com/sse',
+        } as unknown as BackendServerConfig;
+
+        // Use the REAL ClientManager class
+        const manager = new ClientManager(new Map([['sse-server', sseConfig]]));
+
+        try {
+            await manager.connect('sse-server');
+            throw new Error('Expected connect to throw but it did not');
+        } catch (error) {
+            expect(error).toBeInstanceOf(Error);
+            // Error is wrapped by retry logic, so check it contains the transport error
+            expect((error as Error).message).toMatch(/Transport type "sse" is not yet supported for server "sse-server"\. Only stdio transport is currently implemented\./);
+        }
+
+        expect(manager.isConnected('sse-server')).toBe(false);
+    });
+});
+
+describe('ClientManager lifecycle - getConnectedServerNames()', () => {
+    it('should return empty array when no servers are connected', () => {
+        const manager = new TestClientManager(new Map());
+        expect(manager.getConnectedServerNames()).toEqual([]);
+    });
+
+    it('should return only connected server names', async () => {
+        const configs = new Map([
+            ['server1', { command: 'test-cmd1' }],
+            ['server2', { command: 'test-cmd2' }],
+            ['server3', { command: 'test-cmd3' }],
+        ]);
+        const manager = new TestClientManager(configs);
+
+        // Connect to server1 and server3 only
+        const client1 = new MockClientWrapper('client1');
+        const client3 = new MockClientWrapper('client3');
+
+        manager.enqueueAttempt('server1', async () => client1.client);
+        manager.enqueueAttempt('server3', async () => client3.client);
+
+        await manager.connect('server1');
+        await manager.connect('server3');
+
+        const connectedNames = manager.getConnectedServerNames();
+        expect(connectedNames).toHaveLength(2);
+        expect(connectedNames).toContain('server1');
+        expect(connectedNames).toContain('server3');
+        expect(connectedNames).not.toContain('server2');
+    });
+
+    it('should update list when servers disconnect', async () => {
+        const configs = new Map([
+            ['server1', { command: 'test-cmd1' }],
+            ['server2', { command: 'test-cmd2' }],
+        ]);
+        const manager = new TestClientManager(configs);
+
+        // Connect both servers
+        const client1 = new MockClientWrapper('client1');
+        const client2 = new MockClientWrapper('client2');
+
+        manager.enqueueAttempt('server1', async () => client1.client);
+        manager.enqueueAttempt('server2', async () => client2.client);
+
+        await manager.connect('server1');
+        await manager.connect('server2');
+
+        expect(manager.getConnectedServerNames()).toHaveLength(2);
+
+        // Disconnect one server
+        await manager.disconnect('server1');
+
+        const connectedNames = manager.getConnectedServerNames();
+        expect(connectedNames).toHaveLength(1);
+        expect(connectedNames).toContain('server2');
+        expect(connectedNames).not.toContain('server1');
+    });
+});
+
+describe('ClientManager lifecycle - getStats()', () => {
+    it('should return correct stats for single server', async () => {
+        const config: BackendServerConfig = { command: 'test-cmd' };
+        const manager = new TestClientManager(new Map([['test-server', config]]));
+
+        const client = new MockClientWrapper('test');
+        manager.enqueueAttempt('test-server', async () => client.client);
+
+        await manager.connect('test-server');
+
+        const stats = manager.getStats();
+        expect(stats).toEqual({
+            total:        1,
+            connected:    1,
+            disconnected: 0,
+        });
+    });
+
+    it('should return correct stats for multiple servers in different states', async () => {
+        const configs = new Map([
+            ['server1', { command: 'cmd1' }],
+            ['server2', { command: 'cmd2' }],
+            ['server3', { command: 'cmd3' }],
+        ]);
+        const manager = new TestClientManager(configs);
+
+        // Connect server1 and server2
+        const client1 = new MockClientWrapper('client1');
+        const client2 = new MockClientWrapper('client2');
+
+        manager.enqueueAttempt('server1', async () => client1.client);
+        manager.enqueueAttempt('server2', async () => client2.client);
+
+        await manager.connect('server1');
+        await manager.connect('server2');
+
+        // server3 stays in initial DISCONNECTED state (never attempted connection)
+        // We don't need to start a connection - just having it in configs is enough
+
+        const stats = manager.getStats();
+        // Note: getStats() returns total, connected, disconnected
+        // total = number of entries in the internal clients map (only servers that have been attempted)
+        // server3 was never attempted, so it won't appear in the map
+        expect(stats).toEqual({
+            total:        2,
+            connected:    2,
+            disconnected: 0,
+        });
+
+        // Disconnect server1 to get a mixed state
+        await manager.disconnect('server1');
+
+        const statsAfterDisconnect = manager.getStats();
+        expect(statsAfterDisconnect).toEqual({
+            total:        2,
+            connected:    1,
+            disconnected: 1,
+        });
+    });
+
+    it('should return zero stats when no servers configured', () => {
+        const manager = new TestClientManager(new Map());
+
+        const stats = manager.getStats();
+        expect(stats).toEqual({
+            total:        0,
+            connected:    0,
+            disconnected: 0,
+        });
+    });
+
+    it('should update stats as connection states change', async () => {
+        const config: BackendServerConfig = { command: 'test-cmd' };
+        const manager = new TestClientManager(new Map([['test-server', config]]));
+
+        // Initially no servers in the internal map (map only populated on connection attempt)
+        expect(manager.getStats()).toEqual({
+            total:        0,
+            connected:    0,
+            disconnected: 0,
+        });
+
+        // Connect directly (no complex promise manipulation)
+        const client = new MockClientWrapper('test');
+        manager.enqueueAttempt('test-server', async () => client.client);
+
+        await manager.connect('test-server');
+
+        // After connection completes
+        expect(manager.getStats()).toEqual({
+            total:        1,
+            connected:    1,
+            disconnected: 0,
+        });
+
+        // Disconnect (leaves in map but changes state to DISCONNECTED)
+        await manager.disconnect('test-server');
+
+        expect(manager.getStats()).toEqual({
+            total:        1,
+            connected:    0,
+            disconnected: 1,
+        });
     });
 });

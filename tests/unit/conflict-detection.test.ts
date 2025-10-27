@@ -110,6 +110,17 @@ describe('Conflict Detection', () => {
 
                 expect(conflicts).toHaveLength(0);
             });
+
+            it('should not detect conflict when exact URI comes first and template does not match', () => {
+                const resources: ResourceRef[] = [
+                    { uri: 'https://api.github.com/users', serverName: 'github' },
+                    { uri: 'https://api.{domain}/repos', serverName: 'api-gateway' }, // Different path, no match
+                ];
+
+                const conflicts = detectResourceConflicts(resources);
+
+                expect(conflicts).toHaveLength(0);
+            });
         });
 
         describe('Exact Covered By Template Detection', () => {

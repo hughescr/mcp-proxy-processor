@@ -441,6 +441,130 @@ describe('Config Migration', () => {
         });
     });
 
+    describe('migrateConfigFiles', () => {
+        /* eslint-disable no-console -- Testing console output */
+        let originalConsoleError: typeof console.error;
+        let consoleErrorMessages: string[];
+
+        beforeEach(async () => {
+            // Mock console.error to capture migration messages
+            consoleErrorMessages = [];
+            originalConsoleError = console.error;
+            console.error = (...args: unknown[]) => {
+                consoleErrorMessages.push(args.join(' '));
+            };
+        });
+
+        afterEach(() => {
+            // Restore console.error
+            console.error = originalConsoleError;
+        });
+
+        it('calls the real migrateConfigFiles function directly', async () => {
+            // This test directly imports and calls migrateConfigFiles to get coverage
+            // We set up old config files in the expected location relative to the source code
+            const srcDir = join(process.cwd(), 'src', 'utils');
+            const oldConfigPath = join(srcDir, '..', '..', 'config');
+            await import('node:fs/promises').then(fs => fs.mkdir(oldConfigPath, { recursive: true }));
+
+            // Create old config files
+            const groupsContent = JSON.stringify({ groups: { direct: { name: 'direct', tools: [] } } });
+            const backendContent = JSON.stringify({ mcpServers: { direct: { command: 'test' } } });
+
+            await writeFile(join(oldConfigPath, 'groups.json'), groupsContent, 'utf-8');
+            await writeFile(join(oldConfigPath, 'backend-servers.json'), backendContent, 'utf-8');
+
+            // Get the user config paths for verification
+            const { getConfigDir, getGroupsConfigPath, getBackendServersConfigPath } = await importConfigPaths();
+            const configDir = getConfigDir();
+            const newGroupsPath = getGroupsConfigPath();
+            const newBackendPath = getBackendServersConfigPath();
+
+            // Clean up any existing migrated files first
+            const fs0 = await import('node:fs/promises');
+            await fs0.unlink(newGroupsPath).catch(() => _.noop());
+            await fs0.unlink(newBackendPath).catch(() => _.noop());
+
+            // Import and call the real migrateConfigFiles function
+            const { migrateConfigFiles } = await importConfigMigration();
+
+            // Mock console.error for this specific test
+            const originalError = console.error;
+            const capturedMessages: string[] = [];
+            console.error = (...args: unknown[]) => {
+                capturedMessages.push(args.join(' '));
+            };
+
+            try {
+                // Call the actual function
+                await migrateConfigFiles();
+
+                // Check if migration happened
+                const groupsMigrated = await fileExists(newGroupsPath);
+                const backendMigrated = await fileExists(newBackendPath);
+
+                // Verify both files were migrated
+                expect(groupsMigrated).toBe(true);
+                expect(backendMigrated).toBe(true);
+
+                // Verify content
+                const migratedGroups = await readFile(newGroupsPath, 'utf-8');
+                const migratedBackend = await readFile(newBackendPath, 'utf-8');
+                expect(migratedGroups).toBe(groupsContent);
+                expect(migratedBackend).toBe(backendContent);
+
+                // Check console output
+                const successMessage = _.find(capturedMessages, msg =>
+                    _.includes(msg, '✓ Config files migrated to:')
+                );
+                expect(successMessage).toBeDefined();
+                expect(_.includes(successMessage, configDir)).toBe(true);
+
+                // Clean up migrated files
+                const fs = await import('node:fs/promises');
+                await fs.unlink(newGroupsPath).catch(() => _.noop());
+                await fs.unlink(newBackendPath).catch(() => _.noop());
+            } finally {
+                console.error = originalError;
+
+                // Clean up old config files
+                const fs = await import('node:fs/promises');
+                await fs.unlink(join(oldConfigPath, 'groups.json')).catch(() => _.noop());
+                await fs.unlink(join(oldConfigPath, 'backend-servers.json')).catch(() => _.noop());
+                await fs.rmdir(oldConfigPath).catch(() => _.noop());
+            }
+        });
+
+        it('logs debug message when no migration is needed', async () => {
+            // This test verifies the else branch when no files need migration
+            // Don't create any old config files
+
+            // Import and call the real migrateConfigFiles function
+            const { migrateConfigFiles } = await importConfigMigration();
+
+            // Mock console.error for this specific test
+            const originalError = console.error;
+            const capturedMessages: string[] = [];
+            console.error = (...args: unknown[]) => {
+                capturedMessages.push(args.join(' '));
+            };
+
+            try {
+                // Call the actual function - should not migrate anything
+                await migrateConfigFiles();
+
+                // Check console output - should NOT have success message
+                const successMessage = _.find(capturedMessages, msg =>
+                    _.includes(msg, '✓ Config files migrated to:')
+                );
+                expect(successMessage).toBeUndefined();
+            } finally {
+                console.error = originalError;
+            }
+        });
+        /* eslint-enable no-console -- Re-enable after console mocking tests */
+    });
+
     describe('Error Recovery', () => {
         it('handles write errors gracefully', async () => {
             const oldPath = join(mockOldConfigDir, 'groups.json');

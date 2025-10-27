@@ -180,6 +180,104 @@ describe('ArgumentTransformer', () => {
         });
     });
 
+    describe('Omit mapping', () => {
+        test('should remove parameter from backend args', async () => {
+            const mapping = {
+                type:     'template' as const,
+                mappings: {
+                    // This will be removed from the output
+                    internalField: { type: 'omit' },
+                },
+            };
+
+            const result = await transformer.transform(
+                { internalField: 'should be removed', otherField: 'should remain' },
+                mapping as ArgumentMapping
+            );
+
+            expect(result).toEqual({ otherField: 'should remain' });
+            expect(result).not.toHaveProperty('internalField');
+        });
+
+        test('should handle omit for non-existent fields', async () => {
+            const mapping = {
+                type:     'template' as const,
+                mappings: {
+                    nonExistent: { type: 'omit' },
+                },
+            };
+
+            const result = await transformer.transform(
+                { actualField: 'value' },
+                mapping as ArgumentMapping
+            );
+
+            expect(result).toEqual({ actualField: 'value' });
+        });
+    });
+
+    describe('Default mapping with consumed sources', () => {
+        test('should consume source when default mapping has different backend param name', async () => {
+            const mapping: ArgumentMapping = {
+                type:     'template',
+                mappings: {
+                    backend_timezone: {
+                        type:      'default',
+                        source:    'timezone',
+                        'default': 'UTC',
+                    },
+                },
+            };
+
+            // When client provides the value
+            const result1 = await transformer.transform(
+                { timezone: 'America/New_York', other: 'value' },
+                mapping
+            );
+
+            // Source 'timezone' should be consumed (removed) and renamed to 'backend_timezone'
+            expect(result1).toEqual({
+                backend_timezone: 'America/New_York',
+                other:            'value',
+            });
+            expect(result1).not.toHaveProperty('timezone');
+
+            // When client doesn't provide the value
+            const result2 = await transformer.transform(
+                { other: 'value' },
+                mapping
+            );
+
+            // Default value should be used
+            expect(result2).toEqual({
+                backend_timezone: 'UTC',
+                other:            'value',
+            });
+        });
+
+        test('should not consume source when default mapping uses same name', async () => {
+            const mapping: ArgumentMapping = {
+                type:     'template',
+                mappings: {
+                    timezone: {
+                        type:      'default',
+                        source:    'timezone',
+                        'default': 'UTC',
+                    },
+                },
+            };
+
+            // When client provides the value
+            const result = await transformer.transform(
+                { timezone: 'America/New_York' },
+                mapping
+            );
+
+            // Source should NOT be consumed since backendParam === source
+            expect(result).toEqual({ timezone: 'America/New_York' });
+        });
+    });
+
     describe('JSONata Mappings', () => {
         test('should transform using simple JSONata expression', async () => {
             const mapping: ArgumentMapping = {
@@ -242,6 +340,31 @@ describe('ArgumentTransformer', () => {
 
             expect(transformer.transform({}, mapping)).rejects.toThrow(
                 /must return an object/
+            );
+        });
+    });
+
+    describe('Unknown mapping type handling', () => {
+        test('should throw error for unknown mapping type in template', () => {
+            const mapping = {
+                type:     'template' as const,
+                mappings: {
+                    field: { type: 'unknown-type' },
+                },
+            };
+
+            expect(transformer.transform({}, mapping as ArgumentMapping)).rejects.toThrow(
+                'Unknown parameter mapping type: unknown-type'
+            );
+        });
+
+        test('should throw error for unknown top-level mapping type', () => {
+            const mapping = {
+                type: 'unknown-mapping-type',
+            };
+
+            expect(transformer.transform({}, mapping as ArgumentMapping)).rejects.toThrow(
+                'Unknown mapping type: unknown-mapping-type'
             );
         });
     });

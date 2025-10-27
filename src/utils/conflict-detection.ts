@@ -127,6 +127,8 @@ function detectResourcePairConflict(
         return null;
     }
 
+    // Coverage: Final return when no conflicts detected (templates don't overlap)
+    // All conflict cases handled above; this is the "no conflict" path
     return null;
 }
 
