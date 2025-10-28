@@ -268,8 +268,10 @@ describe('Config Migration Data Integrity', () => {
                         ],
                     },
                     'minimal-group': {
-                        name:  'minimal-group',
-                        tools: [],
+                        name:      'minimal-group',
+                        tools:     [],
+                        resources: [],
+                        prompts:   [],
                     },
                 },
             };
@@ -468,6 +470,8 @@ describe('Config Migration Data Integrity', () => {
                                 inputSchema:  complexSchema,
                             },
                         ],
+                        resources: [],
+                        prompts:   [],
                     },
                 },
             };

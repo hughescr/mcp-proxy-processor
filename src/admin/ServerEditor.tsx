@@ -34,7 +34,7 @@ type EditMode
 /**
  * Server editor screen with support for form-based and JSON-based editing
  */
-// eslint-disable-next-line complexity -- UI state machine inherently complex
+// eslint-disable-next-line complexity -- Component manages multiple edit modes with conditional rendering
 export function ServerEditor({ serverName, server, onSave, onDelete, onCancel }: ServerEditorProps) {
     const [mode, setMode] = useState<EditMode>('menu');
     const [currentServerName, setCurrentServerName] = useState(serverName);
@@ -97,53 +97,56 @@ export function ServerEditor({ serverName, server, onSave, onDelete, onCancel }:
     };
 
     const handleMenuSelect = (item: { value: string }) => {
-        const { value } = item;
+        const menuActions: Record<string, () => void> = {
+            save: () => {
+                void handleSave();
+            },
+            'delete': () => {
+                void handleDelete();
+            },
+            cancel: () => {
+                onCancel();
+            },
+            'edit-name': () => {
+                setInputValue(currentServerName);
+                setMode('edit-name');
+            },
+            'edit-command-line': () => {
+                // Combine command and args into a single shell-style command line
+                if('command' in currentServer) {
+                    const command = currentServer.command;
+                    const args = currentServer.args ?? [];
+                    // Quote arguments that contain spaces or special characters
+                    const quotedArgs = _.map(args, (arg) => {
+                        if(/[\s"'\\]/.test(arg)) {
+                            // Escape quotes and backslashes, then wrap in quotes
+                            return `"${_.replace(_.replace(arg, /\\/g, '\\\\'), /"/g, '\\"')}"`;
+                        }
+                        return arg;
+                    });
+                    setInputValue(_.join([command, ...quotedArgs], ' '));
+                } else {
+                    setInputValue('');
+                }
+                setMode('edit-command-line');
+            },
+            'edit-env': () => {
+                setMode('edit-env');
+            },
+            'edit-cwd': () => {
+                setInputValue('cwd' in currentServer && currentServer.cwd ? currentServer.cwd : '');
+                setMode('edit-cwd');
+            },
+            'edit-json': () => {
+                // Convert current config to JSON for editing
+                setInputValue(JSON.stringify({ [currentServerName || 'server-name']: currentServer }, null, 2));
+                setMode('edit-json');
+            },
+        };
 
-        // Handle actions
-        if(value === 'save') {
-            void handleSave();
-            return;
-        }
-        if(value === 'delete') {
-            void handleDelete();
-            return;
-        }
-        if(value === 'cancel') {
-            onCancel();
-            return;
-        }
-
-        // Handle field editors
-        if(value === 'edit-name') {
-            setInputValue(currentServerName);
-            setMode('edit-name');
-        } else if(value === 'edit-command-line') {
-            // Combine command and args into a single shell-style command line
-            if('command' in currentServer) {
-                const command = currentServer.command;
-                const args = currentServer.args ?? [];
-                // Quote arguments that contain spaces or special characters
-                const quotedArgs = _.map(args, (arg) => {
-                    if(/[\s"'\\]/.test(arg)) {
-                        // Escape quotes and backslashes, then wrap in quotes
-                        return `"${_.replace(_.replace(arg, /\\/g, '\\\\'), /"/g, '\\"')}"`;
-                    }
-                    return arg;
-                });
-                setInputValue(_.join([command, ...quotedArgs], ' '));
-            } else {
-                setInputValue('');
-            }
-            setMode('edit-command-line');
-        } else if(value === 'edit-env') {
-            setMode('edit-env');
-        } else if(value === 'edit-cwd') {
-            setInputValue('cwd' in currentServer && currentServer.cwd ? currentServer.cwd : '');
-            setMode('edit-cwd');
-        } else if(value === 'edit-json') {
-            // Convert current config to JSON for editing
-            setInputValue(JSON.stringify({ [currentServerName || 'server-name']: currentServer }, null, 2));
-            setMode('edit-json');
+        const action = menuActions[item.value];
+        if(action) {
+            action();
         }
     };
 

@@ -7,18 +7,6 @@
 import { repeat } from 'lodash';
 
 /**
- * Spacing Constants
- */
-export const SPACING = {
-    /** Standard padding for screens */
-    SCREEN_PADDING: 1,
-    /** Margin between major sections */
-    SECTION_MARGIN: 1,
-    /** Standard box padding X */
-    BOX_PADDING_X:  1,
-} as const;
-
-/**
  * Separator Lengths
  */
 export const SEPARATOR_LENGTHS = {

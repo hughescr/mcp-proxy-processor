@@ -4,7 +4,8 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Box, Text, useInput } from 'ink';
-import { trim, repeat, isError, find, map, padEnd, filter as _filter, startsWith, truncate as _truncate } from 'lodash';
+import { trim, repeat, isError, find, map, padEnd, filter as _filter, truncate as _truncate } from 'lodash';
+import { matchPrefixAction } from '../utils/menu-actions.js';
 import { CancellableTextInput } from './CancellableTextInput.js';
 import type { Tool } from '@modelcontextprotocol/sdk/types';
 import type { ToolOverride, ArgumentMapping } from '../../types/config.js';
@@ -126,52 +127,57 @@ export function EnhancedToolEditor({ tool, groupName, onSave, onRemove, onCancel
         })();
     }, [tool.serverName, tool.originalName, discoverAllTools]);
 
-    // eslint-disable-next-line complexity -- Menu handler with multiple edit modes
     const handleMenuSelect = (item: { value: string }) => {
-        // Handle parameter row selection - jump directly to editing that parameter
-        if(startsWith(item.value, 'param-')) {
-            const indexStr = item.value.substring(6); // Remove 'param-' prefix
-            const index = parseInt(indexStr, 10);
-            const param = parameters[index];
-            if(param) {
-                setInitialParamToEdit(param.backendName);
-            }
-            setMode('edit-argument-mapping');
-            return;
-        }
-
-        switch(item.value) {
-            case 'save':
+        // Define exact match actions
+        const menuActions: Record<string, () => void> = {
+            save: () => {
                 onSave(currentTool);
-                break;
-            case 'remove':
+            },
+            remove: () => {
                 if(onRemove) {
                     onRemove();
                 }
-                break;
-            case 'cancel':
+            },
+            cancel: () => {
                 onCancel();
-                break;
-            case 'edit-name':
+            },
+            'edit-name': () => {
                 setInputValue(currentTool.name ?? currentTool.originalName);
                 setMode('edit-name');
-                break;
-            case 'edit-description':
+            },
+            'edit-description': () => {
                 setInputValue(currentTool.description ?? backendTool?.description ?? '');
                 setMode('edit-description');
-                break;
-            case 'reset-mapping':
+            },
+            'reset-mapping': () => {
                 setCurrentTool({ ...currentTool, argumentMapping: undefined });
-                break;
-            case 'clear-name':
+            },
+            'clear-name': () => {
                 setCurrentTool({ ...currentTool, name: undefined });
-                break;
-            case 'clear-description':
+            },
+            'clear-description': () => {
                 setCurrentTool({ ...currentTool, description: undefined });
-                break;
-            default:
-                break;
+            },
+        };
+
+        // Try exact match first
+        const action = menuActions[item.value];
+        if(action) {
+            action();
+            return;
         }
+
+        // Handle parameter row selection - jump directly to editing that parameter
+        matchPrefixAction(item.value, {
+            'param-': (indexStr) => {
+                const index = parseInt(indexStr, 10);
+                const param = parameters[index];
+                if(param) {
+                    setInitialParamToEdit(param.backendName);
+                }
+                setMode('edit-argument-mapping');
+            },
+        });
     };
 
     const handleNameSubmit = (value: string) => {

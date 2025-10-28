@@ -261,7 +261,6 @@ export const multiGroupConfig: GroupsConfig = {
                 {
                     uri:        'shared://resource',
                     serverName: 'server-1',
-                    name:       'Shared Resource A',
                 },
                 {
                     uri:        'unique://resource-a',
@@ -270,9 +269,8 @@ export const multiGroupConfig: GroupsConfig = {
             ],
             prompts: [
                 {
-                    name:        'shared_prompt',
-                    serverName:  'server-1',
-                    description: 'Prompt from group A',
+                    name:       'shared_prompt',
+                    serverName: 'server-1',
                 },
                 {
                     name:       'unique_prompt_a',
@@ -299,7 +297,6 @@ export const multiGroupConfig: GroupsConfig = {
                 {
                     uri:        'shared://resource',
                     serverName: 'server-2',
-                    name:       'Shared Resource B',
                 },
                 {
                     uri:        'unique://resource-b',
@@ -308,9 +305,8 @@ export const multiGroupConfig: GroupsConfig = {
             ],
             prompts: [
                 {
-                    name:        'shared_prompt',
-                    serverName:  'server-2',
-                    description: 'Prompt from group B',
+                    name:       'shared_prompt',
+                    serverName: 'server-2',
                 },
                 {
                     name:       'unique_prompt_b',

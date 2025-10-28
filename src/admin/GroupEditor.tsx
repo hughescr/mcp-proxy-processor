@@ -6,6 +6,7 @@ import React, { useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import _ from 'lodash';
 import { CancellableTextInput } from './components/CancellableTextInput.js';
+import { matchPrefixAction } from './utils/menu-actions.js';
 import type { GroupConfig, ToolOverride, ResourceRef, PromptRef } from '../types/config.js';
 import { GroupedMultiSelectToolBrowser } from './components/GroupedMultiSelectToolBrowser.js';
 import { EnhancedToolEditor } from './components/EnhancedToolEditor.js';
@@ -31,7 +32,7 @@ type EditMode = 'menu' | 'edit-name' | 'edit-description' | 'add-tool' | 'edit-t
 /**
  * Group editor screen
  */
-// eslint-disable-next-line complexity -- This component manages multiple edit modes and state transitions
+// eslint-disable-next-line complexity -- Component manages 9 different edit modes with conditional rendering
 export function GroupEditor({ groupName, group, onSave, onDelete, onCancel }: GroupEditorProps) {
     const [mode, setMode] = useState<EditMode>('menu');
     const [currentGroup, setCurrentGroup] = useState<GroupConfig>(group);
@@ -93,44 +94,68 @@ export function GroupEditor({ groupName, group, onSave, onDelete, onCancel }: Gr
         setCurrentGroup({ ...currentGroup, tools: newTools });
     };
 
-    // eslint-disable-next-line complexity -- Menu handler needs to route many different actions
     const handleMenuSelect = (item: { value: string }) => {
-        if(item.value === 'save') {
-            void handleSave();
-        } else if(item.value === 'delete') {
-            void handleDelete();
-        } else if(item.value === 'cancel') {
-            onCancel();
-        } else if(item.value === 'edit-name') {
-            setInputValue(currentGroup.name);
-            setMode('edit-name');
-        } else if(item.value === 'edit-description') {
-            setInputValue(currentGroup.description ?? '');
-            setMode('edit-description');
-        } else if(item.value === 'add-tool') {
-            setMode('add-tool');
-        } else if(_.startsWith(item.value, 'remove-tool-')) {
-            const index = parseInt(_.replace(item.value, 'remove-tool-', ''), 10);
-            handleRemoveTool(index);
-        } else if(_.startsWith(item.value, 'edit-tool-')) {
-            const index = parseInt(_.replace(item.value, 'edit-tool-', ''), 10);
-            setEditingToolIndex(index);
-            setMode('edit-tool');
-        } else if(_.startsWith(item.value, 'view-resource-')) {
-            // Clicking on individual resource item navigates to resource browser
-            setMode('edit-resources');
-        } else if(item.value === 'edit-resources') {
-            setMode('edit-resources');
-        } else if(item.value === 'priority-resources') {
-            setMode('priority-resources');
-        } else if(_.startsWith(item.value, 'view-prompt-')) {
-            // Clicking on individual prompt item navigates to prompt browser
-            setMode('edit-prompts');
-        } else if(item.value === 'edit-prompts') {
-            setMode('edit-prompts');
-        } else if(item.value === 'priority-prompts') {
-            setMode('priority-prompts');
+        // Define exact match actions
+        const menuActions: Record<string, () => void> = {
+            save: () => {
+                void handleSave();
+            },
+            'delete': () => {
+                void handleDelete();
+            },
+            cancel: () => {
+                onCancel();
+            },
+            'edit-name': () => {
+                setInputValue(currentGroup.name);
+                setMode('edit-name');
+            },
+            'edit-description': () => {
+                setInputValue(currentGroup.description ?? '');
+                setMode('edit-description');
+            },
+            'add-tool': () => {
+                setMode('add-tool');
+            },
+            'edit-resources': () => {
+                setMode('edit-resources');
+            },
+            'priority-resources': () => {
+                setMode('priority-resources');
+            },
+            'edit-prompts': () => {
+                setMode('edit-prompts');
+            },
+            'priority-prompts': () => {
+                setMode('priority-prompts');
+            },
+        };
+
+        // Try exact match first
+        const action = menuActions[item.value];
+        if(action) {
+            action();
+            return;
         }
+
+        // Handle prefixed items
+        matchPrefixAction(item.value, {
+            'remove-tool-': (index) => {
+                handleRemoveTool(parseInt(index, 10));
+            },
+            'edit-tool-': (index) => {
+                setEditingToolIndex(parseInt(index, 10));
+                setMode('edit-tool');
+            },
+            'view-resource-': () => {
+                // Clicking on individual resource item navigates to resource browser
+                setMode('edit-resources');
+            },
+            'view-prompt-': () => {
+                // Clicking on individual prompt item navigates to prompt browser
+                setMode('edit-prompts');
+            },
+        });
     };
     const handleAddTools = (tools: ToolOverride[]) => {
         setCurrentGroup({

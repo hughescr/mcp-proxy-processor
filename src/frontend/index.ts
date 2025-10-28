@@ -20,7 +20,8 @@ import {
     ListResourcesRequestSchema,
     ReadResourceRequestSchema,
     ListPromptsRequestSchema,
-    GetPromptRequestSchema
+    GetPromptRequestSchema,
+    type ServerResult
 } from '@modelcontextprotocol/sdk/types.js';
 import { dynamicLogger as logger } from '../utils/silent-logger.js';
 import { GroupManager } from '../middleware/index.js';
@@ -197,8 +198,7 @@ export async function startServer(groupNames: string[]): Promise<void> {
             }
 
             // Return the result directly (it already has content and isError fields)
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-explicit-any -- CallToolResult type incompatibility with ServerResult
-            return result as any;
+            return result as ServerResult;
         });
 
         // resources/list handler - with deduplication
@@ -234,8 +234,7 @@ export async function startServer(groupNames: string[]): Promise<void> {
                     );
 
                     logger.info({ uri, serverName: resourceRef.serverName }, 'Resource read successful');
-                    // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-explicit-any -- ReadResourceResult type incompatibility with ServerResult
-                    return result as any;
+                    return result as ServerResult;
                 } catch (error) {
                     lastError = _.isError(error) ? error : new Error(String(error));
                     logger.warn({ uri, serverName: resourceRef.serverName, error: lastError.message }, 'Resource read failed, trying next backend');
@@ -282,8 +281,7 @@ export async function startServer(groupNames: string[]): Promise<void> {
                     );
 
                     logger.info({ name, serverName: promptRef.serverName }, 'Prompt get successful');
-                    // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-explicit-any -- GetPromptResult type incompatibility with ServerResult
-                    return result as any;
+                    return result as ServerResult;
                 } catch (error) {
                     lastError = _.isError(error) ? error : new Error(String(error));
                     logger.warn({ name, serverName: promptRef.serverName, error: lastError.message }, 'Prompt get failed, trying next backend');
