@@ -1,0 +1,21 @@
+{
+  "groups": {
+    "e2e-test": {
+      "name": "e2e-test",
+      "description": "End-to-end test group with filesystem server",
+      "tools": [
+        {
+          "serverName": "test-filesystem",
+          "originalName": "read_file",
+          "name": "read_file_test"
+        },
+        {
+          "serverName": "test-filesystem",
+          "originalName": "write_file",
+          "name": "write_file_test"
+        }
+      ],
+      "resources": []
+    }
+  }
+}

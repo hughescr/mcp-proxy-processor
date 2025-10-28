@@ -18,6 +18,7 @@ import { LoadingScreen } from './ui/LoadingScreen.js';
 import { VirtualScrollList } from './ui/VirtualScrollList.js';
 import { ScrollableJsonViewer } from './ui/ScrollableJsonViewer.js';
 import { textSeparator, menuSeparator } from '../design-system.js';
+import { dynamicLogger as logger } from '../../utils/silent-logger.js';
 
 interface EnhancedToolEditorProps {
     tool:      ToolOverride
@@ -101,19 +102,20 @@ export function EnhancedToolEditor({ tool, groupName, onSave, onRemove, onCancel
 
                 if(foundTool) {
                     setBackendTool(foundTool);
-                    // Debug logging to see what we received
-                    if(process.env.LOG_LEVEL !== 'silent') {
-                        // eslint-disable-next-line no-console -- Debug logging for tool discovery
-                        console.error(`[DEBUG] Found tool ${tool.originalName} from ${tool.serverName}:`, {
-                            hasDescription: !!foundTool.description,
-                            description:    foundTool.description,
-                            hasInputSchema: !!foundTool.inputSchema,
-                            inputSchema:    foundTool.inputSchema,
-                        });
-                    }
-                } else if(process.env.LOG_LEVEL !== 'silent') {
-                    // eslint-disable-next-line no-console -- Debug logging for tool discovery
-                    console.error(`[DEBUG] Tool ${tool.originalName} not found in server ${tool.serverName}. Available tools:`, map(serverTools, 'name'));
+                    logger.debug({
+                        toolName:       tool.originalName,
+                        serverName:     tool.serverName,
+                        hasDescription: !!foundTool.description,
+                        description:    foundTool.description,
+                        hasInputSchema: !!foundTool.inputSchema,
+                        inputSchema:    foundTool.inputSchema,
+                    }, 'Found tool from backend');
+                } else {
+                    logger.debug({
+                        toolName:       tool.originalName,
+                        serverName:     tool.serverName,
+                        availableTools: map(serverTools, 'name'),
+                    }, 'Tool not found in backend server');
                 }
 
                 setMode('menu');

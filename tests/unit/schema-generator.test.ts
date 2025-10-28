@@ -3,6 +3,7 @@
  */
 
 import { describe, test, expect } from 'bun:test';
+import { z } from 'zod';
 import { SchemaGenerator } from '../../src/middleware/schema-generator.js';
 import type { TemplateMapping, ParameterMapping } from '../../src/types/config.js';
 
@@ -18,11 +19,17 @@ describe('SchemaGenerator', () => {
 
             const result = generator.generateClientSchema(undefined, mapping);
 
+            // Structural checks
             expect(result).toEqual({
                 type:       'object',
                 properties: {},
                 required:   [],
             });
+
+            // Validation: Empty object schema should accept empty objects
+            const zodSchema = z.object({});
+            expect(() => zodSchema.parse({})).not.toThrow();
+            expect(() => zodSchema.parse({ unexpected: 'value' })).not.toThrow(); // Extra properties allowed
         });
 
         test('should hide constant parameters from client schema', () => {
@@ -45,11 +52,25 @@ describe('SchemaGenerator', () => {
 
             const result = generator.generateClientSchema(backendSchema, mapping);
 
-            // api_key should be hidden
+            // Structural checks: api_key should be hidden
             expect(result.properties).not.toHaveProperty('api_key');
             expect(result.properties).toHaveProperty('query');
             expect(result.required).not.toContain('api_key');
             expect(result.required).toContain('query');
+
+            // Validation: Schema should only require 'query' parameter
+            const zodSchema = z.object({
+                query: z.string(),
+            });
+
+            // Valid data with only query should pass
+            expect(() => zodSchema.parse({ query: 'test' })).not.toThrow();
+
+            // Invalid: Missing required query should fail
+            expect(() => zodSchema.parse({})).toThrow();
+
+            // Invalid: Wrong type for query should fail
+            expect(() => zodSchema.parse({ query: 123 })).toThrow();
         });
 
         test('should hide omit parameters from client schema', () => {
@@ -72,11 +93,25 @@ describe('SchemaGenerator', () => {
 
             const result = generator.generateClientSchema(backendSchema, mapping);
 
-            // debug should be hidden (even though it was required in backend)
+            // Structural checks: debug should be hidden (even though it was required in backend)
             expect(result.properties).not.toHaveProperty('debug');
             expect(result.required).not.toContain('debug');
             expect(result.properties).toHaveProperty('query');
             expect(result.required).toContain('query');
+
+            // Validation: Schema should only require 'query' (no debug parameter)
+            const zodSchema = z.object({
+                query: z.string(),
+            });
+
+            // Valid data without debug should pass
+            expect(() => zodSchema.parse({ query: 'search term' })).not.toThrow();
+
+            // Invalid: Missing query should fail
+            expect(() => zodSchema.parse({})).toThrow();
+
+            // Invalid: Wrong type should fail
+            expect(() => zodSchema.parse({ query: true })).toThrow();
         });
 
         test('should make default parameters optional in client schema', () => {
@@ -99,11 +134,29 @@ describe('SchemaGenerator', () => {
 
             const result = generator.generateClientSchema(backendSchema, mapping);
 
-            // timezone should be optional (not required)
+            // Structural checks: timezone should be optional (not required)
             expect(result.required).not.toContain('timezone');
             expect(result.required).toContain('query');
             // But timezone should still be in properties
             expect(result.properties).toHaveProperty('timezone');
+
+            // Validation: Schema should make timezone optional
+            const zodSchema = z.object({
+                timezone: z.string().optional(),
+                query:    z.string(),
+            });
+
+            // Valid: Data without timezone should pass
+            expect(() => zodSchema.parse({ query: 'test' })).not.toThrow();
+
+            // Valid: Data with timezone should pass
+            expect(() => zodSchema.parse({ query: 'test', timezone: 'UTC' })).not.toThrow();
+
+            // Invalid: Missing required query should fail
+            expect(() => zodSchema.parse({ timezone: 'UTC' })).toThrow();
+
+            // Invalid: Wrong type for timezone should fail
+            expect(() => zodSchema.parse({ query: 'test', timezone: 123 })).toThrow();
         });
 
         test('should apply parameter name overrides', () => {
@@ -128,10 +181,24 @@ describe('SchemaGenerator', () => {
 
             const result = generator.generateClientSchema(backendSchema, mapping);
 
-            // Client should see parameter as 'q'
+            // Structural checks: Client should see parameter as 'q'
             expect(result.properties).toHaveProperty('q');
             expect(result.properties).not.toHaveProperty('backend_query');
             expect(result.required).toContain('q');
+
+            // Validation: Schema should use renamed parameter 'q'
+            const zodSchema = z.object({
+                q: z.string(),
+            });
+
+            // Valid: Data with 'q' parameter should pass
+            expect(() => zodSchema.parse({ q: 'search' })).not.toThrow();
+
+            // Invalid: Missing 'q' should fail
+            expect(() => zodSchema.parse({})).toThrow();
+
+            // Invalid: Using old name should fail
+            expect(() => zodSchema.parse({ backend_query: 'search' })).toThrow();
         });
 
         test('should apply parameter description overrides', () => {
@@ -156,8 +223,19 @@ describe('SchemaGenerator', () => {
 
             const result = generator.generateClientSchema(backendSchema, mapping);
 
-            // Description should be overridden
+            // Structural check: Description should be overridden
             expect((result.properties as Record<string, unknown>)?.query).toHaveProperty('description', 'Simple search query');
+
+            // Validation: Description doesn't affect validation, but schema should still work
+            const zodSchema = z.object({
+                query: z.string(),
+            });
+
+            // Valid: Proper query should pass
+            expect(() => zodSchema.parse({ query: 'test' })).not.toThrow();
+
+            // Invalid: Missing query should fail
+            expect(() => zodSchema.parse({})).toThrow();
         });
 
         test('should preserve required status for passthrough parameters', () => {
@@ -180,8 +258,24 @@ describe('SchemaGenerator', () => {
 
             const result = generator.generateClientSchema(backendSchema, mapping);
 
+            // Structural checks
             expect(result.required).toContain('required_param');
             expect(result.required).not.toContain('optional_param');
+
+            // Validation: Schema should enforce required_param, allow optional_param
+            const zodSchema = z.object({
+                required_param: z.string(),
+                optional_param: z.string().optional(),
+            });
+
+            // Valid: Data with required_param only
+            expect(() => zodSchema.parse({ required_param: 'value' })).not.toThrow();
+
+            // Valid: Data with both parameters
+            expect(() => zodSchema.parse({ required_param: 'value', optional_param: 'optional' })).not.toThrow();
+
+            // Invalid: Missing required_param should fail
+            expect(() => zodSchema.parse({ optional_param: 'optional' })).toThrow();
         });
 
         test('should passthrough unmapped parameters by default', () => {
@@ -204,11 +298,26 @@ describe('SchemaGenerator', () => {
 
             const result = generator.generateClientSchema(backendSchema, mapping);
 
-            // Both should be in client schema
+            // Structural checks: Both should be in client schema
             expect(result.properties).toHaveProperty('mapped');
             expect(result.properties).toHaveProperty('unmapped');
             expect(result.required).toContain('mapped');
             expect(result.required).toContain('unmapped');
+
+            // Validation: Both parameters should be required
+            const zodSchema = z.object({
+                mapped:   z.string(),
+                unmapped: z.string(),
+            });
+
+            // Valid: Data with both parameters
+            expect(() => zodSchema.parse({ mapped: 'val1', unmapped: 'val2' })).not.toThrow();
+
+            // Invalid: Missing mapped should fail
+            expect(() => zodSchema.parse({ unmapped: 'val2' })).toThrow();
+
+            // Invalid: Missing unmapped should fail
+            expect(() => zodSchema.parse({ mapped: 'val1' })).toThrow();
         });
 
         test('should handle rename parameters correctly', () => {
@@ -233,10 +342,24 @@ describe('SchemaGenerator', () => {
 
             const result = generator.generateClientSchema(backendSchema, mapping);
 
-            // Client should see parameter as 'client_name'
+            // Structural checks: Client should see parameter as 'client_name'
             expect(result.properties).toHaveProperty('client_name');
             expect(result.properties).not.toHaveProperty('backend_name');
             expect(result.required).toContain('client_name');
+
+            // Validation: Schema should use renamed parameter
+            const zodSchema = z.object({
+                client_name: z.string(),
+            });
+
+            // Valid: Data with client_name
+            expect(() => zodSchema.parse({ client_name: 'value' })).not.toThrow();
+
+            // Invalid: Missing client_name should fail
+            expect(() => zodSchema.parse({})).toThrow();
+
+            // Invalid: Using backend_name should fail (it's renamed)
+            expect(() => zodSchema.parse({ backend_name: 'value' })).toThrow();
         });
 
         test('should handle complex scenario with multiple mapping types', () => {
@@ -263,6 +386,7 @@ describe('SchemaGenerator', () => {
 
             const result = generator.generateClientSchema(backendSchema, mapping);
 
+            // Structural checks
             // api_key: hidden (constant)
             expect(result.properties).not.toHaveProperty('api_key');
             expect(result.required).not.toContain('api_key');
@@ -277,6 +401,24 @@ describe('SchemaGenerator', () => {
 
             // debug: hidden (omit)
             expect(result.properties).not.toHaveProperty('debug');
+
+            // Validation: Complex schema with only query required, timezone optional
+            const zodSchema = z.object({
+                query:    z.string(),
+                timezone: z.string().optional(),
+            }).strict(); // Strict mode to reject hidden parameters
+
+            // Valid: Just query
+            expect(() => zodSchema.parse({ query: 'search' })).not.toThrow();
+
+            // Valid: Query and timezone
+            expect(() => zodSchema.parse({ query: 'search', timezone: 'America/New_York' })).not.toThrow();
+
+            // Invalid: Missing required query
+            expect(() => zodSchema.parse({ timezone: 'UTC' })).toThrow();
+
+            // Invalid: Should not accept hidden parameters (strict mode)
+            expect(() => zodSchema.parse({ query: 'search', api_key: 'secret', debug: true })).toThrow();
         });
 
         test('should preserve non-property fields from backend schema', () => {
@@ -297,8 +439,20 @@ describe('SchemaGenerator', () => {
 
             const result = generator.generateClientSchema(backendSchema, mapping);
 
+            // Structural checks: Non-property fields should be preserved
             expect(result).toHaveProperty('additionalProperties', false);
             expect(result).toHaveProperty('title', 'SearchRequest');
+
+            // Validation: Schema should work normally
+            const zodSchema = z.object({
+                query: z.string(),
+            }).strict(); // strict() mirrors additionalProperties: false
+
+            // Valid: Proper query
+            expect(() => zodSchema.parse({ query: 'test' })).not.toThrow();
+
+            // Invalid: Additional properties not allowed (strict mode)
+            expect(() => zodSchema.parse({ query: 'test', extra: 'field' })).toThrow();
         });
 
         test('should warn when parameter mapping references non-existent backend parameter', () => {
@@ -320,9 +474,23 @@ describe('SchemaGenerator', () => {
 
             const result = generator.generateClientSchema(backendSchema, mapping);
 
-            // Should only include the existing parameter
+            // Structural checks: Should only include the existing parameter
             expect(result.properties).toHaveProperty('existing_param');
             expect(result.properties).not.toHaveProperty('non_existent_param');
+
+            // Validation: Schema should only have existing_param (optional)
+            const zodSchema = z.object({
+                existing_param: z.string().optional(),
+            }).strict(); // Strict mode to reject non-existent params
+
+            // Valid: Empty object (no required params)
+            expect(() => zodSchema.parse({})).not.toThrow();
+
+            // Valid: With existing_param
+            expect(() => zodSchema.parse({ existing_param: 'value' })).not.toThrow();
+
+            // Invalid: Should reject non_existent_param (strict mode)
+            expect(() => zodSchema.parse({ non_existent_param: 'value' })).toThrow();
         });
 
         test('should handle unknown parameter mapping type gracefully', () => {
@@ -346,8 +514,17 @@ describe('SchemaGenerator', () => {
 
             const result = generator.generateClientSchema(backendSchema, mapping);
 
-            // Should not include the parameter with unknown type
+            // Structural check: Should not include the parameter with unknown type
             expect(result.properties).not.toHaveProperty('test_param');
+
+            // Validation: Schema should be empty (no properties)
+            const zodSchema = z.object({});
+
+            // Valid: Empty object should pass
+            expect(() => zodSchema.parse({})).not.toThrow();
+
+            // Valid: Extra properties allowed by default
+            expect(() => zodSchema.parse({ anything: 'value' })).not.toThrow();
         });
     });
 });

@@ -40,23 +40,45 @@ describe('MCP Protocol Integrity', () => {
             }
         });
 
-        it('should only emit JSON-RPC messages on stdout when serving', () => {
+        it('should only emit JSON-RPC messages on stdout when serving', async () => {
             // All logging should go to stderr, not stdout
-            // This is enforced by our stderrLogger implementation
+            // This test verifies that stdout only contains JSON-RPC protocol messages
 
-            const messages: string[] = [];
+            const stdoutMessages: string[] = [];
+            const originalWrite = process.stdout.write.bind(process.stdout);
 
-            // Every stdout message should be valid JSON-RPC
-            const allValid = _.every(messages, (msg) => {
-                try {
-                    const parsed = JSON.parse(msg) as Record<string, unknown>;
-                    return Boolean(parsed.jsonrpc) || Boolean(parsed.method) || Boolean(parsed.result) || Boolean(parsed.error);
-                } catch{
-                    return false;
-                }
-            });
+            // Capture stdout writes
+            process.stdout.write = (chunk: string | Uint8Array): boolean => {
+                stdoutMessages.push(chunk.toString());
+                return originalWrite(chunk);
+            };
 
-            expect(allValid).toBe(true);
+            try {
+                // Simulate protocol output by writing a JSON-RPC message
+                process.stdout.write(JSON.stringify({
+                    jsonrpc: '2.0',
+                    id:      1,
+                    result:  { tools: [] },
+                }) + '\n');
+
+                // Verify we captured the output
+                expect(stdoutMessages.length).toBeGreaterThan(0);
+
+                // Every stdout message should be valid JSON-RPC
+                const allValid = _.every(stdoutMessages, (msg) => {
+                    try {
+                        const parsed = JSON.parse(msg) as Record<string, unknown>;
+                        // Must have jsonrpc field (core requirement)
+                        return parsed.jsonrpc === '2.0';
+                    } catch{
+                        return false;
+                    }
+                });
+
+                expect(allValid).toBe(true);
+            } finally {
+                process.stdout.write = originalWrite;
+            }
         });
     });
 

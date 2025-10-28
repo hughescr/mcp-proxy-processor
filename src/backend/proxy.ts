@@ -385,5 +385,3 @@ export class ProxyService {
         return this.defaultTimeoutMs;
     }
 }
-
-export default ProxyService;

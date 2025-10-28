@@ -88,7 +88,7 @@ export async function startServer(groupNames: string[]): Promise<void> {
         logger.info({ requiredServers }, 'Required backend servers identified');
 
         if(requiredServers.length === 0) {
-            throw new Error(`No backend servers required for groups: ${groupNames.join(', ')}`);
+            logger.info({ groupNames }, 'No backend servers required for groups - will serve empty lists');
         }
 
         // 4. Create server configs map for required servers only
@@ -183,6 +183,18 @@ export async function startServer(groupNames: string[]): Promise<void> {
                 toolOverride.originalName,
                 backendArgs
             );
+
+            // Check if the result indicates an error
+            if(result.isError) {
+                // Extract error message from content
+                const errorMessage = _(result.content)
+                    .map(c => ('text' in c ? c.text : ''))
+                    .compact()
+                    .join('\n') || 'Tool execution failed';
+
+                logger.error({ toolName, serverName: toolOverride.serverName, errorMessage }, 'Tool execution returned error');
+                throw new Error(errorMessage);
+            }
 
             // Return the result directly (it already has content and isError fields)
             // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-explicit-any -- CallToolResult type incompatibility with ServerResult

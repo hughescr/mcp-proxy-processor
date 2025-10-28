@@ -6,11 +6,14 @@
  * These callbacks log error messages and need to be covered for 98%+ test coverage.
  */
 
-import { describe, it, expect, beforeEach } from 'bun:test';
-import { forEach } from 'lodash';
+import { describe, it, expect, beforeEach, spyOn, afterEach, mock } from 'bun:test';
+import { forEach, constant, some as _some } from 'lodash';
 import { ProxyService } from '../../src/backend/proxy.js';
 import { ClientManager } from '../../src/backend/client-manager.js';
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
+
+// Type for mock spy (matches what spyOn returns)
+type MockSpy = ReturnType<typeof spyOn<typeof process.stderr, 'write'>>;
 
 // Mock client that always fails
 class FailingMockClient {
@@ -57,11 +60,69 @@ class TestClientManager extends ClientManager {
 describe('ProxyService retry failure callbacks', () => {
     let proxyService: ProxyService;
     let clientManager: TestClientManager;
+    let stderrSpy: MockSpy;
+
+    // Helper to count log messages matching criteria
+    function countLogMessages(levelFilter: 'warn' | 'error', messageFilter: string): number {
+        const calls = stderrSpy.mock.calls;
+        let count = 0;
+        forEach(calls, (call) => {
+            const output = String(call[0]);
+            try {
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- JSON.parse returns any
+                const logEntry = JSON.parse(output);
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- log entry structure
+                if(logEntry.level === levelFilter && String(logEntry.message ?? '').includes(messageFilter)) {
+                    count++;
+                }
+            } catch{
+                // Not JSON, skip
+            }
+        });
+        return count;
+    }
+
+    // Helper to verify a log message exists with specific properties
+    function hasLogMessage(levelFilter: 'warn' | 'error', properties: Record<string, unknown>): boolean {
+        const calls = stderrSpy.mock.calls;
+        return _some(calls, (call) => {
+            const output = String(call[0]);
+            try {
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- JSON.parse returns any
+                const logEntry = JSON.parse(output);
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- log entry structure
+                if(logEntry.level !== levelFilter) {
+                    return false;
+                }
+
+                // Check all required properties match
+                let allMatch = true;
+                forEach(Object.entries(properties), ([key, value]) => {
+                    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- log entry structure
+                    if(logEntry[key] !== value) {
+                        allMatch = false;
+                    }
+                });
+                return allMatch;
+            } catch{
+                return false;
+            }
+        });
+    }
 
     beforeEach(() => {
         // Create fresh instances
         clientManager = new TestClientManager();
         proxyService = new ProxyService(clientManager);
+
+        // Spy on stderr.write to capture logger output
+        // The logger uses winston which writes to stderr
+        stderrSpy = spyOn(process.stderr, 'write').mockImplementation(constant(true)) as unknown as MockSpy;
+    });
+
+    afterEach(() => {
+        // Restore all spies to avoid test pollution
+        mock.restore();
     });
 
     describe('readResourceWithRetry', () => {
@@ -81,8 +142,39 @@ describe('ProxyService retry failure callbacks', () => {
             // eslint-disable-next-line @typescript-eslint/await-thenable -- expect().rejects returns a promise
             await expect(promise).rejects.toThrow('Backend read resource failed');
 
+            // Verify onRetry callback was invoked for each retry attempt (logged as warnings)
+            const retryCount = countLogMessages('warn', 'will retry');
+            expect(retryCount).toBe(2); // 2 retries
+
+            // Verify onRetry was called with correct parameters
+            expect(hasLogMessage('warn', {
+                serverName: 'failing-server',
+                uri:        'test-uri',
+                attempt:    1,
+                maxRetries: 2,
+                message:    'Resource read failed, will retry',
+            })).toBe(true);
+
+            expect(hasLogMessage('warn', {
+                serverName: 'failing-server',
+                uri:        'test-uri',
+                attempt:    2,
+                maxRetries: 2,
+                message:    'Resource read failed, will retry',
+            })).toBe(true);
+
+            // Verify onFailure callback was invoked after all retries exhausted
+            const failureCount = countLogMessages('error', 'after all retries');
+            expect(failureCount).toBe(1);
+
+            expect(hasLogMessage('error', {
+                serverName: 'failing-server',
+                uri:        'test-uri',
+                maxRetries: 2,
+                message:    'Resource read failed after all retries',
+            })).toBe(true);
+
             // Verify that the backend was accessed the correct number of times (initial + 2 retries)
-            // This confirms that retry logic executed correctly and onFailure was called
             expect(clientManager.ensureConnectedCallCount).toBe(3);
         });
 
@@ -100,8 +192,25 @@ describe('ProxyService retry failure callbacks', () => {
             // eslint-disable-next-line @typescript-eslint/await-thenable -- expect().rejects returns a promise
             await expect(promise).rejects.toThrow('Backend read resource failed');
 
+            // Verify onRetry callback was invoked with default maxRetries value
+            expect(countLogMessages('warn', 'will retry')).toBe(2); // 2 default retries
+            expect(hasLogMessage('warn', {
+                serverName: 'failing-server',
+                uri:        'test-uri',
+                maxRetries: 2, // Default value
+                message:    'Resource read failed, will retry',
+            })).toBe(true);
+
+            // Verify onFailure callback was invoked
+            expect(countLogMessages('error', 'after all retries')).toBe(1);
+            expect(hasLogMessage('error', {
+                serverName: 'failing-server',
+                uri:        'test-uri',
+                maxRetries: 2, // Default value
+                message:    'Resource read failed after all retries',
+            })).toBe(true);
+
             // Verify that the backend was accessed the correct number of times (initial + 2 default retries)
-            // This confirms retry logic used default value and onFailure was called
             expect(clientManager.ensureConnectedCallCount).toBe(3);
         });
 
@@ -120,8 +229,19 @@ describe('ProxyService retry failure callbacks', () => {
             // eslint-disable-next-line @typescript-eslint/await-thenable -- expect().rejects returns a promise
             await expect(promise).rejects.toThrow('Backend read resource failed');
 
+            // Verify onRetry callback was NOT called (zero retries)
+            expect(countLogMessages('warn', 'will retry')).toBe(0);
+
+            // Verify onFailure callback was still invoked
+            expect(countLogMessages('error', 'after all retries')).toBe(1);
+            expect(hasLogMessage('error', {
+                serverName: 'failing-server',
+                uri:        'test-uri',
+                maxRetries: 0,
+                message:    'Resource read failed after all retries',
+            })).toBe(true);
+
             // Verify that the backend was accessed exactly once (initial attempt only)
-            // This confirms onFailure was still called even with zero retries
             expect(clientManager.ensureConnectedCallCount).toBe(1);
         });
 
@@ -150,6 +270,10 @@ describe('ProxyService retry failure callbacks', () => {
             expect(totalTime).toBeGreaterThanOrEqual(140);  // Allow 10ms tolerance
             expect(totalTime).toBeLessThan(200);  // Upper bound to ensure delays are applied
 
+            // Verify onRetry and onFailure callbacks were invoked
+            expect(countLogMessages('warn', 'will retry')).toBe(2);
+            expect(countLogMessages('error', 'after all retries')).toBe(1);
+
             // Verify correct number of attempts
             expect(clientManager.ensureConnectedCallCount).toBe(3);
         });
@@ -173,8 +297,28 @@ describe('ProxyService retry failure callbacks', () => {
             // eslint-disable-next-line @typescript-eslint/await-thenable -- expect().rejects returns a promise
             await expect(promise).rejects.toThrow('Backend get prompt failed');
 
+            // Verify onRetry callback was invoked for each retry attempt
+            expect(countLogMessages('warn', 'will retry')).toBe(3); // 3 retries
+
+            // Verify onRetry was called with correct parameters
+            expect(hasLogMessage('warn', {
+                serverName: 'failing-server',
+                name:       'test-prompt',
+                attempt:    1,
+                maxRetries: 3,
+                message:    'Prompt get failed, will retry',
+            })).toBe(true);
+
+            // Verify onFailure callback was invoked after all retries exhausted
+            expect(countLogMessages('error', 'after all retries')).toBe(1);
+            expect(hasLogMessage('error', {
+                serverName: 'failing-server',
+                name:       'test-prompt',
+                maxRetries: 3,
+                message:    'Prompt get failed after all retries',
+            })).toBe(true);
+
             // Verify that the backend was accessed the correct number of times (initial + 3 retries)
-            // This confirms retry logic executed correctly and onFailure was called
             expect(clientManager.ensureConnectedCallCount).toBe(4);
         });
 
@@ -196,8 +340,25 @@ describe('ProxyService retry failure callbacks', () => {
             // eslint-disable-next-line @typescript-eslint/await-thenable -- expect().rejects returns a promise
             await expect(promise).rejects.toThrow('Backend get prompt failed');
 
+            // Verify onRetry callback was invoked with default maxRetries value
+            expect(countLogMessages('warn', 'will retry')).toBe(2); // 2 default retries
+            expect(hasLogMessage('warn', {
+                serverName: 'failing-server',
+                name:       'test-prompt',
+                maxRetries: 2, // Default value
+                message:    'Prompt get failed, will retry',
+            })).toBe(true);
+
+            // Verify onFailure callback was invoked
+            expect(countLogMessages('error', 'after all retries')).toBe(1);
+            expect(hasLogMessage('error', {
+                serverName: 'failing-server',
+                name:       'test-prompt',
+                maxRetries: 2, // Default value
+                message:    'Prompt get failed after all retries',
+            })).toBe(true);
+
             // Verify that the backend was accessed the correct number of times (initial + 2 default retries)
-            // This confirms retry logic used default value and onFailure was called
             expect(clientManager.ensureConnectedCallCount).toBe(3);
         });
 
@@ -220,8 +381,11 @@ describe('ProxyService retry failure callbacks', () => {
             // eslint-disable-next-line @typescript-eslint/await-thenable -- expect().rejects returns a promise
             await expect(promise).rejects.toThrow('Backend get prompt failed');
 
+            // Verify onRetry and onFailure callbacks were invoked
+            expect(countLogMessages('warn', 'will retry')).toBe(1); // 1 retry
+            expect(countLogMessages('error', 'after all retries')).toBe(1);
+
             // Verify proper number of attempts (initial + 1 retry)
-            // This confirms retry callbacks were invoked
             expect(clientManager.ensureConnectedCallCount).toBe(2);
         });
 
@@ -244,8 +408,19 @@ describe('ProxyService retry failure callbacks', () => {
             // eslint-disable-next-line @typescript-eslint/await-thenable -- expect().rejects returns a promise
             await expect(promise).rejects.toThrow('Backend get prompt failed');
 
+            // Verify onRetry callback was NOT called (zero retries)
+            expect(countLogMessages('warn', 'will retry')).toBe(0);
+
+            // Verify onFailure callback was still invoked
+            expect(countLogMessages('error', 'after all retries')).toBe(1);
+            expect(hasLogMessage('error', {
+                serverName: 'failing-server',
+                name:       'test-prompt',
+                maxRetries: 0,
+                message:    'Prompt get failed after all retries',
+            })).toBe(true);
+
             // Verify that the backend was accessed exactly once (initial attempt only)
-            // This confirms onFailure was still called even with zero retries
             expect(clientManager.ensureConnectedCallCount).toBe(1);
         });
 
@@ -278,6 +453,10 @@ describe('ProxyService retry failure callbacks', () => {
             expect(totalTime).toBeGreaterThanOrEqual(110);  // Allow 10ms tolerance
             expect(totalTime).toBeLessThan(160);  // Upper bound to ensure delays are applied
 
+            // Verify onRetry and onFailure callbacks were invoked
+            expect(countLogMessages('warn', 'will retry')).toBe(2);
+            expect(countLogMessages('error', 'after all retries')).toBe(1);
+
             // Verify correct number of attempts
             expect(clientManager.ensureConnectedCallCount).toBe(3);
         });
@@ -298,8 +477,21 @@ describe('ProxyService retry failure callbacks', () => {
             // eslint-disable-next-line @typescript-eslint/await-thenable -- expect().rejects returns a promise
             await expect(resourcePromise).rejects.toThrow('Backend read resource failed');
 
+            // Verify onRetry and onFailure callbacks were invoked for readResource
+            expect(countLogMessages('warn', 'Resource read failed, will retry')).toBe(1); // 1 retry
+            expect(hasLogMessage('warn', {
+                serverName: 'failing-server',
+                uri:        'test-uri',
+                message:    'Resource read failed, will retry',
+            })).toBe(true);
+            expect(countLogMessages('error', 'Resource read failed after all retries')).toBe(1);
+            expect(hasLogMessage('error', {
+                serverName: 'failing-server',
+                uri:        'test-uri',
+                message:    'Resource read failed after all retries',
+            })).toBe(true);
+
             // Verify backend was accessed twice (initial + 1 retry)
-            // This confirms onRetry and onFailure callbacks were invoked
             const resourceCallCount = clientManager.ensureConnectedCallCount;
             expect(resourceCallCount).toBe(2);
 
@@ -317,8 +509,21 @@ describe('ProxyService retry failure callbacks', () => {
             // eslint-disable-next-line @typescript-eslint/await-thenable -- expect().rejects returns a promise
             await expect(promptPromise).rejects.toThrow('Backend get prompt failed');
 
+            // Verify onRetry and onFailure callbacks were invoked for getPrompt
+            expect(countLogMessages('warn', 'Prompt get failed, will retry')).toBe(1); // 1 from getPrompt only (after reset)
+            expect(hasLogMessage('warn', {
+                serverName: 'failing-server',
+                name:       'test-prompt',
+                message:    'Prompt get failed, will retry',
+            })).toBe(true);
+            expect(countLogMessages('error', 'Prompt get failed after all retries')).toBe(1); // 1 from getPrompt only
+            expect(hasLogMessage('error', {
+                serverName: 'failing-server',
+                name:       'test-prompt',
+                message:    'Prompt get failed after all retries',
+            })).toBe(true);
+
             // Verify backend was accessed twice (initial + 1 retry)
-            // This confirms onRetry and onFailure callbacks were invoked
             expect(clientManager.ensureConnectedCallCount).toBe(2);
         });
 
@@ -344,9 +549,16 @@ describe('ProxyService retry failure callbacks', () => {
                 }
             });
 
+            // Verify onRetry callbacks were invoked for all operations
+            // 4 operations × 1 retry each = 4 onRetry calls
+            expect(countLogMessages('warn', 'will retry')).toBe(4);
+
+            // Verify onFailure callbacks were invoked for all operations
+            // 4 operations × 1 onFailure each = 4 onFailure calls
+            expect(countLogMessages('error', 'after all retries')).toBe(4);
+
             // Verify that all operations were retried appropriately
             // Each operation has maxRetries=1, so 2 attempts each = 8 total backend accesses
-            // This confirms all onRetry and onFailure callbacks were invoked
             expect(clientManager.ensureConnectedCallCount).toBe(8);
         });
     });

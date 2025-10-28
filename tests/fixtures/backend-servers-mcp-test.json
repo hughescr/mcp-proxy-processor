@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "test-server-1": {
+      "command": "bun",
+      "args": [
+        "tests/fixtures/stub-mcp-server.ts"
+      ]
+    },
+    "test-filesystem": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "/private/tmp"
+      ]
+    }
+  }
+}

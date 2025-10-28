@@ -1,0 +1,56 @@
+{
+  "groups": {
+    "mcp-test-basic": {
+      "name": "mcp-test-basic",
+      "description": "Basic MCP server test group",
+      "tools": [
+        {
+          "serverName": "test-server-1",
+          "originalName": "test_echo",
+          "name": "test_echo"
+        }
+      ],
+      "resources": [],
+      "prompts": []
+    },
+    "mcp-test-renamed": {
+      "name": "mcp-test-renamed",
+      "description": "Test group with renamed tool",
+      "tools": [
+        {
+          "serverName": "test-server-1",
+          "originalName": "test_echo",
+          "name": "renamed_echo",
+          "description": "Renamed echo tool with override description"
+        }
+      ],
+      "resources": [],
+      "prompts": []
+    },
+    "mcp-test-multi-server": {
+      "name": "mcp-test-multi-server",
+      "description": "Test group with multiple backend servers",
+      "tools": [
+        {
+          "serverName": "test-server-1",
+          "originalName": "test_echo",
+          "name": "test_echo"
+        },
+        {
+          "serverName": "test-filesystem",
+          "originalName": "read_file",
+          "name": "read_file"
+        }
+      ],
+      "resources": [],
+      "prompts": []
+    },
+    "mcp-test-empty": {
+      "name": "mcp-test-empty",
+      "description": "Test group with no tools",
+      "tools": [],
+      "resources": [],
+      "prompts": []
+    }
+  }
+}
