@@ -28,6 +28,7 @@
   "files": [
     "dist/cli.js",
     "docs/ARGUMENT_MAPS.md",
+    "docs/PROJECT_MCP_CONFIG.md",
     "docs/RESOURCES_AND_PROMPTS.md",
     "README.md",
     "TROUBLESHOOTING.md",
