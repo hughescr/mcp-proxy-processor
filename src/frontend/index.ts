@@ -38,10 +38,13 @@ const __dirname = dirname(__filename);
 
 /**
  * Start the MCP server for one or more groups
- * @param groupNames - Name(s) of the group(s) to serve
+ * @param groupNames - Name(s) of the group(s) to serve (single string or array)
  */
-export async function startServer(groupNames: string[]): Promise<void> {
-    logger.info({ groupNames }, 'Starting MCP proxy server');
+export async function startServer(groupNames: string | string[]): Promise<void> {
+    // Normalize to array for consistent handling
+    const groupNamesArray = _.isArray(groupNames) ? groupNames : [groupNames];
+
+    logger.info({ groupNames: groupNamesArray }, 'Starting MCP proxy server');
 
     // Migrate config files from old location if needed
     const { migrateConfigFiles } = await import('../utils/config-migration.js');
@@ -58,8 +61,8 @@ export async function startServer(groupNames: string[]): Promise<void> {
         await groupManager.load();
 
         // Validate all groups exist
-        const groups = groupManager.getGroups(groupNames);
-        const missingGroups = _.difference(groupNames, _.map(groups, 'name'));
+        const groups = groupManager.getGroups(groupNamesArray);
+        const missingGroups = _.difference(groupNamesArray, _.map(groups, 'name'));
         if(missingGroups.length > 0) {
             throw new Error(`Groups not found: ${missingGroups.join(', ')}`);
         }
@@ -70,7 +73,7 @@ export async function startServer(groupNames: string[]): Promise<void> {
         const allPromptRefs: PromptRef[] = groups.flatMap(g => g.prompts ?? []);
 
         logger.info({
-            groupNames,
+            groupNames:    groupNamesArray,
             toolCount:     allToolOverrides.length,
             resourceCount: allResourceRefs.length,
             promptCount:   allPromptRefs.length
@@ -85,11 +88,11 @@ export async function startServer(groupNames: string[]): Promise<void> {
         });
 
         // 3. Determine required backend servers from all groups
-        const requiredServers = groupManager.getRequiredServersForGroups(groupNames);
+        const requiredServers = groupManager.getRequiredServersForGroups(groupNamesArray);
         logger.info({ requiredServers }, 'Required backend servers identified');
 
         if(requiredServers.length === 0) {
-            logger.info({ groupNames }, 'No backend servers required for groups - will serve empty lists');
+            logger.info({ groupNames: groupNamesArray }, 'No backend servers required for groups - will serve empty lists');
         }
 
         // 4. Create server configs map for required servers only
@@ -130,14 +133,14 @@ export async function startServer(groupNames: string[]): Promise<void> {
         const proxyService = new ProxyService(clientManager);
 
         // 9. Get tools, resources, and prompts for all groups (with overrides applied and deduplicated)
-        const groupTools = groupManager.getToolsForGroups(groupNames, backendTools);
-        const groupResources = groupManager.getResourcesForGroups(groupNames, backendResources);
-        const groupPrompts = groupManager.getPromptsForGroups(groupNames, backendPrompts);
+        const groupTools = groupManager.getToolsForGroups(groupNamesArray, backendTools);
+        const groupResources = groupManager.getResourcesForGroups(groupNamesArray, backendResources);
+        const groupPrompts = groupManager.getPromptsForGroups(groupNamesArray, backendPrompts);
 
         logger.info({ toolCount: groupTools.length, resourceCount: groupResources.length, promptCount: groupPrompts.length }, 'Group tools, resources, and prompts prepared');
 
         // 10. Create MCP server instance
-        const serverName = groupNames.length === 1 ? `mcp-proxy-${groupNames[0]}` : `mcp-proxy-${groupNames.join('-')}`;
+        const serverName = groupNamesArray.length === 1 ? `mcp-proxy-${groupNamesArray[0]}` : `mcp-proxy-${groupNamesArray.join('-')}`;
         const server = new Server(
             {
                 name:    serverName,
@@ -298,7 +301,7 @@ export async function startServer(groupNames: string[]): Promise<void> {
         const transport = new StdioServerTransport();
         await server.connect(transport);
 
-        logger.info({ groupNames }, 'MCP proxy server started and connected');
+        logger.info({ groupNames: groupNamesArray }, 'MCP proxy server started and connected');
 
         // 13. Handle shutdown signals
         const shutdown = () => {
