@@ -108,9 +108,11 @@ mcp-proxy config-path
 ```
 
 This will print the config directory path for your platform:
-- **macOS**: `~/Library/Preferences/@hughescr-mcp-proxy-processor/`
-- **Linux**: `~/.config/@hughescr-mcp-proxy-processor/`
-- **Windows**: `%APPDATA%\@hughescr-mcp-proxy-processor\Config\`
+- **macOS**: `~/Library/Preferences/@hughescr/mcp-proxy-processor/`
+- **Linux**: `~/.config/@hughescr/mcp-proxy-processor/`
+- **Windows**: `%APPDATA%\@hughescr\mcp-proxy-processor\Config\`
+
+**Pro Tip:** Run `mcp-proxy config-path` anytime to see your config directory location.
 
 ### 2. Configure Backend Servers
 
@@ -250,7 +252,7 @@ The `backend-servers.json` file uses the same format as Claude Desktop's `mcp.js
 
 ### Groups
 
-The `config/groups.json` file defines tool groups:
+The `groups.json` file in your config directory (use `mcp-proxy config-path` to find it) defines tool groups:
 
 ```json
 {
@@ -382,6 +384,32 @@ mcp-proxy serve standard_tools
 ```
 
 This starts an MCP server (stdio transport) exposing only the tools defined in the "standard_tools" group.
+
+### Serve Multiple Groups
+
+You can serve multiple groups as a single combined MCP server:
+
+```bash
+mcp-proxy serve group1 group2 group3
+```
+
+**Behavior:**
+- Tools, resources, and prompts from all groups are merged
+- If multiple groups contain the same tool/resource/prompt, the first group specified takes precedence
+- The combined server name becomes: `mcp-proxy-group1-group2-group3`
+
+**Example Use Case:** Combine a base set of tools with task-specific additions:
+
+```json
+{
+  "mcpServers": {
+    "coding-with-search": {
+      "command": "mcp-proxy",
+      "args": ["serve", "base_tools", "coding_tools", "search_tools"]
+    }
+  }
+}
+```
 
 ### Admin Interface
 

@@ -4,7 +4,8 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Box, Text, useInput } from 'ink';
-import { trim, repeat, isError, find, map, padEnd, filter as _filter, startsWith, truncate as _truncate } from 'lodash';
+import { trim, repeat, isError, find, map, padEnd, filter as _filter, truncate as _truncate } from 'lodash';
+import { matchPrefixAction } from '../utils/menu-actions.js';
 import { CancellableTextInput } from './CancellableTextInput.js';
 import type { Tool } from '@modelcontextprotocol/sdk/types';
 import type { ToolOverride, ArgumentMapping } from '../../types/config.js';
@@ -18,6 +19,7 @@ import { LoadingScreen } from './ui/LoadingScreen.js';
 import { VirtualScrollList } from './ui/VirtualScrollList.js';
 import { ScrollableJsonViewer } from './ui/ScrollableJsonViewer.js';
 import { textSeparator, menuSeparator } from '../design-system.js';
+import { dynamicLogger as logger } from '../../utils/silent-logger.js';
 
 interface EnhancedToolEditorProps {
     tool:      ToolOverride
@@ -101,19 +103,20 @@ export function EnhancedToolEditor({ tool, groupName, onSave, onRemove, onCancel
 
                 if(foundTool) {
                     setBackendTool(foundTool);
-                    // Debug logging to see what we received
-                    if(process.env.LOG_LEVEL !== 'silent') {
-                        // eslint-disable-next-line no-console -- Debug logging for tool discovery
-                        console.error(`[DEBUG] Found tool ${tool.originalName} from ${tool.serverName}:`, {
-                            hasDescription: !!foundTool.description,
-                            description:    foundTool.description,
-                            hasInputSchema: !!foundTool.inputSchema,
-                            inputSchema:    foundTool.inputSchema,
-                        });
-                    }
-                } else if(process.env.LOG_LEVEL !== 'silent') {
-                    // eslint-disable-next-line no-console -- Debug logging for tool discovery
-                    console.error(`[DEBUG] Tool ${tool.originalName} not found in server ${tool.serverName}. Available tools:`, map(serverTools, 'name'));
+                    logger.debug({
+                        toolName:       tool.originalName,
+                        serverName:     tool.serverName,
+                        hasDescription: !!foundTool.description,
+                        description:    foundTool.description,
+                        hasInputSchema: !!foundTool.inputSchema,
+                        inputSchema:    foundTool.inputSchema,
+                    }, 'Found tool from backend');
+                } else {
+                    logger.debug({
+                        toolName:       tool.originalName,
+                        serverName:     tool.serverName,
+                        availableTools: map(serverTools, 'name'),
+                    }, 'Tool not found in backend server');
                 }
 
                 setMode('menu');
@@ -124,52 +127,57 @@ export function EnhancedToolEditor({ tool, groupName, onSave, onRemove, onCancel
         })();
     }, [tool.serverName, tool.originalName, discoverAllTools]);
 
-    // eslint-disable-next-line complexity -- Menu handler with multiple edit modes
     const handleMenuSelect = (item: { value: string }) => {
-        // Handle parameter row selection - jump directly to editing that parameter
-        if(startsWith(item.value, 'param-')) {
-            const indexStr = item.value.substring(6); // Remove 'param-' prefix
-            const index = parseInt(indexStr, 10);
-            const param = parameters[index];
-            if(param) {
-                setInitialParamToEdit(param.backendName);
-            }
-            setMode('edit-argument-mapping');
-            return;
-        }
-
-        switch(item.value) {
-            case 'save':
+        // Define exact match actions
+        const menuActions: Record<string, () => void> = {
+            save: () => {
                 onSave(currentTool);
-                break;
-            case 'remove':
+            },
+            remove: () => {
                 if(onRemove) {
                     onRemove();
                 }
-                break;
-            case 'cancel':
+            },
+            cancel: () => {
                 onCancel();
-                break;
-            case 'edit-name':
+            },
+            'edit-name': () => {
                 setInputValue(currentTool.name ?? currentTool.originalName);
                 setMode('edit-name');
-                break;
-            case 'edit-description':
+            },
+            'edit-description': () => {
                 setInputValue(currentTool.description ?? backendTool?.description ?? '');
                 setMode('edit-description');
-                break;
-            case 'reset-mapping':
+            },
+            'reset-mapping': () => {
                 setCurrentTool({ ...currentTool, argumentMapping: undefined });
-                break;
-            case 'clear-name':
+            },
+            'clear-name': () => {
                 setCurrentTool({ ...currentTool, name: undefined });
-                break;
-            case 'clear-description':
+            },
+            'clear-description': () => {
                 setCurrentTool({ ...currentTool, description: undefined });
-                break;
-            default:
-                break;
+            },
+        };
+
+        // Try exact match first
+        const action = menuActions[item.value];
+        if(action) {
+            action();
+            return;
         }
+
+        // Handle parameter row selection - jump directly to editing that parameter
+        matchPrefixAction(item.value, {
+            'param-': (indexStr) => {
+                const index = parseInt(indexStr, 10);
+                const param = parameters[index];
+                if(param) {
+                    setInitialParamToEdit(param.backendName);
+                }
+                setMode('edit-argument-mapping');
+            },
+        });
     };
 
     const handleNameSubmit = (value: string) => {

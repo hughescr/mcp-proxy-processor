@@ -3,7 +3,7 @@
  */
 
 import type { BackendServersConfig, GroupsConfig, GroupConfig } from '../../src/types/config.js';
-import type { Tool, Resource } from '@modelcontextprotocol/sdk/types';
+import type { Tool, Resource, Prompt } from '@modelcontextprotocol/sdk/types';
 
 // Valid configurations
 export const validBackendConfig: BackendServersConfig = {
@@ -238,6 +238,206 @@ export async function createTempConfigFile(config: unknown): Promise<string> {
     await writeFile(filePath, JSON.stringify(config, null, 2));
     return filePath;
 }
+
+// Multi-group test configurations
+export const multiGroupConfig: GroupsConfig = {
+    groups: {
+        'group-a': {
+            name:        'group-a',
+            description: 'First test group',
+            tools:       [
+                {
+                    originalName: 'shared_tool',
+                    serverName:   'server-1',
+                    name:         'shared_tool_a',
+                    description:  'Tool from group A',
+                },
+                {
+                    originalName: 'unique_tool_a',
+                    serverName:   'server-1',
+                },
+            ],
+            resources: [
+                {
+                    uri:        'shared://resource',
+                    serverName: 'server-1',
+                },
+                {
+                    uri:        'unique://resource-a',
+                    serverName: 'server-1',
+                },
+            ],
+            prompts: [
+                {
+                    name:       'shared_prompt',
+                    serverName: 'server-1',
+                },
+                {
+                    name:       'unique_prompt_a',
+                    serverName: 'server-1',
+                },
+            ],
+        },
+        'group-b': {
+            name:        'group-b',
+            description: 'Second test group',
+            tools:       [
+                {
+                    originalName: 'shared_tool',
+                    serverName:   'server-2',
+                    name:         'shared_tool_b',
+                    description:  'Tool from group B',
+                },
+                {
+                    originalName: 'unique_tool_b',
+                    serverName:   'server-2',
+                },
+            ],
+            resources: [
+                {
+                    uri:        'shared://resource',
+                    serverName: 'server-2',
+                },
+                {
+                    uri:        'unique://resource-b',
+                    serverName: 'server-2',
+                },
+            ],
+            prompts: [
+                {
+                    name:       'shared_prompt',
+                    serverName: 'server-2',
+                },
+                {
+                    name:       'unique_prompt_b',
+                    serverName: 'server-2',
+                },
+            ],
+        },
+        'group-c': {
+            name:        'group-c',
+            description: 'Third test group',
+            tools:       [
+                {
+                    originalName: 'another_tool',
+                    serverName:   'server-3',
+                },
+            ],
+            resources: [],
+            prompts:   [],
+        },
+    },
+};
+
+export const mockMultiGroupBackendTools = new Map<string, Tool[]>([
+    [
+        'server-1',
+        [
+            {
+                name:        'shared_tool',
+                description: 'Backend shared tool from server 1',
+                inputSchema: { type: 'object' },
+            },
+            {
+                name:        'unique_tool_a',
+                description: 'Unique tool A',
+                inputSchema: { type: 'object' },
+            },
+        ],
+    ],
+    [
+        'server-2',
+        [
+            {
+                name:        'shared_tool',
+                description: 'Backend shared tool from server 2',
+                inputSchema: { type: 'object' },
+            },
+            {
+                name:        'unique_tool_b',
+                description: 'Unique tool B',
+                inputSchema: { type: 'object' },
+            },
+        ],
+    ],
+    [
+        'server-3',
+        [
+            {
+                name:        'another_tool',
+                description: 'Another tool from server 3',
+                inputSchema: { type: 'object' },
+            },
+        ],
+    ],
+]);
+
+export const mockMultiGroupBackendResources = new Map<string, Resource[]>([
+    [
+        'server-1',
+        [
+            {
+                uri:         'shared://resource',
+                name:        'Backend Shared Resource 1',
+                description: 'Shared resource from server 1',
+            },
+            {
+                uri:         'unique://resource-a',
+                name:        'Unique Resource A',
+                description: 'Unique to server 1',
+            },
+        ],
+    ],
+    [
+        'server-2',
+        [
+            {
+                uri:         'shared://resource',
+                name:        'Backend Shared Resource 2',
+                description: 'Shared resource from server 2',
+            },
+            {
+                uri:         'unique://resource-b',
+                name:        'Unique Resource B',
+                description: 'Unique to server 2',
+            },
+        ],
+    ],
+]);
+
+// Properly typed mock prompts for multi-group tests
+export const mockMultiGroupBackendPrompts = new Map<string, Prompt[]>([
+    [
+        'server-1',
+        [
+            {
+                name:        'shared_prompt',
+                description: 'Backend shared prompt from server 1',
+                arguments:   [],
+            },
+            {
+                name:        'unique_prompt_a',
+                description: 'Unique prompt A',
+                arguments:   [],
+            },
+        ],
+    ],
+    [
+        'server-2',
+        [
+            {
+                name:        'shared_prompt',
+                description: 'Backend shared prompt from server 2',
+                arguments:   [],
+            },
+            {
+                name:        'unique_prompt_b',
+                description: 'Unique prompt B',
+                arguments:   [],
+            },
+        ],
+    ],
+]);
 
 // Mock MCP client responses for integration tests
 export const mockToolCallResponse = {

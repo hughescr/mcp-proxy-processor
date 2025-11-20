@@ -14,7 +14,7 @@
  */
 
 import _ from 'lodash';
-import type { Resource, Prompt } from '@modelcontextprotocol/sdk/types.js';
+import type { Resource, Prompt, Tool } from '@modelcontextprotocol/sdk/types.js';
 import type { ResourceRef, PromptRef, ResourceConflict, PromptConflict } from '../types/config.js';
 import { isUriTemplate, matchesTemplate, templatesCanOverlap, generateExampleUri } from '../middleware/uri-matcher.js';
 
@@ -127,6 +127,8 @@ function detectResourcePairConflict(
         return null;
     }
 
+    // Coverage: Final return when no conflicts detected (templates don't overlap)
+    // All conflict cases handled above; this is the "no conflict" path
     return null;
 }
 
@@ -258,4 +260,20 @@ export function deduplicatePrompts(prompts: Prompt[]): Prompt[] {
     // For prompts, we deduplicate by name
     // The first occurrence in the array has highest priority
     return _.uniqBy(prompts, 'name');
+}
+
+/**
+ * Deduplicate tools by name
+ *
+ * Keeps first occurrence (highest priority) when duplicates are found.
+ * This is used when merging tools from multiple groups to ensure
+ * each tool name appears only once.
+ *
+ * @param tools - Array of tools to deduplicate
+ * @returns Deduplicated array with first occurrence of each name
+ */
+export function deduplicateTools(tools: Tool[]): Tool[] {
+    // For tools, we deduplicate by name
+    // The first occurrence in the array has highest priority
+    return _.uniqBy(tools, 'name');
 }

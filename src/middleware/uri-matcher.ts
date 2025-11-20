@@ -23,6 +23,8 @@ export function parseTemplate(template: string): UriTemplate {
     try {
         return new UriTemplate(template);
     } catch (error) {
+        // Coverage: Error handler for malformed templates from third-party uri-templates library
+        // Difficult to test as library validates internally; kept for defensive programming
         throw new Error(`Invalid URI template "${template}": ${_.isError(error) ? error.message : String(error)}`);
     }
 }
@@ -49,6 +51,8 @@ export function matchesTemplate(uri: string, pattern: string): { matches: boolea
 
         return { matches: true, variables: result };
     } catch{
+        // Coverage: Defensive error handling for uri-templates library exceptions
+        // parseTemplate already validates, but kept as safety net for runtime errors
         return { matches: false };
     }
 }
@@ -62,6 +66,8 @@ export function expandTemplate(template: string, variables: Record<string, strin
         // eslint-disable-next-line lodash/prefer-lodash-method -- This is UriTemplate.fill(), not Array.fill()
         return tmpl.fill(variables);
     } catch (error) {
+        // Coverage: Error handler for template expansion failures from uri-templates library
+        // Difficult to trigger as parseTemplate validates upfront; kept for defensive programming
         throw new Error(`Failed to expand template "${template}": ${_.isError(error) ? error.message : String(error)}`);
     }
 }

@@ -20,7 +20,8 @@ import {
     ListResourcesRequestSchema,
     ReadResourceRequestSchema,
     ListPromptsRequestSchema,
-    GetPromptRequestSchema
+    GetPromptRequestSchema,
+    type ServerResult
 } from '@modelcontextprotocol/sdk/types.js';
 import { dynamicLogger as logger } from '../utils/silent-logger.js';
 import { GroupManager } from '../middleware/index.js';
@@ -29,18 +30,21 @@ import { deduplicateResources, deduplicatePrompts, findMatchingResourceRefs, fin
 import { ClientManager } from '../backend/client-manager.js';
 import { DiscoveryService } from '../backend/discovery.js';
 import { ProxyService } from '../backend/proxy.js';
-import type { BackendServersConfig, BackendServerConfig } from '../types/config.js';
+import type { BackendServersConfig, BackendServerConfig, ToolOverride, ResourceRef, PromptRef } from '../types/config.js';
 import { BackendServersConfigSchema } from '../types/config.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 /**
- * Start the MCP server for a specific group
- * @param groupName - Name of the group to serve
+ * Start the MCP server for one or more groups
+ * @param groupNames - Name(s) of the group(s) to serve (single string or array)
  */
-export async function startServer(groupName: string): Promise<void> {
-    logger.info({ groupName }, 'Starting MCP proxy server');
+export async function startServer(groupNames: string | string[]): Promise<void> {
+    // Normalize to array for consistent handling
+    const groupNamesArray = _.isArray(groupNames) ? groupNames : [groupNames];
+
+    logger.info({ groupNames: groupNamesArray }, 'Starting MCP proxy server');
 
     // Migrate config files from old location if needed
     const { migrateConfigFiles } = await import('../utils/config-migration.js');
@@ -56,12 +60,24 @@ export async function startServer(groupName: string): Promise<void> {
         const groupManager = new GroupManager(groupsConfigPath);
         await groupManager.load();
 
-        const group = groupManager.getGroup(groupName);
-        if(!group) {
-            throw new Error(`Group not found: ${groupName}`);
+        // Validate all groups exist
+        const groups = groupManager.getGroups(groupNamesArray);
+        const missingGroups = _.difference(groupNamesArray, _.map(groups, 'name'));
+        if(missingGroups.length > 0) {
+            throw new Error(`Groups not found: ${missingGroups.join(', ')}`);
         }
 
-        logger.info({ groupName, toolCount: group.tools.length, resourceCount: group.resources?.length ?? 0, promptCount: group.prompts?.length ?? 0 }, 'Group loaded');
+        // Collect all tool overrides, resources, and prompts from all groups
+        const allToolOverrides: ToolOverride[] = groups.flatMap(g => g.tools ?? []);
+        const allResourceRefs: ResourceRef[] = groups.flatMap(g => g.resources ?? []);
+        const allPromptRefs: PromptRef[] = groups.flatMap(g => g.prompts ?? []);
+
+        logger.info({
+            groupNames:    groupNamesArray,
+            toolCount:     allToolOverrides.length,
+            resourceCount: allResourceRefs.length,
+            promptCount:   allPromptRefs.length
+        }, 'Groups loaded');
 
         // 2. Load backend server configuration
         logger.info('Loading backend server configuration');
@@ -71,12 +87,12 @@ export async function startServer(groupName: string): Promise<void> {
             schema: BackendServersConfigSchema,
         });
 
-        // 3. Determine required backend servers
-        const requiredServers = groupManager.getRequiredServers(groupName);
+        // 3. Determine required backend servers from all groups
+        const requiredServers = groupManager.getRequiredServersForGroups(groupNamesArray);
         logger.info({ requiredServers }, 'Required backend servers identified');
 
         if(requiredServers.length === 0) {
-            throw new Error(`No backend servers required for group: ${groupName}`);
+            logger.info({ groupNames: groupNamesArray }, 'No backend servers required for groups - will serve empty lists');
         }
 
         // 4. Create server configs map for required servers only
@@ -116,17 +132,18 @@ export async function startServer(groupName: string): Promise<void> {
         // 8. Create proxy service
         const proxyService = new ProxyService(clientManager);
 
-        // 9. Get tools, resources, and prompts for this group (with overrides applied)
-        const groupTools = groupManager.getToolsForGroup(groupName, backendTools);
-        const groupResources = groupManager.getResourcesForGroup(groupName, backendResources);
-        const groupPrompts = groupManager.getPromptsForGroup(groupName, backendPrompts);
+        // 9. Get tools, resources, and prompts for all groups (with overrides applied and deduplicated)
+        const groupTools = groupManager.getToolsForGroups(groupNamesArray, backendTools);
+        const groupResources = groupManager.getResourcesForGroups(groupNamesArray, backendResources);
+        const groupPrompts = groupManager.getPromptsForGroups(groupNamesArray, backendPrompts);
 
         logger.info({ toolCount: groupTools.length, resourceCount: groupResources.length, promptCount: groupPrompts.length }, 'Group tools, resources, and prompts prepared');
 
         // 10. Create MCP server instance
+        const serverName = groupNamesArray.length === 1 ? `mcp-proxy-${groupNamesArray[0]}` : `mcp-proxy-${groupNamesArray.join('-')}`;
         const server = new Server(
             {
-                name:    `mcp-proxy-${groupName}`,
+                name:    serverName,
                 version: '0.1.0',
             },
             {
@@ -151,10 +168,10 @@ export async function startServer(groupName: string): Promise<void> {
             const { name: toolName, arguments: args } = request.params;
             logger.info({ toolName }, 'Handling tools/call request');
 
-            // Find the tool in the group to determine which backend server to call
-            const toolOverride = _.find(group.tools, t => (t.name ?? t.originalName) === toolName);
+            // Find the tool in the merged groups to determine which backend server to call
+            const toolOverride = _.find(allToolOverrides, t => (t.name ?? t.originalName) === toolName);
             if(!toolOverride) {
-                throw new Error(`Tool not found in group: ${toolName}`);
+                throw new Error(`Tool not found in groups: ${toolName}`);
             }
             // Transform arguments if mapping is configured
             let backendArgs = args;
@@ -171,9 +188,20 @@ export async function startServer(groupName: string): Promise<void> {
                 backendArgs
             );
 
+            // Check if the result indicates an error
+            if(result.isError) {
+                // Extract error message from content
+                const errorMessage = _(result.content)
+                    .map(c => ('text' in c ? c.text : ''))
+                    .compact()
+                    .join('\n') || 'Tool execution failed';
+
+                logger.error({ toolName, serverName: toolOverride.serverName, errorMessage }, 'Tool execution returned error');
+                throw new Error(errorMessage);
+            }
+
             // Return the result directly (it already has content and isError fields)
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-explicit-any -- CallToolResult type incompatibility with ServerResult
-            return result as any;
+            return result as ServerResult;
         });
 
         // resources/list handler - with deduplication
@@ -191,9 +219,9 @@ export async function startServer(groupName: string): Promise<void> {
             logger.info({ uri }, 'Handling resources/read request');
 
             // Find all matching resource references in priority order
-            const matchingRefs = findMatchingResourceRefs(uri, group.resources ?? []);
+            const matchingRefs = findMatchingResourceRefs(uri, allResourceRefs);
             if(matchingRefs.length === 0) {
-                throw new Error(`Resource not found in group: ${uri}`);
+                throw new Error(`Resource not found in groups: ${uri}`);
             }
 
             logger.debug({ uri, matchingServers: _.map(matchingRefs, 'serverName') }, 'Found matching resource refs, will try in priority order');
@@ -209,8 +237,7 @@ export async function startServer(groupName: string): Promise<void> {
                     );
 
                     logger.info({ uri, serverName: resourceRef.serverName }, 'Resource read successful');
-                    // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-explicit-any -- ReadResourceResult type incompatibility with ServerResult
-                    return result as any;
+                    return result as ServerResult;
                 } catch (error) {
                     lastError = _.isError(error) ? error : new Error(String(error));
                     logger.warn({ uri, serverName: resourceRef.serverName, error: lastError.message }, 'Resource read failed, trying next backend');
@@ -238,9 +265,9 @@ export async function startServer(groupName: string): Promise<void> {
             logger.info({ name }, 'Handling prompts/get request');
 
             // Find all matching prompt references in priority order
-            const matchingRefs = findMatchingPromptRefs(name, group.prompts ?? []);
+            const matchingRefs = findMatchingPromptRefs(name, allPromptRefs);
             if(matchingRefs.length === 0) {
-                throw new Error(`Prompt not found in group: ${name}`);
+                throw new Error(`Prompt not found in groups: ${name}`);
             }
 
             logger.debug({ name, matchingServers: _.map(matchingRefs, 'serverName') }, 'Found matching prompt refs, will try in priority order');
@@ -257,8 +284,7 @@ export async function startServer(groupName: string): Promise<void> {
                     );
 
                     logger.info({ name, serverName: promptRef.serverName }, 'Prompt get successful');
-                    // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-explicit-any -- GetPromptResult type incompatibility with ServerResult
-                    return result as any;
+                    return result as ServerResult;
                 } catch (error) {
                     lastError = _.isError(error) ? error : new Error(String(error));
                     logger.warn({ name, serverName: promptRef.serverName, error: lastError.message }, 'Prompt get failed, trying next backend');
@@ -275,7 +301,7 @@ export async function startServer(groupName: string): Promise<void> {
         const transport = new StdioServerTransport();
         await server.connect(transport);
 
-        logger.info({ groupName }, 'MCP proxy server started and connected');
+        logger.info({ groupNames: groupNamesArray }, 'MCP proxy server started and connected');
 
         // 13. Handle shutdown signals
         const shutdown = () => {
@@ -298,7 +324,7 @@ export async function startServer(groupName: string): Promise<void> {
         // Keep the process running
         // The server will handle requests via stdio transport
     } catch (error) {
-        logger.error({ error, groupName }, 'Failed to start MCP proxy server');
+        logger.error({ error, groupNames }, 'Failed to start MCP proxy server');
         throw error;
     }
 }

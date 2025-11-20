@@ -353,5 +353,3 @@ export class ServerManager {
         return new Map(this.servers);
     }
 }
-
-export default ServerManager;

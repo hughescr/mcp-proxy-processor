@@ -190,6 +190,134 @@
         }
       ],
       "prompts": []
+    },
+    "Time": {
+      "name": "Time",
+      "description": "Get the current time",
+      "tools": [
+        {
+          "originalName": "get_current_time",
+          "serverName": "time",
+          "argumentMapping": {
+            "type": "template",
+            "mappings": {
+              "timezone": {
+                "type": "default",
+                "source": "timezone",
+                "default": "America/Los_Angeles",
+                "description": "IANA timezone (defaults to 'America/Los_Angeles')"
+              }
+            }
+          }
+        }
+      ],
+      "resources": [],
+      "prompts": []
+    },
+    "Calculator": {
+      "name": "Calculator",
+      "description": "Precise arithmetic",
+      "tools": [
+        {
+          "originalName": "calculate",
+          "serverName": "calculator",
+          "description": "Evaluates a mathematical expression and returns the result.\n\n    Supports basic operators (+, -, *, /, **, %), mathematical functions\n    (sin, cos, tan, exp, log, log10, sqrt), and constants (pi, e).\n    Uses a restricted evaluation context for safe execution.\n\n    Args:\n        expression: The mathematical expression to evaluate as a string.\n                   Examples: \"2 + 2\", \"sin(pi/4)\", \"sqrt(16) * 2\", \"log(100, 10)\"\n\n    Returns:\n        On success: {\"result\": <calculated value>}\n        On error: {\"error\": <error message>}\n\n    Examples:\n        >>> calculate(\"2 * 3 + 4\")\n        {'result': 10}\n        >>> calculate(\"sin(pi/2)\")\n        {'result': 1.0}\n        >>> calculate(\"sqrt(16)\")\n        {'result': 4.0}\n        >>> calculate(\"invalid * expression\")\n        {'error': \"name 'invalid' is not defined\"}\n\n    Notes:\n        - Use 'x' as the variable (e.g., x**2, not x²)\n        - Multiplication must be explicitly indicated with * (e.g., 2*x, not 2x)\n        - Powers are represented with ** (e.g., x**2, not x^2)"
+        }
+      ],
+      "resources": [],
+      "prompts": []
+    },
+    "WebBrowser": {
+      "name": "WebBrowser",
+      "description": "Control a web browser to navigate the internet",
+      "tools": [
+        {
+          "originalName": "browser_click",
+          "serverName": "browser"
+        },
+        {
+          "originalName": "browser_close",
+          "serverName": "browser"
+        },
+        {
+          "originalName": "browser_console_messages",
+          "serverName": "browser"
+        },
+        {
+          "originalName": "browser_drag",
+          "serverName": "browser"
+        },
+        {
+          "originalName": "browser_evaluate",
+          "serverName": "browser"
+        },
+        {
+          "originalName": "browser_file_upload",
+          "serverName": "browser"
+        },
+        {
+          "originalName": "browser_fill_form",
+          "serverName": "browser"
+        },
+        {
+          "originalName": "browser_handle_dialog",
+          "serverName": "browser"
+        },
+        {
+          "originalName": "browser_hover",
+          "serverName": "browser"
+        },
+        {
+          "originalName": "browser_install",
+          "serverName": "browser"
+        },
+        {
+          "originalName": "browser_navigate",
+          "serverName": "browser"
+        },
+        {
+          "originalName": "browser_navigate_back",
+          "serverName": "browser"
+        },
+        {
+          "originalName": "browser_network_requests",
+          "serverName": "browser"
+        },
+        {
+          "originalName": "browser_press_key",
+          "serverName": "browser"
+        },
+        {
+          "originalName": "browser_resize",
+          "serverName": "browser"
+        },
+        {
+          "originalName": "browser_select_option",
+          "serverName": "browser"
+        },
+        {
+          "originalName": "browser_snapshot",
+          "serverName": "browser"
+        },
+        {
+          "originalName": "browser_tabs",
+          "serverName": "browser"
+        },
+        {
+          "originalName": "browser_take_screenshot",
+          "serverName": "browser"
+        },
+        {
+          "originalName": "browser_type",
+          "serverName": "browser"
+        },
+        {
+          "originalName": "browser_wait_for",
+          "serverName": "browser"
+        }
+      ],
+      "resources": [],
+      "prompts": []
     }
   }
 }

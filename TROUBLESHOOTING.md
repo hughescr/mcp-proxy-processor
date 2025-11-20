@@ -38,9 +38,9 @@ mcp-proxy config-path --verbose
 ```
 
 **Platform-specific locations:**
-- **macOS**: `~/Library/Preferences/@hughescr-mcp-proxy-processor/`
-- **Linux**: `~/.config/@hughescr-mcp-proxy-processor/`
-- **Windows**: `%APPDATA%\@hughescr-mcp-proxy-processor\Config\`
+- **macOS**: `~/Library/Preferences/@hughescr/mcp-proxy-processor/`
+- **Linux**: `~/.config/@hughescr/mcp-proxy-processor/`
+- **Windows**: `%APPDATA%\@hughescr\mcp-proxy-processor\Config\`
 
 **Files in the config directory:**
 - `backend-servers.json` - Backend MCP server configurations
@@ -139,7 +139,7 @@ code "$(mcp-proxy config-path)/groups.json"
 2. Check stderr output:
    ```bash
    # Run with verbose logging
-   MCP_PROXY_LOG_LEVEL=debug mcp-proxy --serve standard_tools
+   MCP_PROXY_LOG_LEVEL=debug mcp-proxy serve standard_tools
    ```
 
 3. Verify the package exists and is up-to-date:
@@ -164,7 +164,7 @@ code "$(mcp-proxy config-path)/groups.json"
    **How to find the correct tool name:**
    ```bash
    # Use the admin interface
-   mcp-proxy --admin
+   mcp-proxy admin
    # Navigate to "Discover Backend Tools" to see all available tools
    ```
 
@@ -225,7 +225,7 @@ code "$(mcp-proxy config-path)/groups.json"
 1. **Invalid JSON Syntax**
    ```bash
    # Validate JSON syntax
-   cat config/groups.json | jq
+   cat "$(mcp-proxy config-path)/groups.json" | jq
    ```
 
    Common JSON errors:
@@ -262,7 +262,7 @@ code "$(mcp-proxy config-path)/groups.json"
 
 1. Validate JSON syntax with `jq`:
    ```bash
-   jq . config/groups.json
+   jq . "$(mcp-proxy config-path)/groups.json"
    ```
 
 2. Use the admin interface to generate valid configurations
@@ -349,7 +349,7 @@ code "$(mcp-proxy config-path)/groups.json"
      "mcpServers": {
        "standard_tools": {
          "command": "/path/to/mcp-proxy-processor/dist/cli.js",
-         "args": ["--serve", "standard_tools"]
+         "args": ["serve", "standard_tools"]
        }
      }
    }
@@ -359,16 +359,16 @@ code "$(mcp-proxy config-path)/groups.json"
    ```json
    {
      "command": "bun",
-     "args": ["run", "/path/to/mcp-proxy-processor/src/cli.ts", "--serve", "standard_tools"]
+     "args": ["run", "/path/to/mcp-proxy-processor/src/cli.ts", "serve", "standard_tools"]
    }
    ```
 
 4. **Group Doesn't Exist**
 
-   The group name in `--serve` must match a group in `config/groups.json`:
+   The group name in `serve` command must match a group in your groups.json (use `mcp-proxy config-path` to find it):
    ```json
    {
-     "args": ["--serve", "standard_tools"]  // ← Must exist in groups.json
+     "args": ["serve", "standard_tools"]  // ← Must exist in groups.json
    }
    ```
 
@@ -384,7 +384,7 @@ code "$(mcp-proxy config-path)/groups.json"
 1. Verify config file location and syntax
 2. Test the command manually first:
    ```bash
-   mcp-proxy --serve standard_tools
+   mcp-proxy serve standard_tools
    # Should start without errors and wait for input
    ```
 3. Check Claude Desktop logs:
@@ -404,10 +404,10 @@ code "$(mcp-proxy config-path)/groups.json"
 ```bash
 # Set log level to debug
 export MCP_PROXY_LOG_LEVEL=debug
-mcp-proxy --serve standard_tools
+mcp-proxy serve standard_tools
 
 # Or inline
-MCP_PROXY_LOG_LEVEL=debug mcp-proxy --serve standard_tools
+MCP_PROXY_LOG_LEVEL=debug mcp-proxy serve standard_tools
 ```
 
 **What to Look For:**
@@ -461,7 +461,7 @@ echo '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' | \
 **Using the Admin Interface:**
 
 ```bash
-mcp-proxy --admin
+mcp-proxy admin
 # Select "Discover Backend Tools"
 # This will show all tools from all configured backends
 ```
@@ -472,15 +472,15 @@ mcp-proxy --admin
 
 ```bash
 # Start the proxy
-mcp-proxy --serve standard_tools
+mcp-proxy serve standard_tools
 
 # In another terminal, test tools/list
 echo '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' | \
-  mcp-proxy --serve standard_tools | jq
+  mcp-proxy serve standard_tools | jq
 
 # Test a specific tool call
 echo '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"calculate","arguments":{"expression":"2+2"}}}' | \
-  mcp-proxy --serve standard_tools | jq
+  mcp-proxy serve standard_tools | jq
 ```
 
 **Use MCP Inspector:**
@@ -488,7 +488,7 @@ echo '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"calculate"
 The official MCP Inspector provides a GUI for testing:
 
 ```bash
-npx @modelcontextprotocol/inspector mcp-proxy --serve standard_tools
+npx @modelcontextprotocol/inspector mcp-proxy serve standard_tools
 ```
 
 This opens a web interface where you can:
@@ -503,14 +503,14 @@ This opens a web interface where you can:
 
 ```bash
 # Use tee to capture both input and output
-mcp-proxy --serve standard_tools 2>&1 | tee mcp-debug.log
+mcp-proxy serve standard_tools 2>&1 | tee mcp-debug.log
 ```
 
 **Log to File:**
 
 ```bash
 # Redirect stderr to a file
-mcp-proxy --serve standard_tools 2>debug.log
+mcp-proxy serve standard_tools 2>debug.log
 ```
 
 **Pretty-Print JSON Messages:**
@@ -518,7 +518,7 @@ mcp-proxy --serve standard_tools 2>debug.log
 ```bash
 # Pipe through jq for readable output
 echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | \
-  mcp-proxy --serve standard_tools | jq -C
+  mcp-proxy serve standard_tools | jq -C
 ```
 
 ## FAQ
@@ -574,23 +574,22 @@ Example:
 
 This is useful for fixing incorrect schemas or simplifying complex ones.
 
-### Q: How do I add resource overrides?
+### Q: How do I add resources to a group?
 
-**A:** Resources work the same as tools:
+**A:** Resources are referenced by `serverName` and `uri`:
 
 ```json
 {
   "resources": [
     {
       "serverName": "filesystem",
-      "originalUri": "file:///workspace",
-      "name": "workspace",
-      "description": "Access to workspace files",
-      "mimeType": "application/json"
+      "uri": "file:///workspace"
     }
   ]
 }
 ```
+
+**Important:** Resources only support `serverName` and `uri` fields. Unlike tools, resources do NOT support overrides like `name`, `description`, or `mimeType`. They can only be included or excluded from groups with priority ordering. See [Resources & Prompts Guide](docs/RESOURCES_AND_PROMPTS.md) for details on URI templates and priority-based fallback.
 
 ### Q: Can I rename tools?
 
@@ -657,7 +656,7 @@ See [DEVELOPMENT.md](./DEVELOPMENT.md) for development setup instructions, testi
 
 ### Q: Is there a web-based admin interface?
 
-**A:** Not yet, but it's on the roadmap! For now, use the terminal-based admin interface (`mcp-proxy --admin`).
+**A:** Not yet, but it's on the roadmap! For now, use the terminal-based admin interface (`mcp-proxy admin`).
 
 ### Q: Can I use the proxy with other MCP clients besides Claude Desktop?
 

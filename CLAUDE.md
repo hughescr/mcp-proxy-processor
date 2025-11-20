@@ -171,8 +171,8 @@ The project follows a three-tier architecture:
 ### Additional Components
 
 - **CLI (`src/cli.ts`)**: Entry point with two modes:
-  - `--serve <groupname>`: Start MCP server for a group
-  - `--admin`: Launch interactive admin UI
+  - `serve <groupnames...>`: Start MCP server for one or more groups
+  - `admin`: Launch interactive admin UI
 
 - **Admin Interface (`src/admin/`)**: Interactive TUI (Terminal User Interface) built with Ink (React for terminals) for:
   - Discovering available backend tools/resources
@@ -240,10 +240,10 @@ bun install
 ### Development
 ```bash
 # Run MCP server for a group (stdio mode)
-bun run dev --serve standard_tools
+bun run dev serve standard_tools
 
 # Run admin interface
-bun run dev --admin
+bun run dev admin
 
 # Build for distribution
 bun run build
@@ -273,7 +273,7 @@ bun run package-check
 - Logging should go to stderr to avoid corrupting the protocol stream
 
 ### Message Flow
-1. Client (Claude Desktop) launches `mcp-proxy --serve <group>` as subprocess
+1. Client (Claude Desktop) launches `mcp-proxy serve <group>` as subprocess
 2. Client and proxy exchange initialization messages
 3. Client requests tool/resource lists
 4. Client invokes tools; proxy routes to backend servers
@@ -289,9 +289,9 @@ bun run package-check
 
 ## Development Workflow
 
-1. **Backend servers**: Ensure backend servers are properly configured in `config/backend-servers.json`
-2. **Groups**: Define groups using admin interface or by editing `config/groups.json`
-3. **Testing**: Test groups by running `mcp-proxy --serve <groupname>` and connecting via Claude Desktop
+1. **Backend servers**: Ensure backend servers are properly configured in `backend-servers.json` (use `mcp-proxy config-path` to find location)
+2. **Groups**: Define groups using admin interface or by editing `groups.json`
+3. **Testing**: Test groups by running `mcp-proxy serve <groupname>` and connecting via Claude Desktop
 4. **Iteration**: Refine tool overrides based on agent behavior
 
 ## Code Style and Conventions

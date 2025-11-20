@@ -5,9 +5,13 @@
 import { describe, it, expect } from 'bun:test';
 import {
     detectResourceConflicts,
-    detectPromptConflicts
+    detectPromptConflicts,
+    deduplicateTools,
+    deduplicateResources,
+    deduplicatePrompts
 } from '../../src/utils/conflict-detection.js';
 import type { ResourceRef, PromptRef, ResourceConflict as _ResourceConflict, PromptConflict as _PromptConflict } from '../../src/types/config.js';
+import type { Tool, Resource, Prompt } from '@modelcontextprotocol/sdk/types.js';
 import _ from 'lodash';
 
 describe('Conflict Detection', () => {
@@ -100,6 +104,17 @@ describe('Conflict Detection', () => {
                 const resources: ResourceRef[] = [
                     { uri: 'file:///{dir}/{file}', serverName: 'fs-server' },
                     { uri: 'file:///singlepath', serverName: 'config-server' },
+                ];
+
+                const conflicts = detectResourceConflicts(resources);
+
+                expect(conflicts).toHaveLength(0);
+            });
+
+            it('should not detect conflict when exact URI comes first and template does not match', () => {
+                const resources: ResourceRef[] = [
+                    { uri: 'https://api.github.com/users', serverName: 'github' },
+                    { uri: 'https://api.{domain}/repos', serverName: 'api-gateway' }, // Different path, no match
                 ];
 
                 const conflicts = detectResourceConflicts(resources);
@@ -462,6 +477,127 @@ describe('Conflict Detection', () => {
                 expect(conflicts[0].prompts[0].serverName).toBe('server-alpha');
                 expect(conflicts[0].prompts[1].serverName).toBe('server-beta');
             });
+        });
+    });
+
+    describe('deduplicateTools()', () => {
+        it('should keep first occurrence when tools have duplicate names', () => {
+            const tools: Tool[] = [
+                { name: 'search', description: 'Search tool from server1', inputSchema: { type: 'object' } },
+                { name: 'list', description: 'List tool', inputSchema: { type: 'object' } },
+                { name: 'search', description: 'Search tool from server2', inputSchema: { type: 'object' } },
+            ];
+
+            const result = deduplicateTools(tools);
+
+            expect(result).toHaveLength(2);
+            expect(result[0].name).toBe('search');
+            expect(result[0].description).toBe('Search tool from server1');
+            expect(result[1].name).toBe('list');
+        });
+
+        it('should return all tools when no duplicates exist', () => {
+            const tools: Tool[] = [
+                { name: 'search', description: 'Search tool', inputSchema: { type: 'object' } },
+                { name: 'list', description: 'List tool', inputSchema: { type: 'object' } },
+                { name: 'create', description: 'Create tool', inputSchema: { type: 'object' } },
+            ];
+
+            const result = deduplicateTools(tools);
+
+            expect(result).toHaveLength(3);
+            expect(result).toEqual(tools);
+        });
+
+        it('should handle empty array', () => {
+            const result = deduplicateTools([]);
+            expect(result).toEqual([]);
+        });
+
+        it('should preserve priority order (first wins)', () => {
+            const tools: Tool[] = [
+                { name: 'tool1', description: 'Priority 1', inputSchema: { type: 'object' } },
+                { name: 'tool2', description: 'Priority 2', inputSchema: { type: 'object' } },
+                { name: 'tool1', description: 'Priority 3', inputSchema: { type: 'object' } },
+                { name: 'tool2', description: 'Priority 4', inputSchema: { type: 'object' } },
+                { name: 'tool1', description: 'Priority 5', inputSchema: { type: 'object' } },
+            ];
+
+            const result = deduplicateTools(tools);
+
+            expect(result).toHaveLength(2);
+            expect(result[0].description).toBe('Priority 1');
+            expect(result[1].description).toBe('Priority 2');
+        });
+    });
+
+    describe('deduplicateResources()', () => {
+        it('should keep first occurrence when resources have duplicate URIs', () => {
+            const resources: Resource[] = [
+                { uri: 'file:///config', name: 'Config from server1', mimeType: 'text/plain' },
+                { uri: 'file:///data', name: 'Data', mimeType: 'text/plain' },
+                { uri: 'file:///config', name: 'Config from server2', mimeType: 'text/plain' },
+            ];
+
+            const result = deduplicateResources(resources);
+
+            expect(result).toHaveLength(2);
+            expect(result[0].uri).toBe('file:///config');
+            expect(result[0].name).toBe('Config from server1');
+            expect(result[1].uri).toBe('file:///data');
+        });
+
+        it('should return all resources when no duplicates exist', () => {
+            const resources: Resource[] = [
+                { uri: 'file:///config', name: 'Config', mimeType: 'text/plain' },
+                { uri: 'file:///data', name: 'Data', mimeType: 'text/plain' },
+                { uri: 'file:///log', name: 'Log', mimeType: 'text/plain' },
+            ];
+
+            const result = deduplicateResources(resources);
+
+            expect(result).toHaveLength(3);
+            expect(result).toEqual(resources);
+        });
+
+        it('should handle empty array', () => {
+            const result = deduplicateResources([]);
+            expect(result).toEqual([]);
+        });
+    });
+
+    describe('deduplicatePrompts()', () => {
+        it('should keep first occurrence when prompts have duplicate names', () => {
+            const prompts: Prompt[] = [
+                { name: 'summarize', description: 'Summarize from server1' },
+                { name: 'translate', description: 'Translate' },
+                { name: 'summarize', description: 'Summarize from server2' },
+            ];
+
+            const result = deduplicatePrompts(prompts);
+
+            expect(result).toHaveLength(2);
+            expect(result[0].name).toBe('summarize');
+            expect(result[0].description).toBe('Summarize from server1');
+            expect(result[1].name).toBe('translate');
+        });
+
+        it('should return all prompts when no duplicates exist', () => {
+            const prompts: Prompt[] = [
+                { name: 'summarize', description: 'Summarize' },
+                { name: 'translate', description: 'Translate' },
+                { name: 'analyze', description: 'Analyze' },
+            ];
+
+            const result = deduplicatePrompts(prompts);
+
+            expect(result).toHaveLength(3);
+            expect(result).toEqual(prompts);
+        });
+
+        it('should handle empty array', () => {
+            const result = deduplicatePrompts([]);
+            expect(result).toEqual([]);
         });
     });
 });

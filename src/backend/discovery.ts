@@ -428,5 +428,3 @@ export class DiscoveryService {
         };
     }
 }
-
-export default DiscoveryService;

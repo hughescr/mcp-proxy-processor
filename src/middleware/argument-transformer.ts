@@ -139,35 +139,6 @@ export class ArgumentTransformer {
     }
 
     /**
-     * Apply a single parameter mapping to get the backend parameter value
-     */
-    private applyParameterMapping(
-        clientArgs: Record<string, unknown>,
-        mapping: ParameterMapping
-    ): unknown {
-        switch(mapping.type) {
-            case 'passthrough':
-            case 'rename':
-                // Both passthrough and rename just read from client args
-                return clientArgs[mapping.source];
-
-            case 'constant':
-                // Always return the constant value
-                return mapping.value;
-
-            case 'default':
-                // Use client value if present, otherwise use default
-                return has(clientArgs, mapping.source)
-                    ? clientArgs[mapping.source]
-                    : mapping.default;
-
-            default:
-                // TypeScript should prevent this
-                throw new Error(`Unknown parameter mapping type: ${(mapping as { type: string }).type}`);
-        }
-    }
-
-    /**
      * Transform arguments using JSONata expression
      */
     private async transformJsonata(
