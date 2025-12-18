@@ -7,6 +7,11 @@ import React, { useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import _ from 'lodash';
 
+interface CursorPosition {
+    row: number
+    col: number
+}
+
 interface MultiLineTextEditorProps {
     /** Initial text value (can contain newlines) */
     value:            string
@@ -18,6 +23,42 @@ interface MultiLineTextEditorProps {
     onCancel:         () => void
     /** Show line numbers */
     showLineNumbers?: boolean
+}
+
+function moveUp(cursor: CursorPosition, lines: string[]): CursorPosition {
+    if(cursor.row > 0) {
+        const newRow = cursor.row - 1;
+        return { row: newRow, col: Math.min(cursor.col, lines[newRow].length) };
+    }
+    return cursor;
+}
+
+function moveDown(cursor: CursorPosition, lines: string[]): CursorPosition {
+    if(cursor.row < lines.length - 1) {
+        const newRow = cursor.row + 1;
+        return { row: newRow, col: Math.min(cursor.col, lines[newRow].length) };
+    }
+    return cursor;
+}
+
+function moveLeft(cursor: CursorPosition, lines: string[]): CursorPosition {
+    if(cursor.col > 0) {
+        return { ...cursor, col: cursor.col - 1 };
+    }
+    if(cursor.row > 0) {
+        return { row: cursor.row - 1, col: lines[cursor.row - 1].length };
+    }
+    return cursor;
+}
+
+function moveRight(cursor: CursorPosition, lines: string[]): CursorPosition {
+    if(cursor.col < lines[cursor.row].length) {
+        return { ...cursor, col: cursor.col + 1 };
+    }
+    if(cursor.row < lines.length - 1) {
+        return { row: cursor.row + 1, col: 0 };
+    }
+    return cursor;
 }
 
 /**
@@ -38,121 +79,101 @@ export function MultiLineTextEditor({
     showLineNumbers = false,
 }: MultiLineTextEditorProps) {
     const [lines, setLines] = useState<string[]>(value ? _.split(value, '\n') : ['']);
-    const [cursorRow, setCursorRow] = useState(0);
-    const [cursorCol, setCursorCol] = useState(value ? (_.split(value, '\n').pop()?.length ?? 0) : 0);
+    const [cursor, setCursor] = useState<CursorPosition>({ row: 0, col: value ? (_.split(value, '\n').pop()?.length ?? 0) : 0 });
     // IMPORTANT: Use functional setState for rapid input support
     // When multiple keypresses arrive quickly (enabled by Ink's splitRapidInput option),
     // each must operate on the previous update's result, not stale closure state.
     const handleNavigation = (_input: string, key: { upArrow?: boolean, downArrow?: boolean, leftArrow?: boolean, rightArrow?: boolean }) => {
         if(key.upArrow) {
-            setCursorRow((prevRow) => {
-                if(prevRow > 0) {
-                    const newRow = prevRow - 1;
-                    setCursorCol(prevCol => Math.min(prevCol, lines[newRow].length));
-                    return newRow;
-                }
-                return prevRow;
-            });
+            setCursor(prev => moveUp(prev, lines));
             return;
         }
-
         if(key.downArrow) {
-            setCursorRow((prevRow) => {
-                if(prevRow < lines.length - 1) {
-                    const newRow = prevRow + 1;
-                    setCursorCol(prevCol => Math.min(prevCol, lines[newRow].length));
-                    return newRow;
-                }
-                return prevRow;
-            });
+            setCursor(prev => moveDown(prev, lines));
             return;
         }
-
         if(key.leftArrow) {
-            setCursorCol((prevCol) => {
-                if(prevCol > 0) {
-                    return prevCol - 1;
-                }
-                // Move to end of previous line
-                setCursorRow((prevRow) => {
-                    if(prevRow > 0) {
-                        const newRow = prevRow - 1;
-                        setCursorCol(lines[newRow].length);
-                        return newRow;
-                    }
-                    return prevRow;
-                });
-                return prevCol;
-            });
+            setCursor(prev => moveLeft(prev, lines));
             return;
         }
-
         if(key.rightArrow) {
-            setCursorRow((prevRow) => {
-                setCursorCol((prevCol) => {
-                    if(prevCol < lines[prevRow].length) {
-                        return prevCol + 1;
-                    }
-                    // Move to start of next line
-                    if(prevRow < lines.length - 1) {
-                        setCursorRow(prevRow + 1);
-                        return 0;
-                    }
-                    return prevCol;
-                });
-                return prevRow;
-            });
+            setCursor(prev => moveRight(prev, lines));
+            return;
         }
     };
 
     const handleEditing = (input: string, key: { 'return'?: boolean, backspace?: boolean, 'delete'?: boolean, ctrl?: boolean, meta?: boolean }) => {
         if(key.return) {
-            const currentLine = lines[cursorRow];
-            const before = _.slice(currentLine, 0, cursorCol).join('');
-            const after = _.slice(currentLine, cursorCol).join('');
+            // Use functional setState to avoid race conditions with rapid input
+            setCursor((prevCursor) => {
+                setLines((prevLines) => {
+                    const currentLine = prevLines[prevCursor.row];
+                    const before = _.slice(currentLine, 0, prevCursor.col).join('');
+                    const after = _.slice(currentLine, prevCursor.col).join('');
 
-            const newLines = [...lines];
-            newLines[cursorRow] = before;
-            newLines.splice(cursorRow + 1, 0, after);
+                    const newLines = [...prevLines];
+                    newLines[prevCursor.row] = before;
+                    newLines.splice(prevCursor.row + 1, 0, after);
 
-            setLines(newLines);
-            setCursorRow(cursorRow + 1);
-            setCursorCol(0);
+                    return newLines;
+                });
+
+                return { row: prevCursor.row + 1, col: 0 };
+            });
             return;
         }
 
         if(key.backspace || key.delete) {
-            if(cursorCol > 0) {
-                const currentLine = lines[cursorRow];
-                const before = _.slice(currentLine, 0, cursorCol - 1).join('');
-                const after = _.slice(currentLine, cursorCol).join('');
-                const newLine = before + after;
-                const newLines = [...lines];
-                newLines[cursorRow] = newLine;
-                setLines(newLines);
-                setCursorCol(cursorCol - 1);
-            } else if(cursorRow > 0) {
-                const prevLine = lines[cursorRow - 1];
-                const currentLine = lines[cursorRow];
-                const newLines = [...lines];
-                newLines[cursorRow - 1] = prevLine + currentLine;
-                newLines.splice(cursorRow, 1);
-                setLines(newLines);
-                setCursorRow(cursorRow - 1);
-                setCursorCol(prevLine.length);
-            }
+            setCursor((prevCursor) => {
+                // For line joining, capture the previous line length BEFORE the merge
+                let prevLineLength = 0;
+
+                setLines((prevLines) => {
+                    if(prevCursor.col > 0) {
+                        const currentLine = prevLines[prevCursor.row];
+                        const before = _.slice(currentLine, 0, prevCursor.col - 1).join('');
+                        const after = _.slice(currentLine, prevCursor.col).join('');
+                        const newLine = before + after;
+                        const newLines = [...prevLines];
+                        newLines[prevCursor.row] = newLine;
+                        return newLines;
+                    } else if(prevCursor.row > 0) {
+                        const prevLine = prevLines[prevCursor.row - 1];
+                        prevLineLength = prevLine.length; // Capture BEFORE merge
+                        const currentLine = prevLines[prevCursor.row];
+                        const newLines = [...prevLines];
+                        newLines[prevCursor.row - 1] = prevLine + currentLine;
+                        newLines.splice(prevCursor.row, 1);
+                        return newLines;
+                    }
+                    return prevLines;
+                });
+
+                if(prevCursor.col > 0) {
+                    return { row: prevCursor.row, col: prevCursor.col - 1 };
+                } else if(prevCursor.row > 0) {
+                    return { row: prevCursor.row - 1, col: prevLineLength };
+                }
+                return prevCursor;
+            });
             return;
         }
 
         if(input && !key.ctrl && !key.meta) {
-            const currentLine = lines[cursorRow];
-            const before = _.slice(currentLine, 0, cursorCol).join('');
-            const after = _.slice(currentLine, cursorCol).join('');
-            const newLine = before + input + after;
-            const newLines = [...lines];
-            newLines[cursorRow] = newLine;
-            setLines(newLines);
-            setCursorCol(cursorCol + input.length);
+            setCursor((prevCursor) => {
+                setLines((prevLines) => {
+                    const currentLine = prevLines[prevCursor.row];
+                    const before = _.slice(currentLine, 0, prevCursor.col).join('');
+                    const after = _.slice(currentLine, prevCursor.col).join('');
+                    const newLine = before + input + after;
+                    const newLines = [...prevLines];
+                    newLines[prevCursor.row] = newLine;
+
+                    return newLines;
+                });
+
+                return { row: prevCursor.row, col: prevCursor.col + input.length };
+            });
         }
     };
 
@@ -184,18 +205,18 @@ export function MultiLineTextEditor({
 : (
                 _.map(lines, (line, index) => {
                     const lineNumber = showLineNumbers ? `${_.padStart(String(index + 1), 3, ' ')} │ ` : '';
-                    const isCursorLine = index === cursorRow;
+                    const isCursorLine = index === cursor.row;
 
                     if(isCursorLine) {
-                        const before = _.slice(line, 0, cursorCol).join('');
-                        const cursor = line[cursorCol] ?? ' ';
-                        const after = _.slice(line, cursorCol + 1).join('');
+                        const before = _.slice(line, 0, cursor.col).join('');
+                        const cursorChar = line[cursor.col] ?? ' ';
+                        const after = _.slice(line, cursor.col + 1).join('');
 
                         return (
                             <Text key={index}>
                                 {showLineNumbers && <Text dimColor>{lineNumber}</Text>}
                                 {before}
-                                <Text backgroundColor="white" color="black">{cursor}</Text>
+                                <Text backgroundColor="white" color="black">{cursorChar}</Text>
                                 {after}
                             </Text>
                         );

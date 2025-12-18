@@ -181,6 +181,27 @@ export async function startServer(groupNames: string | string[]): Promise<void> 
                 logger.debug({ backendArgs }, 'Arguments transformed');
             }
 
+            // Validate transformed arguments against backend schema
+            const backendToolKey = `${toolOverride.serverName}:${toolOverride.originalName}`;
+            const backendTool = backendTools.get(backendToolKey);
+            const schema = backendTool && 'inputSchema' in backendTool ? backendTool.inputSchema : undefined;
+            if(!schema) {
+                logger.debug({ toolName, serverName: toolOverride.serverName }, 'Backend tool has no inputSchema, skipping validation');
+            } else {
+                // Use JSON Schema validation
+                const Ajv = (await import('ajv')).default;
+                const ajv = new Ajv({ allErrors: true });
+                const validate = ajv.compile(schema as object);
+                if(!validate(backendArgs)) {
+                    const errors = _.map(validate.errors ?? [], (e: { instancePath?: string, message?: string }) => `${e.instancePath ?? ''} ${e.message ?? ''}`).join(', ') || 'Unknown validation error';
+                    logger.error({ toolName, serverName: toolOverride.serverName, backendArgs, errors }, 'Backend argument validation failed');
+                    return {
+                        content: [{ type: 'text', text: `Argument validation failed for tool '${toolName}' on server '${toolOverride.serverName}': ${errors}` }],
+                        isError: true,
+                    };
+                }
+            }
+
             // Proxy to the backend server using the original tool name
             const result = await proxyService.callTool(
                 toolOverride.serverName,
