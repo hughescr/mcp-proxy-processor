@@ -3,7 +3,7 @@
  */
 
 import { writeFile } from 'node:fs/promises';
-import { keys, isError } from 'lodash';
+import _ from 'lodash';
 import { dynamicLogger as logger } from '../utils/silent-logger.js';
 import { GroupsConfigSchema, BackendServersConfigSchema, type GroupsConfig, type BackendServersConfig } from '../types/config.js';
 import { getGroupsConfigPath, getBackendServersConfigPath } from '../utils/config-paths.js';
@@ -25,7 +25,7 @@ export async function loadGroupsConfig(): Promise<GroupsConfig> {
             fallbackOnMissing: true,
             defaultValue:      { groups: {} },
         });
-        logger.debug({ groupCount: keys(config.groups).length }, 'Loaded groups configuration');
+        logger.debug({ groupCount: _.keys(config.groups).length }, 'Loaded groups configuration');
         return config;
     } catch (error) {
         logger.error({ error }, 'Failed to load groups configuration');
@@ -40,13 +40,19 @@ export async function loadGroupsConfig(): Promise<GroupsConfig> {
 export async function saveGroupsConfig(config: GroupsConfig): Promise<void> {
     try {
         // Validate before saving
-        const validated = GroupsConfigSchema.parse(config);
-        const content = JSON.stringify(validated, null, 2);
+        const result = GroupsConfigSchema.safeParse(config);
+        if(!result.success) {
+            const errorMessages = _(result.error.issues)
+                .map(issue => `${_.join(issue.path, '.')}: ${issue.message}`)
+                .join(', ');
+            throw new Error(`Invalid groups configuration: ${errorMessages}`);
+        }
+        const content = JSON.stringify(result.data, null, 2);
         await writeFile(GROUPS_CONFIG_PATH, content + '\n', 'utf-8');
-        logger.info({ groupCount: keys(validated.groups).length }, 'Saved groups configuration');
+        logger.info({ groupCount: _.keys(result.data.groups).length }, 'Saved groups configuration');
     } catch (error) {
         logger.error({ error }, 'Failed to save groups configuration');
-        throw new Error(`Failed to save groups configuration: ${isError(error) ? error.message : String(error)}`);
+        throw new Error(`Failed to save groups configuration: ${_.isError(error) ? error.message : String(error)}`);
     }
 }
 
@@ -61,11 +67,11 @@ export async function loadBackendServersConfig(): Promise<BackendServersConfig> 
             path:   BACKEND_SERVERS_CONFIG_PATH,
             schema: BackendServersConfigSchema,
         });
-        logger.debug({ serverCount: keys(config.mcpServers).length }, 'Loaded backend servers configuration');
+        logger.debug({ serverCount: _.keys(config.mcpServers).length }, 'Loaded backend servers configuration');
         return config;
     } catch (error) {
         logger.error({ error }, 'Failed to load backend servers configuration');
-        throw new Error(`Failed to load backend servers configuration: ${isError(error) ? error.message : String(error)}`);
+        throw new Error(`Failed to load backend servers configuration: ${_.isError(error) ? error.message : String(error)}`);
     }
 }
 
@@ -75,12 +81,18 @@ export async function loadBackendServersConfig(): Promise<BackendServersConfig> 
 export async function saveBackendServersConfig(config: BackendServersConfig): Promise<void> {
     try {
         // Validate before saving
-        const validated = BackendServersConfigSchema.parse(config);
-        const content = JSON.stringify(validated, null, 2);
+        const result = BackendServersConfigSchema.safeParse(config);
+        if(!result.success) {
+            const errorMessages = _(result.error.issues)
+                .map(issue => `${_.join(issue.path, '.')}: ${issue.message}`)
+                .join(', ');
+            throw new Error(`Invalid backend servers configuration: ${errorMessages}`);
+        }
+        const content = JSON.stringify(result.data, null, 2);
         await writeFile(BACKEND_SERVERS_CONFIG_PATH, content + '\n', 'utf-8');
-        logger.info({ serverCount: keys(validated.mcpServers).length }, 'Saved backend servers configuration');
+        logger.info({ serverCount: _.keys(result.data.mcpServers).length }, 'Saved backend servers configuration');
     } catch (error) {
         logger.error({ error }, 'Failed to save backend servers configuration');
-        throw new Error(`Failed to save backend servers configuration: ${isError(error) ? error.message : String(error)}`);
+        throw new Error(`Failed to save backend servers configuration: ${_.isError(error) ? error.message : String(error)}`);
     }
 }

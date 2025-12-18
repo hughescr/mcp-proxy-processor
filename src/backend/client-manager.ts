@@ -50,22 +50,62 @@ export class ClientManager {
     private serverConfigs: Map<string, BackendServerConfig>;
 
     // Reconnection backoff configuration
-    private readonly RECONNECT_INITIAL_DELAY_MS = 1000;   // 1 second
-    private readonly RECONNECT_MAX_DELAY_MS = 30000;      // 30 seconds (cap)
-    private readonly RECONNECT_MAX_ATTEMPTS = 5;
+    private static readonly RECONNECT_INITIAL_DELAY_MS = 1000;   // 1 second
+    private static readonly RECONNECT_MAX_DELAY_MS = 30000;      // 30 seconds (cap)
+    private static readonly RECONNECT_MAX_ATTEMPTS = 5;
+    private static readonly CONNECTION_ATTEMPT_BUFFER_MS = 5000; // Buffer per connection attempt
+
+    /**
+     * Calculate the request timeout based on reconnection parameters.
+     * This static helper computes the timeout from the reconnection constants.
+     */
+    private static calculateRequestTimeout(
+        initialDelayMs: number,
+        maxDelayMs: number,
+        maxAttempts: number,
+        bufferPerAttemptMs: number
+    ): number {
+        // Calculate sum of all backoff delays with exponential backoff
+        let totalBackoffMs = 0;
+        for(let attempt = 1; attempt <= maxAttempts; attempt++) {
+            const delayMs = Math.min(
+                initialDelayMs * Math.pow(2, attempt - 1),
+                maxDelayMs
+            );
+            totalBackoffMs += delayMs;
+        }
+        // Add buffer for actual connection attempts
+        const connectionBufferMs = bufferPerAttemptMs * maxAttempts;
+        return totalBackoffMs + connectionBufferMs;
+    }
 
     /**
      * Request queue timeout must exceed total reconnection time to allow all retry attempts.
      *
-     * Calculation:
-     * - Backoff delays: 1s + 2s + 4s + 8s + 16s = 31 seconds
-     * - Connection operation buffer: +5 seconds (for actual connection attempts)
-     * - Total: 36 seconds
+     * Calculated dynamically from reconnection constants:
+     * - Sum all exponential backoff delays (capped at RECONNECT_MAX_DELAY_MS)
+     * - Add buffer for actual connection operations (CONNECTION_ATTEMPT_BUFFER_MS per attempt)
      *
-     * This ensures queued requests can benefit from all 5 reconnection attempts
+     * Example with current values (INITIAL=1s, MAX=30s, ATTEMPTS=5, BUFFER=5s):
+     * - Backoff delays: 1s + 2s + 4s + 8s + 16s = 31 seconds
+     * - Connection buffer: 5s * 5 = 25 seconds
+     * - Total: 56 seconds
+     *
+     * This ensures queued requests can benefit from all reconnection attempts
      * instead of timing out before the final attempt completes.
      */
-    private readonly REQUEST_QUEUE_TIMEOUT_MS = 36000;    // 36 seconds
+    private static readonly REQUEST_QUEUE_TIMEOUT_MS = ClientManager.calculateRequestTimeout(
+        ClientManager.RECONNECT_INITIAL_DELAY_MS,
+        ClientManager.RECONNECT_MAX_DELAY_MS,
+        ClientManager.RECONNECT_MAX_ATTEMPTS,
+        ClientManager.CONNECTION_ATTEMPT_BUFFER_MS
+    );
+
+    // Instance accessors for the static constants
+    private readonly RECONNECT_INITIAL_DELAY_MS = ClientManager.RECONNECT_INITIAL_DELAY_MS;
+    private readonly RECONNECT_MAX_DELAY_MS = ClientManager.RECONNECT_MAX_DELAY_MS;
+    private readonly RECONNECT_MAX_ATTEMPTS = ClientManager.RECONNECT_MAX_ATTEMPTS;
+    private readonly REQUEST_QUEUE_TIMEOUT_MS = ClientManager.REQUEST_QUEUE_TIMEOUT_MS;
 
     constructor(serverConfigs: Map<string, BackendServerConfig>) {
         this.serverConfigs = serverConfigs;
