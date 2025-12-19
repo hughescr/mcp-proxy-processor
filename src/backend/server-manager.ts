@@ -19,12 +19,13 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 interface ServerState {
-    process:      ChildProcess
-    name:         string
-    config:       BackendServerConfig
-    restartCount: number
-    lastRestart:  number
-    shuttingDown: boolean
+    process:             ChildProcess
+    name:                string
+    config:              BackendServerConfig
+    restartCount:        number
+    lastRestart:         number
+    shuttingDown:        boolean
+    restartTimerHandle?: NodeJS.Timeout
 }
 
 /**
@@ -218,7 +219,7 @@ export class ServerManager {
         const backoffMs = Math.pow(2, newRestartCount - 1) * 1000;
         logger.info({ serverName, restartCount: newRestartCount, backoffMs }, 'Scheduling server restart');
 
-        setTimeout(() => {
+        state.restartTimerHandle = setTimeout(() => {
             void (async () => {
                 try {
                     // Update restart count in the state object
@@ -231,6 +232,7 @@ export class ServerManager {
                 }
             })();
         }, backoffMs);
+        this.servers.set(serverName, state);
     }
 
     /**
@@ -265,6 +267,10 @@ export class ServerManager {
 
         const stopPromises = _.map(Array.from(this.servers.values()), async (state) => {
             return new Promise<void>((resolve) => {
+                if(state.restartTimerHandle) {
+                    clearTimeout(state.restartTimerHandle);
+                    state.restartTimerHandle = undefined;
+                }
                 state.shuttingDown = true;
 
                 // Give the process 5 seconds to exit gracefully
@@ -307,6 +313,11 @@ export class ServerManager {
         const state = this.servers.get(serverName);
         if(!state) {
             throw new Error(`Server not found: ${serverName}`);
+        }
+
+        if(state.restartTimerHandle) {
+            clearTimeout(state.restartTimerHandle);
+            state.restartTimerHandle = undefined;
         }
 
         // Mark as intentional shutdown

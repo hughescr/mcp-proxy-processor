@@ -10,7 +10,7 @@
 
 import { readFile } from 'node:fs/promises';
 import { dynamicLogger as logger } from '../utils/silent-logger.js';
-import { uniq, keys, isError, map, find } from 'lodash';
+import _ from 'lodash';
 import { deduplicatePrompts, deduplicateResources, deduplicateTools } from '../utils/conflict-detection.js';
 import type { Tool, Resource, Prompt } from '@modelcontextprotocol/sdk/types.js';
 import { GroupsConfigSchema, type GroupConfig, type GroupsConfig, type ToolOverride } from '../types/config.js';
@@ -40,11 +40,18 @@ export class GroupManager {
         try {
             const content = await readFile(this.configPath, 'utf-8');
             const rawConfig: unknown = JSON.parse(content);
-            this.groupsConfig = GroupsConfigSchema.parse(rawConfig);
-            logger.info({ groupCount: keys(this.groupsConfig.groups).length, path: this.configPath }, 'Loaded groups configuration');
+            const result = GroupsConfigSchema.safeParse(rawConfig);
+            if(!result.success) {
+                const errorMessages = _(result.error.issues)
+                    .map(issue => `${_.join(issue.path, '.')}: ${issue.message}`)
+                    .join(', ');
+                throw new Error(`Invalid configuration: ${errorMessages}`);
+            }
+            this.groupsConfig = result.data;
+            logger.info({ groupCount: _.keys(this.groupsConfig.groups).length, path: this.configPath }, 'Loaded groups configuration');
         } catch (error) {
             logger.error({ error, path: this.configPath }, 'Failed to load groups configuration');
-            throw new Error(`Failed to load groups configuration from ${this.configPath}: ${isError(error) ? error.message : String(error)}`);
+            throw new Error(`Failed to load groups configuration from ${this.configPath}: ${_.isError(error) ? error.message : String(error)}`);
         }
     }
 
@@ -69,12 +76,12 @@ export class GroupManager {
             return [];
         }
 
-        const toolServers = map(group.tools ?? [], 'serverName');
-        const resourceServers = map(group.resources ?? [], 'serverName');
-        const promptServers = map(group.prompts ?? [], 'serverName');
+        const toolServers = _.map(group.tools ?? [], 'serverName');
+        const resourceServers = _.map(group.resources ?? [], 'serverName');
+        const promptServers = _.map(group.prompts ?? [], 'serverName');
         const allServers = [...toolServers, ...resourceServers, ...promptServers];
 
-        return uniq(allServers);
+        return _.uniq(allServers);
     }
 
     /**
@@ -106,7 +113,7 @@ export class GroupManager {
             const servers = this.getRequiredServers(groupName);
             allServers.push(...servers);
         }
-        return uniq(allServers);
+        return _.uniq(allServers);
     }
 
     /**
@@ -131,7 +138,7 @@ export class GroupManager {
                 continue;
             }
 
-            const backendTool = find(serverTools, { name: toolOverride.originalName });
+            const backendTool = _.find(serverTools, { name: toolOverride.originalName });
             if(!backendTool) {
                 logger.warn({ toolName: toolOverride.originalName, serverName: toolOverride.serverName, groupName }, 'Backend tool not found');
                 continue;
@@ -170,7 +177,7 @@ export class GroupManager {
                 continue;
             }
 
-            const backendResource = find(serverResources, { uri: resourceRef.uri });
+            const backendResource = _.find(serverResources, { uri: resourceRef.uri });
             if(!backendResource) {
                 logger.warn({ resourceUri: resourceRef.uri, serverName: resourceRef.serverName, groupName }, 'Backend resource not found');
                 continue;
@@ -211,7 +218,7 @@ export class GroupManager {
                 continue;
             }
 
-            const backendPrompt = find(serverPrompts, { name: promptRef.name });
+            const backendPrompt = _.find(serverPrompts, { name: promptRef.name });
             if(!backendPrompt) {
                 logger.warn({ promptName: promptRef.name, serverName: promptRef.serverName, groupName }, 'Backend prompt not found');
                 continue;
@@ -330,6 +337,6 @@ export class GroupManager {
      * @returns Array of all group names
      */
     getAllGroupNames(): string[] {
-        return keys(this.groupsConfig.groups);
+        return _.keys(this.groupsConfig.groups);
     }
 }

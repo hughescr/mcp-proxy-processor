@@ -17,21 +17,21 @@ const paths = envPaths('@hughescr/mcp-proxy-processor', { suffix: '' });
  * This is where backend-servers.json and groups.json are stored
  */
 export function getConfigDir(): string {
-    return paths.config;
+    return paths.data;
 }
 
 /**
  * Get the full path to the groups config file
  */
 export function getGroupsConfigPath(): string {
-    return join(paths.config, 'groups.json');
+    return join(paths.data, 'groups.json');
 }
 
 /**
  * Get the full path to the backend servers config file
  */
 export function getBackendServersConfigPath(): string {
-    return join(paths.config, 'backend-servers.json');
+    return join(paths.data, 'backend-servers.json');
 }
 
 /**
@@ -39,8 +39,8 @@ export function getBackendServersConfigPath(): string {
  * Creates it if it doesn't exist
  */
 export async function ensureConfigDir(): Promise<string> {
-    await makeDirectory(paths.config);
-    return paths.config;
+    await makeDirectory(paths.data);
+    return paths.data;
 }
 
 /**

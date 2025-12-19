@@ -181,6 +181,27 @@ export async function startServer(groupNames: string | string[]): Promise<void> 
                 logger.debug({ backendArgs }, 'Arguments transformed');
             }
 
+            // Validate transformed arguments against backend schema
+            const backendToolKey = `${toolOverride.serverName}:${toolOverride.originalName}`;
+            const backendTool = backendTools.get(backendToolKey);
+            const schema = backendTool && 'inputSchema' in backendTool ? backendTool.inputSchema : undefined;
+            if(!schema) {
+                logger.debug({ toolName, serverName: toolOverride.serverName }, 'Backend tool has no inputSchema, skipping validation');
+            } else {
+                // Use JSON Schema validation
+                const Ajv = (await import('ajv')).default;
+                const ajv = new Ajv({ allErrors: true });
+                const validate = ajv.compile(schema as object);
+                if(!validate(backendArgs)) {
+                    const errors = _.map(validate.errors ?? [], (e: { instancePath?: string, message?: string }) => `${e.instancePath ?? ''} ${e.message ?? ''}`).join(', ') || 'Unknown validation error';
+                    logger.error({ toolName, serverName: toolOverride.serverName, backendArgs, errors }, 'Backend argument validation failed');
+                    return {
+                        content: [{ type: 'text', text: `Argument validation failed for tool '${toolName}' on server '${toolOverride.serverName}': ${errors}` }],
+                        isError: true,
+                    };
+                }
+            }
+
             // Proxy to the backend server using the original tool name
             const result = await proxyService.callTool(
                 toolOverride.serverName,
@@ -324,6 +345,18 @@ export async function startServer(groupNames: string | string[]): Promise<void> 
         // Keep the process running
         // The server will handle requests via stdio transport
     } catch (error) {
+        // Check for missing config files and provide helpful message
+        if(_.isError(error) && 'code' in error && (error as NodeJS.ErrnoException).code === 'ENOENT') {
+            const { getConfigDir } = await import('../utils/config-paths.js');
+            // eslint-disable-next-line no-console -- User-facing error message to stderr
+            console.error('\nError: Configuration files not found.');
+            // eslint-disable-next-line no-console -- User-facing error message to stderr
+            console.error(`Expected location: ${getConfigDir()}`);
+            // eslint-disable-next-line no-console -- User-facing error message to stderr
+            console.error(`\nRun 'mcp-proxy admin' to create configuration.\n`);
+            // eslint-disable-next-line n/no-process-exit -- Fatal error, must exit
+            process.exit(1);
+        }
         logger.error({ error, groupNames }, 'Failed to start MCP proxy server');
         throw error;
     }

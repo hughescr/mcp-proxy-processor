@@ -23,6 +23,146 @@ import { isUriTemplate, matchesTemplate, templatesCanOverlap, generateExampleUri
 // ============================================================================
 
 /**
+ * Categorize resources into exact URIs and templates
+ * @internal
+ */
+function categorizeResources(resources: ResourceRef[]): {
+    exactUris: { resource: ResourceRef, index: number }[]
+    templates: { resource: ResourceRef, index: number }[]
+} {
+    const exactUris: { resource: ResourceRef, index: number }[] = [];
+    const templates: { resource: ResourceRef, index: number }[] = [];
+
+    for(let i = 0; i < resources.length; i++) {
+        const resource = resources[i];
+        if(!resource) {
+            continue;
+        }
+
+        if(isUriTemplate(resource.uri)) {
+            templates.push({ resource, index: i });
+        } else {
+            exactUris.push({ resource, index: i });
+        }
+    }
+
+    return { exactUris, templates };
+}
+
+/**
+ * Find exact duplicate conflicts using Map-based O(n) lookup
+ * @internal
+ */
+function findExactDuplicateConflicts(
+    exactUris: { resource: ResourceRef, index: number }[]
+): ResourceConflict[] {
+    const conflicts: ResourceConflict[] = [];
+    const exactUriMap = new Map<string, { resource: ResourceRef, index: number }[]>();
+
+    // Build map of exact URIs
+    for(const item of exactUris) {
+        const existing = exactUriMap.get(item.resource.uri);
+        if(existing) {
+            existing.push(item);
+        } else {
+            exactUriMap.set(item.resource.uri, [item]);
+        }
+    }
+
+    // Find conflicts in groups with 2+ items
+    for(const [uri, items] of exactUriMap) {
+        if(items.length > 1) {
+            for(let i = 0; i < items.length; i++) {
+                for(let j = i + 1; j < items.length; j++) {
+                    const item1 = items[i];
+                    const item2 = items[j];
+                    if(!item1 || !item2) {
+                        continue;
+                    }
+
+                    conflicts.push({
+                        type:       'exact-duplicate',
+                        resources:  [item1.resource, item2.resource],
+                        exampleUri: uri,
+                        priority:   [item1.index, item2.index],
+                    });
+                }
+            }
+        }
+    }
+
+    return conflicts;
+}
+
+/**
+ * Find template-exact conflicts
+ * @internal
+ */
+function findTemplateExactConflicts(
+    templates: { resource: ResourceRef, index: number }[],
+    exactUris: { resource: ResourceRef, index: number }[]
+): ResourceConflict[] {
+    const conflicts: ResourceConflict[] = [];
+
+    for(const templateItem of templates) {
+        for(const exactItem of exactUris) {
+            const match = matchesTemplate(exactItem.resource.uri, templateItem.resource.uri);
+            if(match.matches) {
+                // Determine conflict type based on ordering in original array
+                // If template comes first, it's "template-covers-exact"
+                // If exact comes first, it's "exact-covered-by-template"
+                const templateFirst = templateItem.index < exactItem.index;
+
+                conflicts.push({
+                    type:      templateFirst ? 'template-covers-exact' : 'exact-covered-by-template',
+                    resources: templateFirst
+                        ? [templateItem.resource, exactItem.resource]
+                        : [exactItem.resource, templateItem.resource],
+                    exampleUri: exactItem.resource.uri,
+                    priority:   templateFirst
+                        ? [templateItem.index, exactItem.index]
+                        : [exactItem.index, templateItem.index],
+                });
+            }
+        }
+    }
+
+    return conflicts;
+}
+
+/**
+ * Find template-template overlap conflicts
+ * @internal
+ */
+function findTemplateOverlapConflicts(
+    templates: { resource: ResourceRef, index: number }[]
+): ResourceConflict[] {
+    const conflicts: ResourceConflict[] = [];
+
+    for(let i = 0; i < templates.length; i++) {
+        for(let j = i + 1; j < templates.length; j++) {
+            const template1 = templates[i];
+            const template2 = templates[j];
+            if(!template1 || !template2) {
+                continue;
+            }
+
+            if(templatesCanOverlap(template1.resource.uri, template2.resource.uri)) {
+                const exampleUri = generateExampleUri(template1.resource.uri);
+                conflicts.push({
+                    type:      'template-overlap',
+                    resources: [template1.resource, template2.resource],
+                    exampleUri,
+                    priority:  [template1.index, template2.index],
+                });
+            }
+        }
+    }
+
+    return conflicts;
+}
+
+/**
  * Detect conflicts in resource references
  *
  * Resources can conflict in several ways:
@@ -34,102 +174,16 @@ import { isUriTemplate, matchesTemplate, templatesCanOverlap, generateExampleUri
  * @returns Array of conflicts found (empty if no conflicts)
  */
 export function detectResourceConflicts(resources: ResourceRef[]): ResourceConflict[] {
-    const conflicts: ResourceConflict[] = [];
+    // Categorize resources O(n)
+    const { exactUris, templates } = categorizeResources(resources);
 
-    // Compare each pair of resources
-    for(let i = 0; i < resources.length; i++) {
-        for(let j = i + 1; j < resources.length; j++) {
-            const resource1 = resources[i];
-            const resource2 = resources[j];
+    // Find all types of conflicts using optimized algorithms
+    const exactDuplicates = findExactDuplicateConflicts(exactUris);
+    const templateExact = findTemplateExactConflicts(templates, exactUris);
+    const templateOverlaps = findTemplateOverlapConflicts(templates);
 
-            if(!resource1 || !resource2) {
-                continue;
-            }
-
-            const conflict = detectResourcePairConflict(resource1, resource2, i, j);
-            if(conflict) {
-                conflicts.push(conflict);
-            }
-        }
-    }
-
-    return conflicts;
-}
-
-/**
- * Detect conflict between a pair of resources
- * @internal
- */
-function detectResourcePairConflict(
-    resource1: ResourceRef,
-    resource2: ResourceRef,
-    index1: number,
-    index2: number
-): ResourceConflict | null {
-    const uri1 = resource1.uri;
-    const uri2 = resource2.uri;
-
-    const isTemplate1 = isUriTemplate(uri1);
-    const isTemplate2 = isUriTemplate(uri2);
-
-    // Case 1: Both are exact URIs - check for duplicates
-    if(!isTemplate1 && !isTemplate2) {
-        if(uri1 === uri2) {
-            return {
-                type:       'exact-duplicate',
-                resources:  [resource1, resource2],
-                exampleUri: uri1,
-                priority:   [index1, index2],
-            };
-        }
-        return null;
-    }
-
-    // Case 2: One is template, one is exact - check if template covers exact
-    if(isTemplate1 && !isTemplate2) {
-        const match = matchesTemplate(uri2, uri1);
-        if(match.matches) {
-            return {
-                type:       'template-covers-exact',
-                resources:  [resource1, resource2],
-                exampleUri: uri2,
-                priority:   [index1, index2],
-            };
-        }
-        return null;
-    }
-
-    if(!isTemplate1 && isTemplate2) {
-        const match = matchesTemplate(uri1, uri2);
-        if(match.matches) {
-            return {
-                type:       'exact-covered-by-template',
-                resources:  [resource1, resource2],
-                exampleUri: uri1,
-                priority:   [index1, index2],
-            };
-        }
-        return null;
-    }
-
-    // Case 3: Both are templates - check for overlap
-    if(isTemplate1 && isTemplate2) {
-        if(templatesCanOverlap(uri1, uri2)) {
-            // Generate an example URI that both templates could match
-            const exampleUri = generateExampleUri(uri1);
-            return {
-                type:      'template-overlap',
-                resources: [resource1, resource2],
-                exampleUri,
-                priority:  [index1, index2],
-            };
-        }
-        return null;
-    }
-
-    // Coverage: Final return when no conflicts detected (templates don't overlap)
-    // All conflict cases handled above; this is the "no conflict" path
-    return null;
+    // Combine all conflicts
+    return [...exactDuplicates, ...templateExact, ...templateOverlaps];
 }
 
 // ============================================================================
@@ -148,36 +202,43 @@ function detectResourcePairConflict(
 export function detectPromptConflicts(prompts: PromptRef[]): PromptConflict[] {
     const conflicts: PromptConflict[] = [];
 
-    // Group prompts by name to find duplicates
-    const promptsByName = _.groupBy(prompts, 'name');
+    // Build map of prompt names to their entries with indices O(n)
+    const promptsByName = new Map<string, { prompt: PromptRef, index: number }[]>();
 
-    // Check each group for conflicts
-    _.forEach(promptsByName, (group, _name) => {
-        if(group.length > 1) {
-            // Multiple prompts with same name - create conflicts for each pair
-            for(let i = 0; i < group.length; i++) {
-                for(let j = i + 1; j < group.length; j++) {
-                    const prompt1 = group[i];
-                    const prompt2 = group[j];
+    for(let i = 0; i < prompts.length; i++) {
+        const prompt = prompts[i];
+        if(!prompt) {
+            continue;
+        }
 
-                    if(!prompt1 || !prompt2) {
+        const existing = promptsByName.get(prompt.name);
+        if(existing) {
+            existing.push({ prompt, index: i });
+        } else {
+            promptsByName.set(prompt.name, [{ prompt, index: i }]);
+        }
+    }
+
+    // Find conflicts in groups with 2+ prompts O(n)
+    for(const items of promptsByName.values()) {
+        if(items.length > 1) {
+            // Create conflicts for each pair
+            for(let i = 0; i < items.length; i++) {
+                for(let j = i + 1; j < items.length; j++) {
+                    const item1 = items[i];
+                    const item2 = items[j];
+                    if(!item1 || !item2) {
                         continue;
                     }
 
-                    // Find original indices in the array
-                    const index1 = _.findIndex(prompts, p => p === prompt1);
-                    const index2 = _.findIndex(prompts, p => p === prompt2);
-
-                    if(index1 !== -1 && index2 !== -1) {
-                        conflicts.push({
-                            prompts:  [prompt1, prompt2],
-                            priority: [index1, index2],
-                        });
-                    }
+                    conflicts.push({
+                        prompts:  [item1.prompt, item2.prompt],
+                        priority: [item1.index, item2.index],
+                    });
                 }
             }
         }
-    });
+    }
 
     return conflicts;
 }

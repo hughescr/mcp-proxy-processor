@@ -7,15 +7,20 @@ import { readFile, writeFile, access, constants } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { dynamicLogger as logger } from './silent-logger.js';
-import { getConfigDir, getGroupsConfigPath, getBackendServersConfigPath, ensureConfigDir } from './config-paths.js';
+import { getConfigDir, getGroupsConfigPath, getBackendServersConfigPath, ensureConfigDir, getAllPaths } from './config-paths.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 // Old config paths (project-relative)
-const OLD_CONFIG_DIR = join(__dirname, '..', '..', 'config');
-const OLD_GROUPS_CONFIG_PATH = join(OLD_CONFIG_DIR, 'groups.json');
-const OLD_BACKEND_SERVERS_CONFIG_PATH = join(OLD_CONFIG_DIR, 'backend-servers.json');
+const PROJECT_CONFIG_DIR = join(__dirname, '..', '..', 'config');
+const PROJECT_GROUPS_CONFIG_PATH = join(PROJECT_CONFIG_DIR, 'groups.json');
+const PROJECT_BACKEND_SERVERS_CONFIG_PATH = join(PROJECT_CONFIG_DIR, 'backend-servers.json');
+
+// Old config paths (Preferences directory - before migration to Application Support)
+const paths = getAllPaths();
+const PREFERENCES_GROUPS_CONFIG_PATH = join(paths.config, 'groups.json');
+const PREFERENCES_BACKEND_SERVERS_CONFIG_PATH = join(paths.config, 'backend-servers.json');
 
 /**
  * Check if a file exists and is readable
@@ -64,8 +69,11 @@ export async function migrateConfigFile(oldPath: string, newPath: string, fileNa
 }
 
 /**
- * Migrate config files from old project-relative location to new user config directory
+ * Migrate config files from old locations to new user config directory
  * This is called automatically on startup
+ * Handles two migration paths:
+ * 1. Project-relative (./config/) → Application Support
+ * 2. Preferences directory → Application Support
  */
 export async function migrateConfigFiles(): Promise<void> {
     // Ensure new config directory exists
@@ -74,21 +82,39 @@ export async function migrateConfigFiles(): Promise<void> {
     // Track if any migrations occurred
     let migratedAny = false;
 
-    // Migrate groups.json
-    const migratedGroups = await migrateConfigFile(
-        OLD_GROUPS_CONFIG_PATH,
+    // Migration 1: Project-relative → Application Support
+    // Migrate groups.json from project
+    const migratedGroupsFromProject = await migrateConfigFile(
+        PROJECT_GROUPS_CONFIG_PATH,
         getGroupsConfigPath(),
-        'groups.json'
+        'groups.json (from project)'
     );
-    migratedAny = migratedAny || migratedGroups;
+    migratedAny = migratedAny || migratedGroupsFromProject;
 
-    // Migrate backend-servers.json
-    const migratedBackends = await migrateConfigFile(
-        OLD_BACKEND_SERVERS_CONFIG_PATH,
+    // Migrate backend-servers.json from project
+    const migratedBackendsFromProject = await migrateConfigFile(
+        PROJECT_BACKEND_SERVERS_CONFIG_PATH,
         getBackendServersConfigPath(),
-        'backend-servers.json'
+        'backend-servers.json (from project)'
     );
-    migratedAny = migratedAny || migratedBackends;
+    migratedAny = migratedAny || migratedBackendsFromProject;
+
+    // Migration 2: Preferences → Application Support
+    // Migrate groups.json from Preferences
+    const migratedGroupsFromPrefs = await migrateConfigFile(
+        PREFERENCES_GROUPS_CONFIG_PATH,
+        getGroupsConfigPath(),
+        'groups.json (from Preferences)'
+    );
+    migratedAny = migratedAny || migratedGroupsFromPrefs;
+
+    // Migrate backend-servers.json from Preferences
+    const migratedBackendsFromPrefs = await migrateConfigFile(
+        PREFERENCES_BACKEND_SERVERS_CONFIG_PATH,
+        getBackendServersConfigPath(),
+        'backend-servers.json (from Preferences)'
+    );
+    migratedAny = migratedAny || migratedBackendsFromPrefs;
 
     // Log migration summary
     if(migratedAny) {

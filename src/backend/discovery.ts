@@ -33,252 +33,175 @@ export class DiscoveryService {
     }
 
     /**
-     * Discover tools from a specific backend server
+     * Generic helper for discovering items from a backend server
      */
-    async discoverTools(serverName: string): Promise<Tool[]> {
+    private async discoverItems<T>(
+        serverName: string,
+        cacheGetter: (serverName: string) => T[] | undefined,
+        listMethod: (client: import('@modelcontextprotocol/sdk/client/index.js').Client) => Promise<T[]>,
+        itemType: string,
+        countKey: string
+    ): Promise<T[]> {
         // Check cache first
-        const cached = this.getCachedTools(serverName);
+        const cached = cacheGetter(serverName);
         if(cached) {
-            logger.debug({ serverName, toolCount: cached.length }, 'Returning cached tools');
+            logger.debug({ serverName, [countKey]: cached.length }, `Returning cached ${itemType}`);
             return cached;
         }
 
-        logger.info({ serverName }, 'Discovering tools from backend server');
+        logger.info({ serverName }, `Discovering ${itemType} from backend server`);
 
         try {
             const client = await this.clientManager.ensureConnected(serverName);
-            const response = await client.listTools();
-            const tools = response.tools || [];
+            const items = await listMethod(client);
 
             // Update cache
-            this.updateCache(serverName, { tools });
+            this.updateCache(serverName, { [itemType]: items });
 
-            logger.info({ serverName, toolCount: tools.length }, 'Successfully discovered tools');
-            return tools;
+            logger.info({ serverName, [countKey]: items.length }, `Successfully discovered ${itemType}`);
+            return items;
         } catch (error) {
             logger.error(
                 { serverName, error: _.isError(error) ? error.message : String(error) },
-                'Failed to discover tools from backend server'
+                `Failed to discover ${itemType} from backend server`
             );
-            throw new Error(`Failed to discover tools from ${serverName}: ${_.isError(error) ? error.message : String(error)}`);
+            throw new Error(`Failed to discover ${itemType} from ${serverName}: ${_.isError(error) ? error.message : String(error)}`);
         }
+    }
+
+    /**
+     * Generic helper for discovering items from all backend servers
+     */
+    private async discoverAllItems<T>(
+        discoverMethod: (serverName: string) => Promise<T[]>,
+        itemType: string,
+        countKey: string,
+        totalKey: string,
+        operationName: string
+    ): Promise<Map<string, T[]>> {
+        const serverNames = this.clientManager.getConnectedServerNames();
+
+        logger.info({ serverCount: serverNames.length }, `Discovering ${itemType} from all backend servers`);
+
+        const results = new Map<string, T[]>();
+        const errors: { serverName: string, error: string }[] = [];
+
+        const discoveryPromises = _.map(serverNames, async (serverName) => {
+            try {
+                const items = await discoverMethod(serverName);
+                results.set(serverName, items);
+                logger.debug({ serverName, [countKey]: items.length }, `Successfully discovered ${itemType} from server`);
+            } catch (error) {
+                const errorMessage = _.isError(error) ? error.message : String(error);
+                errors.push({ serverName, error: errorMessage });
+                logger.error(
+                    { serverName, error: errorMessage },
+                    `Failed to discover ${itemType} during ${operationName}`
+                );
+                // Still continue with other servers
+                results.set(serverName, []);
+            }
+        });
+
+        await Promise.all(discoveryPromises);
+
+        const totalCount = _.reduce(Array.from(results.values()), (sum, items) => sum + items.length, 0);
+        const successCount = results.size - errors.length;
+
+        if(errors.length > 0) {
+            logger.warn(
+                {
+                    serverCount:  results.size,
+                    successCount,
+                    failureCount: errors.length,
+                    [totalKey]:   totalCount,
+                    failures:     errors,
+                },
+                `Finished discovering ${itemType} with some failures`
+            );
+        } else {
+            logger.info({ serverCount: results.size, [totalKey]: totalCount }, `Finished discovering ${itemType} from all servers`);
+        }
+
+        return results;
+    }
+
+    /**
+     * Discover tools from a specific backend server
+     */
+    async discoverTools(serverName: string): Promise<Tool[]> {
+        return this.discoverItems(
+            serverName,
+            name => this.getCachedTools(name),
+            async client => (await client.listTools()).tools || [],
+            'tools',
+            'toolCount'
+        );
     }
 
     /**
      * Discover tools from all connected backend servers
      */
     async discoverAllTools(): Promise<Map<string, Tool[]>> {
-        const serverNames = this.clientManager.getConnectedServerNames();
-
-        logger.info({ serverCount: serverNames.length }, 'Discovering tools from all backend servers');
-
-        const results = new Map<string, Tool[]>();
-        const errors: { serverName: string, error: string }[] = [];
-
-        const discoveryPromises = _.map(serverNames, async (serverName) => {
-            try {
-                const tools = await this.discoverTools(serverName);
-                results.set(serverName, tools);
-                logger.debug({ serverName, toolCount: tools.length }, 'Successfully discovered tools from server');
-            } catch (error) {
-                const errorMessage = _.isError(error) ? error.message : String(error);
-                errors.push({ serverName, error: errorMessage });
-                logger.error(
-                    { serverName, error: errorMessage },
-                    'Failed to discover tools during discoverAllTools'
-                );
-                // Still continue with other servers
-                results.set(serverName, []);
-            }
-        });
-
-        await Promise.all(discoveryPromises);
-
-        const totalTools = _.reduce(Array.from(results.values()), (sum, tools) => sum + tools.length, 0);
-        const successCount = results.size - errors.length;
-
-        if(errors.length > 0) {
-            logger.warn(
-                {
-                    serverCount:  results.size,
-                    successCount,
-                    failureCount: errors.length,
-                    totalTools,
-                    failures:     errors,
-                },
-                'Finished discovering tools with some failures'
-            );
-        } else {
-            logger.info({ serverCount: results.size, totalTools }, 'Finished discovering tools from all servers');
-        }
-
-        return results;
+        return this.discoverAllItems(
+            serverName => this.discoverTools(serverName),
+            'tools',
+            'toolCount',
+            'totalTools',
+            'discoverAllTools'
+        );
     }
 
     /**
      * Discover resources from a specific backend server
      */
     async discoverResources(serverName: string): Promise<Resource[]> {
-        // Check cache first
-        const cached = this.getCachedResources(serverName);
-        if(cached) {
-            logger.debug({ serverName, resourceCount: cached.length }, 'Returning cached resources');
-            return cached;
-        }
-
-        logger.info({ serverName }, 'Discovering resources from backend server');
-
-        try {
-            const client = await this.clientManager.ensureConnected(serverName);
-            const response = await client.listResources();
-            const resources = response.resources || [];
-
-            // Update cache
-            this.updateCache(serverName, { resources });
-
-            logger.info({ serverName, resourceCount: resources.length }, 'Successfully discovered resources');
-            return resources;
-        } catch (error) {
-            logger.error(
-                { serverName, error: _.isError(error) ? error.message : String(error) },
-                'Failed to discover resources from backend server'
-            );
-            throw new Error(`Failed to discover resources from ${serverName}: ${_.isError(error) ? error.message : String(error)}`);
-        }
+        return this.discoverItems(
+            serverName,
+            name => this.getCachedResources(name),
+            async client => (await client.listResources()).resources || [],
+            'resources',
+            'resourceCount'
+        );
     }
 
     /**
      * Discover resources from all connected backend servers
      */
     async discoverAllResources(): Promise<Map<string, Resource[]>> {
-        const serverNames = this.clientManager.getConnectedServerNames();
-
-        logger.info({ serverCount: serverNames.length }, 'Discovering resources from all backend servers');
-
-        const results = new Map<string, Resource[]>();
-        const errors: { serverName: string, error: string }[] = [];
-
-        const discoveryPromises = _.map(serverNames, async (serverName) => {
-            try {
-                const resources = await this.discoverResources(serverName);
-                results.set(serverName, resources);
-                logger.debug({ serverName, resourceCount: resources.length }, 'Successfully discovered resources from server');
-            } catch (error) {
-                const errorMessage = _.isError(error) ? error.message : String(error);
-                errors.push({ serverName, error: errorMessage });
-                logger.error(
-                    { serverName, error: errorMessage },
-                    'Failed to discover resources during discoverAllResources'
-                );
-                // Still continue with other servers
-                results.set(serverName, []);
-            }
-        });
-
-        await Promise.all(discoveryPromises);
-
-        const totalResources = _.reduce(Array.from(results.values()), (sum, resources) => sum + resources.length, 0);
-        const successCount = results.size - errors.length;
-
-        if(errors.length > 0) {
-            logger.warn(
-                {
-                    serverCount:  results.size,
-                    successCount,
-                    failureCount: errors.length,
-                    totalResources,
-                    failures:     errors,
-                },
-                'Finished discovering resources with some failures'
-            );
-        } else {
-            logger.info({ serverCount: results.size, totalResources }, 'Finished discovering resources from all servers');
-        }
-
-        return results;
+        return this.discoverAllItems(
+            serverName => this.discoverResources(serverName),
+            'resources',
+            'resourceCount',
+            'totalResources',
+            'discoverAllResources'
+        );
     }
 
     /**
      * Discover prompts from a specific backend server
      */
     async discoverPrompts(serverName: string): Promise<Prompt[]> {
-        // Check cache first
-        const cached = this.getCachedPrompts(serverName);
-        if(cached) {
-            logger.debug({ serverName, promptCount: cached.length }, 'Returning cached prompts');
-            return cached;
-        }
-
-        logger.info({ serverName }, 'Discovering prompts from backend server');
-
-        try {
-            const client = await this.clientManager.ensureConnected(serverName);
-            const response = await client.listPrompts();
-            const prompts = response.prompts || [];
-
-            // Update cache
-            this.updateCache(serverName, { prompts });
-
-            logger.info({ serverName, promptCount: prompts.length }, 'Successfully discovered prompts');
-            return prompts;
-        } catch (error) {
-            logger.error(
-                { serverName, error: _.isError(error) ? error.message : String(error) },
-                'Failed to discover prompts from backend server'
-            );
-            throw new Error(`Failed to discover prompts from ${serverName}: ${_.isError(error) ? error.message : String(error)}`);
-        }
+        return this.discoverItems(
+            serverName,
+            name => this.getCachedPrompts(name),
+            async client => (await client.listPrompts()).prompts || [],
+            'prompts',
+            'promptCount'
+        );
     }
 
     /**
      * Discover prompts from all connected backend servers
      */
     async discoverAllPrompts(): Promise<Map<string, Prompt[]>> {
-        const serverNames = this.clientManager.getConnectedServerNames();
-
-        logger.info({ serverCount: serverNames.length }, 'Discovering prompts from all backend servers');
-
-        const results = new Map<string, Prompt[]>();
-        const errors: { serverName: string, error: string }[] = [];
-
-        const discoveryPromises = _.map(serverNames, async (serverName) => {
-            try {
-                const prompts = await this.discoverPrompts(serverName);
-                results.set(serverName, prompts);
-                logger.debug({ serverName, promptCount: prompts.length }, 'Successfully discovered prompts from server');
-            } catch (error) {
-                const errorMessage = _.isError(error) ? error.message : String(error);
-                errors.push({ serverName, error: errorMessage });
-                logger.error(
-                    { serverName, error: errorMessage },
-                    'Failed to discover prompts during discoverAllPrompts'
-                );
-                // Still continue with other servers
-                results.set(serverName, []);
-            }
-        });
-
-        await Promise.all(discoveryPromises);
-
-        const totalPrompts = _.reduce(Array.from(results.values()), (sum, prompts) => sum + prompts.length, 0);
-        const successCount = results.size - errors.length;
-
-        if(errors.length > 0) {
-            logger.warn(
-                {
-                    serverCount:  results.size,
-                    successCount,
-                    failureCount: errors.length,
-                    totalPrompts,
-                    failures:     errors,
-                },
-                'Finished discovering prompts with some failures'
-            );
-        } else {
-            logger.info({ serverCount: results.size, totalPrompts }, 'Finished discovering prompts from all servers');
-        }
-
-        return results;
+        return this.discoverAllItems(
+            serverName => this.discoverPrompts(serverName),
+            'prompts',
+            'promptCount',
+            'totalPrompts',
+            'discoverAllPrompts'
+        );
     }
 
     /**

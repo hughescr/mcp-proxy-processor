@@ -50,7 +50,11 @@ async function processConfigData<T>(
     if(transform) {
         processedData = transform(processedData);
     }
-    return schema.parse(processedData);
+    const result = schema.safeParse(processedData);
+    if(!result.success) {
+        throw result.error;
+    }
+    return result.data;
 }
 
 /**

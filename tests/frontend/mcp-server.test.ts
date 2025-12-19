@@ -28,7 +28,7 @@ import { writeFile, unlink, mkdir, copyFile } from 'node:fs/promises';
 import { find } from 'lodash';
 
 // Use actual config directory for tests
-const actualConfigDir = '/Users/craig/Library/Preferences/@hughescr/mcp-proxy-processor';
+const actualConfigDir = '/Users/craig/Library/Application Support/@hughescr/mcp-proxy-processor';
 const testFilePath = '/private/tmp/mcp-test-file.txt';
 const testContent = 'Test content for MCP server tests';
 
