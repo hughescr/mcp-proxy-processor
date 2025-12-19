@@ -132,7 +132,7 @@ describe('Config Paths', () => {
 
             if(process.platform === 'darwin') {
                 expect(_.includes(configDir, 'Library')).toBe(true);
-                expect(_.includes(configDir, 'Preferences')).toBe(true);
+                expect(_.includes(configDir, 'Application Support')).toBe(true);
             }
         });
 
@@ -348,12 +348,12 @@ describe('Config Paths', () => {
             expect(_.includes(paths.temp, appName)).toBe(true);
         });
 
-        it('config path matches getConfigDir', async () => {
+        it('data path matches getConfigDir', async () => {
             const { getAllPaths, getConfigDir } = await importConfigPaths();
             const paths = getAllPaths();
             const configDir = getConfigDir();
 
-            expect(paths.config).toBe(configDir);
+            expect(paths.data).toBe(configDir);
         });
     });
 

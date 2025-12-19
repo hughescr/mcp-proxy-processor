@@ -330,7 +330,7 @@ describe('Config Migration', () => {
             const configDir = getConfigDir();
 
             if(process.platform === 'darwin') {
-                expect(_.includes(configDir, 'Library/Preferences')).toBe(true);
+                expect(_.includes(configDir, 'Library/Application Support')).toBe(true);
                 expect(_.includes(configDir, '@hughescr/mcp-proxy-processor')).toBe(true);
             }
         });
